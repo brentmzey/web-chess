@@ -1,0 +1,28 @@
+{
+  "name": "wizard-chess-3d",
+  "version": "1.0.0",
+  "description": "High Gothic Basilica 3D Wizard's Chess with procedural Web Audio, Three.js and AI engine",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "deploy": "bunx netlify deploy --build",
+    "deploy:prod": "bunx netlify deploy --build --prod"
+  },
+  "dependencies": {
+    "chess.js": "^0.13.4",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/three": "^0.160.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.1"
+  }
+}

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#e5c158"/>
+      <stop offset="100%" stop-color="#b4891b"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1c1726"/>
+      <stop offset="100%" stop-color="#09080c"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="url(#gold)" stroke-width="1.5" opacity="0.6"/>
+  
+  <!-- Crown / King Cross finial -->
+  <path d="M32 10 L32 20 M27 15 L37 15" stroke="url(#gold)" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Crown Body -->
+  <path d="M22 22 L26 28 L32 24 L38 28 L42 22 L40 36 L24 36 Z" fill="url(#gold)"/>
+  <!-- Base Pedestal -->
+  <rect x="20" y="38" width="24" height="4" rx="2" fill="url(#gold)"/>
+  <path d="M16 44 L48 44 L44 50 L20 50 Z" fill="url(#gold)" opacity="0.9"/>
+  <rect x="14" y="52" width="36" height="4" rx="2" fill="url(#gold)"/>
+</svg>
