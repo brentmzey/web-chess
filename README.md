@@ -1,51 +1,103 @@
 # ♟️ Wizard's Chess 3D — High Gothic Basilica
 
-An immersive, fully articulated 3D Wizard's Chess game set upon the Crossing Altar of a High Gothic Catholic Basilica. Features zero-asset procedural Web Audio synthesis, 34-shard stone shatter physics, dynamic cinematic action camera, an intelligent Minimax chess engine, and Material Design 3 glassmorphism controls.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Runtime](https://img.shields.io/badge/Runtime-Bun%201.4-black.svg?logo=bun&logoColor=white)](https://bun.sh/)
+[![Bundler](https://img.shields.io/badge/Bundler-Vite%205-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Graphics](https://img.shields.io/badge/Graphics-Three.js%20r160-000000.svg?logo=three.js&logoColor=white)](https://threejs.org/)
+[![Styling](https://img.shields.io/badge/Styling-Tailwind%20CSS-38B2AC.svg?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Deployment](https://img.shields.io/badge/Deploy-Netlify-00C7B7.svg?logo=netlify&logoColor=white)](https://www.netlify.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Powered by **Bun**, **TypeScript**, **Three.js**, and **Vite**, ready for seamless deployment on **Netlify**.
+An immersive, fully articulated 3D Wizard's Chess experience staged upon the Crossing Altar of a High Gothic Catholic Basilica. Designed with zero external asset dependencies, the game leverages procedural Web Audio synthesis for cathedral acoustics, a 34-shard marble and obsidian physics engine, dynamic melee combat animations with action camera tracking, an intelligent Minimax engine with center-control heuristics, and Material Design 3 glassmorphic HUD controls.
 
 ---
 
-## 🏛️ Key Features
+## 🏛️ System Architecture
 
-- **Articulated 3D Wizard Pieces**:
-  - **Pawns**: Armored Swiss Guard Sentinels with halberds
-  - **Rooks**: Castellated Basilica battlement towers wielding warhammers
-  - **Knights**: Armored warhorse destriers equipped with jousting lances
-  - **Bishops**: Mitred cathedral prelates with golden crosier shepherd staffs
-  - **Queens**: Crowned basilica sovereigns with star scepters
-  - **Kings**: Cathedral-crowned monarchs wielding royal broadswords
-- **High Gothic Cathedral Environment**:
-  - Clustered nave piers and quadripartite ribbed groin vaults
-  - 13th-century Cosmati polychrome marble pavement with 16-pointed basilica compass star
-  - North Sanctuary Apse with 3-step presbytery, High Altar, golden tabernacle, and ciborium baldacchino
-  - Six flickering brass altar candlesticks and suspended ruby-glass eternal sanctuary lamp
-  - 4 swinging brass thuribles (incense burners) suspended on 17.5m chains
-  - Grand West Gallery pipe organ facade with fluted pewter pipes and dual radiant rose windows
-  - Clerestory pointed lancet stained-glass windows casting volumetric god-rays
-- **Combat & Shatter Physics**:
-  - Pieces advance with heavy marble friction sound effects.
-  - Attacking pieces wind up and execute physical melee cleaves.
-  - Captured pieces shatter into **34 physics-driven marble or obsidian stone shards** that bounce with clinking acoustics across the Cosmati pavement.
-  - Expanding arcane shockwave rings and camera impact shake.
-- **Procedural Cathedral Web Audio Engine**:
-  - Synthesized in real-time via the Web Audio API with **zero external audio files**:
-    - D-minor pipe organ chords with bronze sanctuary bell harmonics
-    - Heavy stone slide friction and marble impact thuds
-    - Metallic cleave strikes and high-pitch shard clinks
-    - Celestial square selection chimes
-- **Wizard AI & Game Engine**:
-  - Strict chess legality enforcement via `chess.js` (en passant, castling, promotion, checkmate, stalemate, threefold repetition)
-  - 2-ply Minimax engine with center-control positional evaluation and capture sorting
-  - 1-Player vs. Wizard AI or 2-Player Pass & Play local duel modes
-- **Camera Presets & Action Cam**:
-  - Dynamic Melee Action Cam automatically zooms in on tactical captures and resets
-  - 5 Basilica presets: *White Nave*, *Sanctuary Orbit*, *Black Apse*, *Overhead Crossing*, *Choir Side View*
-  - Spherical drag-to-orbit and scroll-to-zoom controls
-- **Material Design 3 HUD & Chronicle**:
-  - Real-time turn pill, check/checkmate banner, and captured relics counter
-  - Slide-over Chronicle of Moves drawer recording algebraic notation and shattered pieces
-  - Sanctuary Consecration (Pawn Promotion) modal and Game Over dialogs
+```mermaid
+flowchart TD
+    subgraph UI ["User Interface (HTML5 / Tailwind / MD3)"]
+        HUD["Minimalist Cathedral Header & Turn Pill"]
+        Chronicle["Slide-Over Chronicle of Moves Drawer"]
+        Modals["Sanctuary Promotion & Game Over Modals"]
+        Controls["MD3 Bottom Navigation (Cam / Mode / Undo)"]
+    end
+
+    subgraph Interaction ["Interaction & View Layer"]
+        Raycaster["Three.js Raycaster (Square & Piece Picking)"]
+        CamCtrl["CameraController (Orbit Lerp & Shake)"]
+    end
+
+    subgraph Core ["Game & AI Engine"]
+        Rules["Chess.js Legal Rules Engine"]
+        AI["Minimax AI (2-Ply + Center-Control Heuristic)"]
+        Coords["Coordinate Transformation (Algebraic <-> World)"]
+    end
+
+    subgraph Graphics ["Three.js 3D Rendering (WebGL / PBR)"]
+        SceneMgr["Scene, Camera & ACES Filmic Tone Mapping"]
+        Cathedral["Gothic Basilica (Piers, Vaults, Apse, Organ, Lights)"]
+        Board["64-Square Marble Board & Interactive Rings"]
+        Pieces["32 Articulated Piece Meshes (White Marble vs Obsidian)"]
+        Shatter["34-Shard Stone Physics & Shockwave Rings"]
+        Dust["Ambient Incense Smoke & Gold Dust Motes"]
+    end
+
+    subgraph Audio ["Cathedral Web Audio Synthesizer"]
+        SoundFX["Procedural Organ Chords, Bell, Slides, Cleaves & Shatters"]
+    end
+
+    Controls --> Coords
+    Raycaster --> Coords
+    Coords --> Rules
+    Rules --> AI
+    Rules --> UI
+    Rules --> Pieces
+    Pieces --> Shatter
+    Shatter --> SoundFX
+    CamCtrl --> SceneMgr
+    SceneMgr --> Renderer["WebGL Output Canvas"]
+```
+
+---
+
+## 🌟 Key Highlights
+
+### 1. Articulated 3D Wizard Pieces
+Every piece is custom-modeled in Three.js with distinctive gothic armor and weaponry:
+- **Pawns**: Armored Swiss Guard Sentinels with halberds
+- **Rooks**: Castellated Basilica battlement towers wielding warhammers
+- **Knights**: Armored warhorse destriers equipped with jousting lances
+- **Bishops**: Mitred cathedral prelates with golden crosier shepherd staffs
+- **Queens**: Crowned basilica sovereigns with star scepters
+- **Kings**: Cathedral-crowned monarchs wielding royal broadswords
+
+### 2. High Gothic Cathedral Environment
+- Clustered basilica nave piers and quadripartite ribbed groin vaults
+- 13th-century Cosmati polychrome marble pavement with a 16-pointed basilica compass star
+- North Sanctuary Apse with 3-step presbytery, High Altar, golden tabernacle, and ciborium baldacchino
+- Six flickering brass altar candlesticks and suspended ruby-glass eternal sanctuary lamp
+- 4 swinging brass thuribles (incense burners) suspended on 17.5m chains
+- Grand West Gallery pipe organ facade with fluted pewter pipes and dual radiant rose windows
+- Clerestory pointed lancet stained-glass windows casting volumetric god-rays
+
+### 3. Combat Animations & 34-Shard Shatter Physics
+- Pieces advance with heavy marble friction sound effects.
+- Attacking pieces wind up and execute physical melee cleaves.
+- Captured pieces shatter into **34 physics-driven marble or obsidian stone shards** that bounce with clinking acoustics across the Cosmati pavement.
+- Expanding arcane shockwave rings and camera impact shake.
+
+### 4. Procedural Cathedral Web Audio Engine
+Synthesized in real-time via the Web Audio API with **zero external audio files**:
+- D-minor pipe organ chords with bronze sanctuary bell harmonics
+- Heavy stone slide friction and marble impact thuds
+- Metallic cleave strikes and high-pitch shard clinks
+- Celestial square selection chimes
+
+### 5. Wizard AI & Game Engine
+- Strict chess legality enforcement via `chess.js` (en passant, castling, promotion, checkmate, stalemate, threefold repetition)
+- 2-ply Minimax engine with center-control positional evaluation and capture sorting
+- 1-Player vs. Wizard AI or 2-Player Pass & Play local duel modes
 
 ---
 
@@ -80,10 +132,14 @@ This repository is optimized for **Bun**:
 
 ```text
 web-chess/
-├── .github/                  # CI/CD workflows (optional)
 ├── .node-version             # Node runtime compatibility (v22)
 ├── .nvmrc                    # NVM version configuration (v22)
 ├── .gitignore                # Comprehensive ignore rules
+├── AGENTS.md                 # Multi-agent collaboration guide
+├── CHANGELOG.md              # Project version history
+├── CONTRIBUTING.md           # Developer guidelines & coding standards
+├── LICENSE                   # MIT License
+├── README.md                 # Project documentation
 ├── index.html                # Semantic HTML5 entry point & HUD layout
 ├── netlify.toml              # Netlify build configuration & security headers
 ├── package.json              # Bun dependencies, scripts & metadata
@@ -191,6 +247,7 @@ The repository includes a production-ready `netlify.toml` configured with:
 1. Push this repository to your GitHub account:
    ```bash
    git remote add origin https://github.com/brentmzey/web-chess.git
+   git branch -M main
    git push -u origin main
    ```
 2. Log into **[Netlify](https://app.netlify.com/)**.
