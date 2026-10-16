@@ -33,9 +33,10 @@ export function evaluateBoard(game: Chess): number {
 }
 
 /**
- * Minimax 2-ply search with capture-move ordering for the Wizard AI (Black Obsidian)
+ * Classical Minimax 2-ply search with capture-move ordering and center-control heuristic.
+ * This is an algorithmic game-tree search (not a machine learning model).
  */
-export function computeBestWizardAIMove(game: Chess): Move | null {
+export function computeMinimaxMove(game: Chess): Move | null {
   const legalMoves = game.moves({ verbose: true });
   if (legalMoves.length === 0) return null;
 
@@ -73,3 +74,7 @@ export function computeBestWizardAIMove(game: Chess): Move | null {
 
   return bestMove;
 }
+
+/** Backward-compatible alias for existing tests and call sites */
+export const computeBestWizardAIMove = computeMinimaxMove;
+

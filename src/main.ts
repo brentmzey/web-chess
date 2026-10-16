@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { Chess, type Move } from 'chess.js';
 import { CathedralSoundEngine } from './audio/CathedralSoundEngine';
-import { computeBestWizardAIMove } from './engine/ai';
+import { computeMinimaxMove } from './engine/ai';
+import { computeMicroNeuralAIMove } from './engine/neuralAI';
+import { checkGeminiNanoStatus, computeGeminiNanoAIMove } from './engine/geminiNanoAI';
 import { indicesToSquare, squareToWorld } from './engine/coordinates';
 import { buildChessboardGrid, updateBoardHighlights } from './graphics/board';
 import { buildGothicCathedral } from './graphics/cathedral';
@@ -12,7 +14,8 @@ import { initScene } from './graphics/scene';
 import { ShatterSystem } from './graphics/shatter';
 import { CameraController } from './interaction/camera';
 import { UIController } from './ui/uiController';
-import type { PieceColor, PieceMeshGroup, PieceType, SavedCamState } from './types';
+import type { GameMode, GameModeConfig, PieceColor, PieceMeshGroup, PieceType, SavedCamState } from './types';
+import { fromNullable, match } from './utils/fp';
 
 // Entry point initialization
 function main(): void {
@@ -46,8 +49,39 @@ function main(): void {
 
   let selectedSquare: string | null = null;
   let legalMovesForSelected: Move[] = [];
+  const GAME_MODES: GameModeConfig[] = [
+    {
+      id: 'minimax',
+      label: 'Minimax Engine',
+      badge: 'MINIMAX',
+      icon: 'memory',
+      description: 'Classical 2-ply algorithmic search with capture-ordering heuristic'
+    },
+    {
+      id: 'micro-neural',
+      label: 'Micro-Neural AI',
+      badge: 'NEURAL AI',
+      icon: 'psychology',
+      description: 'Embedded zero-dependency neural network evaluator'
+    },
+    {
+      id: 'gemini-nano',
+      label: 'Gemini Nano (Local)',
+      badge: 'NANO AI',
+      icon: 'auto_awesome',
+      description: 'On-device LLM via Chrome Canary Prompt API'
+    },
+    {
+      id: 'pass-and-play',
+      label: 'Pass & Play',
+      badge: '2P DUEL',
+      icon: 'group',
+      description: 'Two players alternating turns on this device'
+    }
+  ];
+
   let isAnimating = false;
-  let isVsAI = true;
+  let currentMode: GameMode = 'minimax';
   let useActionCam = true;
   let pendingPromotionMove: { from: string; to: string } | null = null;
 
@@ -141,7 +175,7 @@ function main(): void {
     }
 
     isAnimating = false;
-    ui.update(chess, isVsAI);
+    ui.update(chess, currentMode);
     if (onComplete) onComplete();
   }
 
@@ -274,21 +308,37 @@ function main(): void {
       return;
     }
 
-    if (isVsAI && chess.turn() === 'b' && !isAnimating) {
-      setTimeout(() => {
-        const aiMove = computeBestWizardAIMove(chess);
-        if (aiMove) {
-          const executed = chess.move(aiMove);
-          if (executed) {
+    if (currentMode !== 'pass-and-play' && chess.turn() === 'b' && !isAnimating) {
+      setTimeout(async () => {
+        const aiMove = await match(currentMode, {
+          'pass-and-play': async () => null,
+          'minimax': async () => computeMinimaxMove(chess),
+          'micro-neural': async () => computeMicroNeuralAIMove(chess),
+          'gemini-nano': async () => {
+            ui.update(chess, currentMode, 'Gemini Nano (Local LLM) Thinking...');
+            const result = await computeGeminiNanoAIMove(chess, (statusText) => {
+              ui.showTemporaryBanner(statusText, 3200);
+            });
+            return result.move;
+          }
+        });
+
+        fromNullable(aiMove)
+          .map(move => chess.move(move))
+          .filter(executed => executed !== null)
+          .map(executed => {
             selectedSquare = null;
             legalMovesForSelected = [];
             updateHighlights();
-            animateChessMove(executed, () => {
+            animateChessMove(executed!, () => {
               if (chess.in_check()) soundFX.playCathedralOrganAndBell();
-              if (chess.game_over()) ui.showGameOver(chess);
+              if (chess.game_over()) {
+                ui.showGameOver(chess);
+              } else {
+                ui.update(chess, currentMode);
+              }
             });
-          }
-        }
+          });
       }, 480);
     }
   }
@@ -334,7 +384,7 @@ function main(): void {
 
   function handleBoardClick(clientX: number, clientY: number): void {
     if (isAnimating || chess.game_over()) return;
-    if (isVsAI && chess.turn() === 'b') return;
+    if (currentMode !== 'pass-and-play' && chess.turn() === 'b') return;
 
     pointer.x = (clientX / window.innerWidth) * 2 - 1;
     pointer.y = -(clientY / window.innerHeight) * 2 + 1;
@@ -400,12 +450,26 @@ function main(): void {
   const modeIcon = document.getElementById('mode-icon');
   const gameModeBadge = document.getElementById('game-mode-badge');
 
-  btnMode?.addEventListener('click', () => {
-    isVsAI = !isVsAI;
-    if (modeLabel) modeLabel.textContent = isVsAI ? 'vs Wizard AI' : 'Pass & Play';
-    if (modeIcon) modeIcon.textContent = isVsAI ? 'smart_toy' : 'group';
-    if (gameModeBadge) gameModeBadge.textContent = isVsAI ? 'VS AI' : '2P DUEL';
-    ui.update(chess, isVsAI);
+  btnMode?.addEventListener('click', async () => {
+    const currentIndex = GAME_MODES.findIndex(m => m.id === currentMode);
+    const nextConfig = GAME_MODES[(currentIndex + 1) % GAME_MODES.length]!;
+    currentMode = nextConfig.id;
+
+    if (modeLabel) modeLabel.textContent = nextConfig.label;
+    if (modeIcon) modeIcon.textContent = nextConfig.icon;
+    if (gameModeBadge) gameModeBadge.textContent = nextConfig.badge;
+    btnMode.title = `${nextConfig.label}: ${nextConfig.description} (Click to cycle)`;
+
+    if (currentMode === 'gemini-nano') {
+      const nanoStatus = await checkGeminiNanoStatus();
+      if (!nanoStatus.available) {
+        ui.showTemporaryBanner('Chrome Canary with window.ai needed. Auto-fallback to Neural AI.', 3500);
+      } else {
+        ui.showTemporaryBanner('Gemini Nano On-Device AI Active', 2500);
+      }
+    }
+
+    ui.update(chess, currentMode);
     triggerTurnOrAI();
   });
 
@@ -426,14 +490,14 @@ function main(): void {
   btnUndo?.addEventListener('click', () => {
     if (isAnimating || chess.history().length === 0) return;
     chess.undo();
-    if (isVsAI && chess.turn() === 'b' && chess.history().length > 0) {
+    if (currentMode !== 'pass-and-play' && chess.turn() === 'b' && chess.history().length > 0) {
       chess.undo();
     }
     selectedSquare = null;
     legalMovesForSelected = [];
     syncBoardPiecesWithChessState();
     updateHighlights();
-    ui.update(chess, isVsAI);
+    ui.update(chess, currentMode);
     soundFX.playSelect();
   });
 
@@ -443,7 +507,7 @@ function main(): void {
     legalMovesForSelected = [];
     syncBoardPiecesWithChessState();
     updateHighlights();
-    ui.update(chess, isVsAI);
+    ui.update(chess, currentMode);
     ui.hideGameOver();
     soundFX.playSelect();
   }
@@ -482,7 +546,7 @@ function main(): void {
 
   // Initial Sync
   syncBoardPiecesWithChessState();
-  ui.update(chess, isVsAI);
+  ui.update(chess, currentMode);
 
   // Main Render Animation Loop
   const clock = new THREE.Clock();

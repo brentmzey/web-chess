@@ -1,6 +1,7 @@
 import type { Chess, Move } from 'chess.js';
 import { UNICODE_PIECES } from '../constants/board';
-import type { PieceType } from '../types';
+import type { GameMode, PieceType } from '../types';
+import { fromNullable, match } from '../utils/fp';
 
 export interface UIControllerElements {
   turnDot: HTMLElement | null;
@@ -44,7 +45,7 @@ export class UIController {
     };
   }
 
-  public update(chess: Chess, isVsAI: boolean): void {
+  public update(chess: Chess, mode: GameMode, customStatus?: string): void {
     const turn = chess.turn();
 
     if (this.el.turnDot && this.el.turnText) {
@@ -53,7 +54,14 @@ export class UIController {
         this.el.turnText.textContent = "White Marble's Turn";
       } else {
         this.el.turnDot.className = 'w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_#a855f7] transition-colors duration-300';
-        this.el.turnText.textContent = isVsAI ? "Wizard AI Thinking..." : "Black Obsidian's Turn";
+        this.el.turnText.textContent = fromNullable(customStatus).getOrElse(
+          match(mode, {
+            'pass-and-play': () => "Black Obsidian's Turn",
+            'minimax': () => "Minimax (2-Ply) Thinking...",
+            'micro-neural': () => "Micro-Neural AI Evaluating...",
+            'gemini-nano': () => "Gemini Nano (Local LLM) Thinking..."
+          })
+        );
       }
     }
 
@@ -172,4 +180,16 @@ export class UIController {
       this.el.logDrawer.classList.remove('translate-x-0', 'opacity-100');
     }
   }
+
+  public showTemporaryBanner(message: string, durationMs: number = 3200): void {
+    if (!this.el.statusBanner || !this.el.statusBannerText) return;
+    this.el.statusBannerText.textContent = message;
+    this.el.statusBanner.classList.remove('hidden');
+    setTimeout(() => {
+      if (this.el.statusBanner) {
+        this.el.statusBanner.classList.add('hidden');
+      }
+    }, durationMs);
+  }
 }
+

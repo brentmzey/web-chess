@@ -45,7 +45,7 @@
             <div class="flex items-center gap-2.5">
                 <span id="turn-dot" class="w-2.5 h-2.5 rounded-full bg-stone-100 shadow-[0_0_8px_#fff] transition-colors duration-300"></span>
                 <span id="turn-text" class="text-xs sm:text-sm font-semibold tracking-wide text-stone-100">White Marble's Turn</span>
-                <span id="game-mode-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30">VS AI</span>
+                <span id="game-mode-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30">MINIMAX</span>
             </div>
 
             <div class="h-5 w-[1px] bg-amber-500/20 hidden sm:block"></div>
@@ -111,10 +111,10 @@
     <!-- BOTTOM SINGLE-LEVEL MATERIAL DESIGN 3 NAVIGATION BAR -->
     <nav class="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[96vw] pointer-events-auto" aria-label="Game Controls">
         <div class="md3-glass px-3 py-2 rounded-full flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
-            <!-- Game Mode Toggle (Wizard AI vs Pass & Play) -->
-            <button id="btn-mode" class="md3-chip active-chip" title="Switch between Wizard AI and 2-Player Pass & Play">
-                <span id="mode-icon" class="material-symbols-rounded">smart_toy</span>
-                <span id="mode-label">vs Wizard AI</span>
+            <!-- Game Mode Selector (Minimax, Micro-Neural AI, Gemini Nano, Pass & Play) -->
+            <button id="btn-mode" class="md3-chip active-chip" title="Cycle Game Mode (Minimax Engine, Micro-Neural AI, Gemini Nano, Pass & Play)">
+                <span id="mode-icon" class="material-symbols-rounded">memory</span>
+                <span id="mode-label">Minimax Engine</span>
             </button>
 
             <!-- Camera View Cycler -->
