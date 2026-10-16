@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wizard's Chess 3D — High Gothic Basilica</title>
+    <meta name="description" content="3D Wizard's Chess set inside a High Gothic Basilica with procedural Web Audio, articulated pieces, 34-shard melee shatter physics, and AI engine.">
+    <meta name="theme-color" content="#09080c">
+
+    <!-- OpenGraph / Social Meta -->
+    <meta property="og:title" content="Wizard's Chess 3D — High Gothic Basilica">
+    <meta property="og:description" content="Articulated 3D wizard chess with procedural cathedral acoustics, shatter physics, and AI.">
+    <meta property="og:type" content="website">
+
+    <!-- Google Fonts: Cinzel for Cathedral Inscriptions, Inter for UI, Material Symbols Rounded -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet">
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body class="bg-[#09080c] text-[#f4f0ea] overflow-hidden select-none">
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- TOP HUD: Minimalist Material Design 3 Cathedral Header & Turn Pill -->
+    <header class="fixed top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none w-[95%] max-w-2xl">
+        <div class="md3-glass px-5 py-2.5 rounded-full flex items-center justify-between gap-4 sm:gap-7 pointer-events-auto w-full sm:w-auto">
+            <!-- Basilica Title & Info -->
+            <div class="flex items-center gap-2.5">
+                <span class="material-symbols-rounded text-amber-300">church</span>
+                <div>
+                    <h1 class="font-cathedral text-xs sm:text-sm font-bold text-amber-100 tracking-wider leading-tight">SANCTA BASILICA</h1>
+                    <p class="text-[10px] text-stone-400 hidden sm:block">WIZARD'S CHESS • CROSSING ALTAR</p>
+                </div>
+            </div>
+
+            <div class="h-5 w-[1px] bg-amber-500/20"></div>
+
+            <!-- Turn Status Indicator -->
+            <div class="flex items-center gap-2.5">
+                <span id="turn-dot" class="w-2.5 h-2.5 rounded-full bg-stone-100 shadow-[0_0_8px_#fff] transition-colors duration-300"></span>
+                <span id="turn-text" class="text-xs sm:text-sm font-semibold tracking-wide text-stone-100">White Marble's Turn</span>
+                <span id="game-mode-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30">VS AI</span>
+            </div>
+
+            <div class="h-5 w-[1px] bg-amber-500/20 hidden sm:block"></div>
+
+            <!-- Quick Captured Piece Tally -->
+            <div class="hidden sm:flex items-center gap-3 text-xs">
+                <div class="flex items-center gap-1 text-amber-200" title="Obsidian pieces shattered by White">
+                    <span class="text-sm">⚔️</span>
+                    <span id="captured-by-white" class="font-bold">0</span>
+                </div>
+                <div class="flex items-center gap-1 text-purple-300" title="Marble pieces shattered by Black">
+                    <span class="text-sm">🔮</span>
+                    <span id="captured-by-black" class="font-bold">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Liturgical Check / Checkmate Banner -->
+        <div id="status-banner" class="hidden md3-glass px-5 py-1.5 rounded-full border-red-500/60 bg-red-950/80 text-red-200 text-xs font-cathedral font-bold tracking-widest uppercase shadow-[0_0_24px_rgba(239,68,68,0.5)] animate-pulse">
+            <span id="status-banner-text">KING IN CHECK!</span>
+        </div>
+    </header>
+
+    <!-- SLIDE-OVER CHRONICLE OF MOVES DRAWER (Right Side) -->
+    <aside id="log-drawer" class="fixed top-20 right-4 bottom-24 w-80 max-w-[90vw] z-30 md3-glass rounded-3xl p-5 flex flex-col gap-4 transition-all duration-300 translate-x-[115%] opacity-0 pointer-events-auto">
+        <div class="flex items-center justify-between border-b border-amber-500/20 pb-3">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-rounded text-amber-300">history_edu</span>
+                <h2 class="font-cathedral text-sm font-bold text-amber-100">Chronicle of Moves</h2>
+            </div>
+            <button id="close-drawer-btn" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Chronicle Drawer">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div>
+
+        <!-- Shattered Relics Display -->
+        <div class="grid grid-cols-2 gap-2.5 bg-black/30 p-3 rounded-2xl border border-white/5">
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-amber-300/80 font-semibold mb-1">Shattered Obsidian</div>
+                <div id="shattered-black-list" class="flex flex-wrap gap-0.5 min-h-[22px] text-purple-300">
+                    <span class="text-xs text-stone-600 italic">None yet</span>
+                </div>
+            </div>
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-purple-300/80 font-semibold mb-1">Shattered Marble</div>
+                <div id="shattered-white-list" class="flex flex-wrap gap-0.5 min-h-[22px] text-amber-100">
+                    <span class="text-xs text-stone-600 italic">None yet</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scrollable Algebraic Move List -->
+        <div id="move-history-container" class="flex-1 overflow-y-auto space-y-1 pr-1 text-xs font-mono">
+            <div class="text-stone-500 italic text-center py-8">Select a piece on the Crossing Altar to command your forces.</div>
+        </div>
+
+        <div class="pt-2 border-t border-white/10 text-[11px] text-stone-400 flex items-center justify-between">
+            <span>Drag to Orbit • Scroll to Zoom</span>
+            <span class="text-amber-300/90 font-medium">64-Square Crossing</span>
+        </div>
+    </aside>
+
+    <!-- BOTTOM SINGLE-LEVEL MATERIAL DESIGN 3 NAVIGATION BAR -->
+    <nav class="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[96vw] pointer-events-auto" aria-label="Game Controls">
+        <div class="md3-glass px-3 py-2 rounded-full flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
+            <!-- Game Mode Toggle (Wizard AI vs Pass & Play) -->
+            <button id="btn-mode" class="md3-chip active-chip" title="Switch between Wizard AI and 2-Player Pass & Play">
+                <span id="mode-icon" class="material-symbols-rounded">smart_toy</span>
+                <span id="mode-label">vs Wizard AI</span>
+            </button>
+
+            <!-- Camera View Cycler -->
+            <button id="btn-cam-cycle" class="md3-chip" title="Cycle Basilica Camera Angles">
+                <span class="material-symbols-rounded">videocam</span>
+                <span id="cam-label">White Nave</span>
+            </button>
+
+            <!-- Dynamic Melee Action Cam Toggle -->
+            <button id="btn-cinematic" class="md3-chip active-chip" title="Zoom camera in during melee captures and shatters">
+                <span class="material-symbols-rounded">movie_filter</span>
+                <span class="hidden md:inline">Action Cam</span>
+            </button>
+
+            <!-- Undo Last Move -->
+            <button id="btn-undo" class="md3-chip" title="Undo Move">
+                <span class="material-symbols-rounded">undo</span>
+                <span class="hidden sm:inline">Undo</span>
+            </button>
+
+            <!-- Reset Board -->
+            <button id="btn-reset" class="md3-chip" title="Consecrate New Match">
+                <span class="material-symbols-rounded">restart_alt</span>
+                <span class="hidden sm:inline">New Rite</span>
+            </button>
+
+            <!-- Procedural Cathedral Audio Toggle -->
+            <button id="btn-audio" class="md3-chip active-chip" title="Toggle Cathedral Organ & Shatter Acoustics">
+                <span id="audio-icon" class="material-symbols-rounded">volume_up</span>
+            </button>
+
+            <!-- Chronicle of Moves Drawer Button -->
+            <button id="btn-drawer" class="md3-chip" title="Open Chronicle of Moves & Shattered Relics">
+                <span class="material-symbols-rounded">menu_book</span>
+                <span class="hidden lg:inline">Chronicle</span>
+                <span id="move-count-pill" class="px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-200 text-[11px] font-bold">0</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- PAWN PROMOTION MODAL (Liturgical Consecration) -->
+    <div id="promotion-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/75 backdrop-blur-md p-4">
+        <div class="md3-glass rounded-3xl p-6 max-w-md w-full border border-amber-400/40 text-center space-y-5">
+            <div class="space-y-1">
+                <span class="material-symbols-rounded text-amber-300 text-3xl">auto_awesome</span>
+                <h3 class="font-cathedral text-xl font-bold text-amber-100">Sanctuary Promotion</h3>
+                <p class="text-xs text-stone-300">Your Pawn has reached the Sanctuary steps. Choose its consecrated form:</p>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <button data-promo="q" class="promo-btn flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/5 hover:bg-amber-400/20 border border-white/10 hover:border-amber-400/50 transition">
+                    <span class="text-3xl">♕</span>
+                    <span class="text-xs font-semibold text-amber-100">Queen</span>
+                </button>
+                <button data-promo="r" class="promo-btn flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/5 hover:bg-amber-400/20 border border-white/10 hover:border-amber-400/50 transition">
+                    <span class="text-3xl">♖</span>
+                    <span class="text-xs font-semibold text-amber-100">Rook</span>
+                </button>
+                <button data-promo="b" class="promo-btn flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/5 hover:bg-amber-400/20 border border-white/10 hover:border-amber-400/50 transition">
+                    <span class="text-3xl">♗</span>
+                    <span class="text-xs font-semibold text-amber-100">Bishop</span>
+                </button>
+                <button data-promo="n" class="promo-btn flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/5 hover:bg-amber-400/20 border border-white/10 hover:border-amber-400/50 transition">
+                    <span class="text-3xl">♘</span>
+                    <span class="text-xs font-semibold text-amber-100">Knight</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="gameover-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/75 backdrop-blur-md p-4">
+        <div class="md3-glass rounded-3xl p-7 max-w-md w-full border border-amber-400/40 text-center space-y-5">
+            <div class="w-14 h-14 rounded-full bg-amber-400/15 border border-amber-400/40 flex items-center justify-center mx-auto">
+                <span class="material-symbols-rounded text-amber-300 text-3xl">military_tech</span>
+            </div>
+            <div class="space-y-1.5">
+                <h2 id="gameover-title" class="font-cathedral text-2xl font-bold text-amber-200">CHECKMATE</h2>
+                <p id="gameover-subtitle" class="text-sm text-stone-300">White Marble triumphs inside the High Gothic Basilica!</p>
+            </div>
+            <div class="flex items-center justify-center gap-3 pt-2">
+                <button id="modal-inspect" class="md3-chip px-5 py-2.5">
+                    <span class="material-symbols-rounded">visibility</span>
+                    <span>Inspect Sanctuary</span>
+                </button>
+                <button id="modal-new-game" class="md3-chip active-chip px-5 py-2.5">
+                    <span class="material-symbols-rounded">restart_alt</span>
+                    <span>New Match</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script Entry Point -->
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
