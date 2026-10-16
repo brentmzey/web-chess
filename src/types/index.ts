@@ -72,3 +72,14 @@ export interface SavedCamState {
   radius: number;
   phi: number;
 }
+
+export type GameMode = 'pass-and-play' | 'minimax' | 'micro-neural' | 'gemini-nano';
+
+export interface GameModeConfig {
+  id: GameMode;
+  label: string;
+  badge: string;
+  icon: string;
+  description: string;
+}
+

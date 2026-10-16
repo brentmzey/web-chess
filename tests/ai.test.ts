@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { Chess } from 'chess.js';
-import { computeBestWizardAIMove, evaluateBoard } from '../src/engine/ai';
+import { computeMinimaxMove, computeBestWizardAIMove, evaluateBoard } from '../src/engine/ai';
 
-describe('Wizard AI and Board Evaluation', () => {
+describe('Minimax Engine and Board Evaluation', () => {
   it('evaluates starting board position as symmetrical / near 0', () => {
     const game = new Chess();
     const score = evaluateBoard(game);
@@ -36,7 +36,7 @@ describe('Wizard AI and Board Evaluation', () => {
   it('computes a valid legal AI move for Black', () => {
     const game = new Chess();
     game.move('e4');
-    const aiMove = computeBestWizardAIMove(game);
+    const aiMove = computeMinimaxMove(game);
     expect(aiMove).not.toBeNull();
     expect(aiMove?.color).toBe('b');
 
@@ -44,6 +44,10 @@ describe('Wizard AI and Board Evaluation', () => {
     const result = game.move(aiMove!);
     expect(result).not.toBeNull();
     expect(game.turn()).toBe('w');
+
+    // Test backward-compatible alias produces valid move
+    const aliasMove = computeBestWizardAIMove(game);
+    expect(aliasMove).not.toBeNull();
   });
 
   it('finds defensive move when in check', () => {
