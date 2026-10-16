@@ -29,7 +29,19 @@ yarn-error.log*
 bun.lockb
 *.tsbuildinfo
 
-# Env files
+# Environment & Secret files
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+*.local
+
+# Certificates & Private Keys
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
