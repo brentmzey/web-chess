@@ -174,12 +174,7 @@ Legal moves: [${sanList}]
 Select the single best move for Black from the legal moves list.
 Respond ONLY with the exact move string from the list.`;
 
-      const promptPromise = session.prompt(prompt);
-      const timeoutPromise = new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('Gemini Nano prompt timed out')), 4000)
-      );
-
-      const rawResponse = await Promise.race([promptPromise, timeoutPromise]);
+      const rawResponse = await session.prompt(prompt);
       if (session.destroy) {
         try {
           session.destroy();

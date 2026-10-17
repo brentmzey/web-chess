@@ -105,7 +105,7 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
     expect(domElements['difficulty-badge']?.textContent).toBe('RUTHLESS');
   });
 
-  it('locks Undo button UI when allowUndo is false (Ironman Rite)', () => {
+  it('locks Undo button UI when allowUndo is false (Strict Mode)', () => {
     const ui = new UIController();
     const chess = new Chess();
     chess.move('e4');
@@ -115,7 +115,7 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
     expect(domElements['btn-undo']?.getAttribute('aria-disabled')).toBe('true');
     expect(domElements['undo-icon']?.textContent).toBe('lock');
     expect(domElements['undo-label']?.textContent).toBe('Locked');
-    expect(domElements['undo-rule-status-pill']?.textContent).toBe('Undo: Locked (Ironman)');
+    expect(domElements['undo-rule-status-pill']?.textContent).toBe('Undo: Locked (Strict)');
 
     ui.update(chess, GameModeEnum.Minimax, undefined, OpponentDifficultyEnum.Balanced, true);
     expect(domElements['btn-undo']?.classList.contains('opacity-45')).toBe(false);
@@ -151,12 +151,23 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
     const chess = new Chess();
 
     chess.move('e4');
-    chess.move('e5');
+    chess.move('d5');
     chess.move('Qh5');
-    chess.move('Ke7');
-    chess.move('Qxe5+');
+    chess.move('dxe4'); // Black captures White pawn -> populates shatteredWhite
+    chess.move('Bc4');
+    chess.move('Kd7');
+    chess.move('Qd5+');
     expect(chess.in_check()).toBe(true);
     ui.update(chess, 'minimax');
+    expect(domElements['status-banner-text']?.textContent).toBe('KING IN CHECK!');
+    expect(domElements['captured-by-black']?.textContent).toBe('1');
+
+    const mateChess = new Chess();
+    mateChess.move('f3');
+    mateChess.move('e5');
+    mateChess.move('g4');
+    mateChess.move('Qh4#');
+    ui.update(mateChess, 'minimax');
     expect(domElements['status-banner-text']?.textContent).toBe('CHECKMATE!');
   });
 
@@ -208,10 +219,12 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
     expect(domElements['log-drawer']?.classList.contains('translate-x-[115%]')).toBe(true);
   });
 
-  it('displays temporary liturgical banner messages', () => {
+  it('displays temporary banner messages and auto-hides after duration', async () => {
     const ui = new UIController();
-    ui.showTemporaryBanner('Custom Cathedral Notification', 100);
+    ui.showTemporaryBanner('Custom Cathedral Notification', 5);
     expect(domElements['status-banner-text']?.textContent).toBe('Custom Cathedral Notification');
     expect(domElements['status-banner']?.classList.contains('hidden')).toBe(false);
+    await new Promise(resolve => setTimeout(resolve, 15));
+    expect(domElements['status-banner']?.classList.contains('hidden')).toBe(true);
   });
 });

@@ -148,11 +148,11 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     };
   });
 
-  it('Integration Flow 1: Pre-Game Ironman Rite (allowUndo=false) + Aggressive Minimax + IndexedDB Persistence & Reload', async () => {
+  it('Integration Flow 1: Pre-Game Strict Mode (allowUndo=false) + Aggressive Minimax + Encrypted IndexedDB Persistence & Reload', async () => {
     const ui = new UIController();
     const chess = new Chess();
 
-    // 1. User configures Pre-Game Rite: Minimax, Aggressive, allowUndo = false, Persistence = true
+    // 1. User configures Game Settings: Minimax, Aggressive, allowUndo = false, Persistence = true
     const mode = GameModeEnum.Minimax;
     const difficulty = OpponentDifficultyEnum.Aggressive;
     const allowUndo = false;
@@ -171,7 +171,7 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     expect(domElements['undo-icon']?.textContent).toBe('lock');
     expect(domElements['move-count-pill']?.textContent).toBe('2');
 
-    // 3. Persist state to IndexedDB
+    // 3. Encrypt and persist state to IndexedDB
     const savedState: StoredSessionState = {
       id: SESSION_KEY,
       enabled: true,
@@ -187,7 +187,7 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     };
     await saveSessionState(savedState);
 
-    // 4. Simulate browser refresh: new Chess instance restores from IndexedDB
+    // 4. Simulate browser refresh: new Chess instance decrypts and restores from IndexedDB
     const restoredChess = new Chess();
     const loadedOpt = await loadSavedSession();
     expect(loadedOpt.isSome()).toBe(true);
@@ -203,10 +203,10 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     expect(restored.difficulty).toBe(OpponentDifficultyEnum.Aggressive);
 
     ui.update(restoredChess, restored.mode, undefined, restored.difficulty, restored.allowUndo);
-    expect(domElements['undo-rule-status-pill']?.textContent).toBe('Undo: Locked (Ironman)');
+    expect(domElements['undo-rule-status-pill']?.textContent).toBe('Undo: Locked (Strict)');
   });
 
-  it('Integration Flow 2: Standard Rite (allowUndo=true) + Micro-Neural AI across all Difficulties + Round-Trip Undo', async () => {
+  it('Integration Flow 2: Standard Mode (allowUndo=true) + Micro-Neural AI across all Difficulties + Round-Trip Undo', async () => {
     const ui = new UIController();
     const chess = new Chess();
     const mode = GameModeEnum.MicroNeural;
@@ -300,9 +300,11 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
       ai: {
         assistant: {
           capabilities: async () => ({ available: 'readily' }),
-          create: async () => {
-            throw new Error('GPU context busy');
-          }
+          create: async () => ({
+            prompt: async () => {
+              throw new Error('GPU context busy');
+            }
+          })
         }
       }
     };

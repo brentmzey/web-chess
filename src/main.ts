@@ -271,15 +271,14 @@ function main(): void {
     });
 
     // Pre-game Allow Undo checkbox & badge
-    const allowUndoCheckbox = document.getElementById(
-      'allow-undo-checkbox'
-    ) as HTMLInputElement | null;
-    if (allowUndoCheckbox) {
-      allowUndoCheckbox.checked = inProgress ? pendingAllowUndo : allowUndo;
-    }
+    fromNullable(
+      document.getElementById('allow-undo-checkbox') as HTMLInputElement | null
+    ).map(chk => {
+      chk.checked = inProgress ? pendingAllowUndo : allowUndo;
+    });
     fromNullable(document.getElementById('allow-undo-badge')).map(badge => {
       const activeVal = inProgress ? pendingAllowUndo : allowUndo;
-      badge.textContent = activeVal ? 'ALLOWED' : 'IRONMAN (NO UNDO)';
+      badge.textContent = activeVal ? 'ALLOWED' : 'STRICT (NO UNDO)';
       badge.className = activeVal
         ? 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-bold'
         : 'text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-bold';
@@ -289,18 +288,20 @@ function main(): void {
     });
 
     // Persistence checkboxes (Pre-game modal + Chronicle drawer)
-    const pregamePersist = document.getElementById(
-      'persist-session-checkbox'
-    ) as HTMLInputElement | null;
-    const drawerPersist = document.getElementById(
-      'drawer-persist-checkbox'
-    ) as HTMLInputElement | null;
-    if (pregamePersist) pregamePersist.checked = persistenceEnabled;
-    if (drawerPersist) drawerPersist.checked = persistenceEnabled;
+    fromNullable(
+      document.getElementById('persist-session-checkbox') as HTMLInputElement | null
+    ).map(chk => {
+      chk.checked = persistenceEnabled;
+    });
+    fromNullable(
+      document.getElementById('drawer-persist-checkbox') as HTMLInputElement | null
+    ).map(chk => {
+      chk.checked = persistenceEnabled;
+    });
 
-    // Resume / Enter Sanctuary button label
+    // Resume / Enter Game button label
     fromNullable(document.getElementById('resume-rite-label')).map(lbl => {
-      lbl.textContent = inProgress ? 'Resume Active Rite' : 'Enter Sanctuary';
+      lbl.textContent = inProgress ? 'Resume Active Game' : 'Enter Game';
     });
 
     ui.update(chess, currentMode, undefined, currentDifficulty, allowUndo);
@@ -767,10 +768,10 @@ function main(): void {
     triggerTurnOrAI();
   });
 
-  function startNewConsecratedRite(): void {
+  function startNewGame(): void {
     chess.reset();
     allowUndo = pendingAllowUndo;
-    logger.info('Consecrated new Sanctuary Rite', {
+    logger.info('Started new Chess Match', {
       mode: currentMode,
       difficulty: currentDifficulty,
       allowUndo,
@@ -788,26 +789,26 @@ function main(): void {
     void persistCurrentSession();
   }
 
-  document.getElementById('start-rite-btn')?.addEventListener('click', startNewConsecratedRite);
+  document.getElementById('start-rite-btn')?.addEventListener('click', startNewGame);
 
   // Pre-Game Modal Mode Cards
   document.querySelectorAll('.mode-select-card').forEach(card => {
     card.addEventListener('click', () => {
-      const modeAttr = card.getAttribute('data-mode-select') as GameModeEnum | null;
-      if (modeAttr) {
+      fromNullable(card.getAttribute('data-mode-select') as GameModeEnum | null).map(modeAttr => {
         soundFX.playSelect();
         void selectGameMode(modeAttr);
-      }
+      });
     });
   });
 
   // Pre-Game Modal Difficulty Buttons
   document.querySelectorAll('.diff-select-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const diffAttr = btn.getAttribute('data-diff-select') as OpponentDifficultyEnum | null;
-      if (diffAttr) {
-        selectDifficulty(diffAttr);
-      }
+      fromNullable(btn.getAttribute('data-diff-select') as OpponentDifficultyEnum | null).map(
+        diffAttr => {
+          selectDifficulty(diffAttr);
+        }
+      );
     });
   });
 
@@ -825,16 +826,16 @@ function main(): void {
     syncAllControlsUI();
   });
 
-  // IndexedDB Session Persistence Toggle Handler
+  // Encrypted IndexedDB Session Persistence Toggle Handler
   async function handlePersistenceToggle(enabled: boolean): Promise<void> {
     persistenceEnabled = enabled;
     await setPersistencePreference(enabled);
     if (enabled) {
       await persistCurrentSession();
-      ui.showTemporaryBanner('Session persistence active in IndexedDB', 2400);
+      ui.showTemporaryBanner('Encrypted session persistence active in IndexedDB', 2400);
     } else {
       await clearSessionState();
-      ui.showTemporaryBanner('IndexedDB session state cleared', 2400);
+      ui.showTemporaryBanner('IndexedDB encrypted session state cleared', 2400);
     }
     syncAllControlsUI();
   }
@@ -879,7 +880,9 @@ function main(): void {
   const camLabel = document.getElementById('cam-label');
   btnCamCycle?.addEventListener('click', () => {
     const preset = camController.cyclePreset();
-    if (camLabel) camLabel.textContent = preset.name;
+    fromNullable(camLabel).map(lbl => {
+      lbl.textContent = preset.name;
+    });
   });
 
   const btnCinematic = document.getElementById('btn-cinematic');
@@ -892,7 +895,7 @@ function main(): void {
   const btnUndo = document.getElementById('btn-undo');
   btnUndo?.addEventListener('click', () => {
     if (!allowUndo) {
-      ui.showTemporaryBanner('Ironman Rite: Undo was disallowed before this match began!', 2800);
+      ui.showTemporaryBanner('Strict Mode: Undo was disabled in Game Settings before this match began!', 2800);
       return;
     }
     if (isAnimating || chess.history().length === 0) return;
@@ -913,7 +916,7 @@ function main(): void {
     void persistCurrentSession();
   });
 
-  // New Rite button opens the Pre-Game Setup modal so user can configure Undo & Difficulty before starting
+  // New Game button opens the Pre-Game Settings modal so user can configure Undo & Difficulty before starting
   document.getElementById('btn-reset')?.addEventListener('click', () => {
     pendingAllowUndo = allowUndo;
     syncAllControlsUI();

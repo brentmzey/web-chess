@@ -1,10 +1,16 @@
-import type { StoredSessionState } from '../types';
+import type {
+  EncryptedEnvelope,
+  EncryptedStorageRecord,
+  StoredSessionState
+} from '../types';
 import {
-  failure,
   fromNullable,
+  fromResult,
   none,
+  toResult,
+  tryCatch,
   tryCatchAsync,
-  type Optional,
+  type Option,
   type Result
 } from '../utils/fp';
 
@@ -14,85 +20,229 @@ const STORE_NAME = 'sanctuary_sessions';
 export const SESSION_KEY = 'active_session';
 export const PREFERENCE_KEY = 'persistence_preference';
 
-/**
- * Opens or upgrades the IndexedDB instance for lightweight session state persistence.
- * Completely independent of localStorage.
- */
-export async function openSessionDatabase(): Promise<Result<IDBDatabase, string>> {
-  return tryCatchAsync(async () => {
-    if (typeof indexedDB === 'undefined') {
-      throw new Error('IndexedDB is not available in this environment');
-    }
-
-    return new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-      request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        }
-      };
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error?.message || 'Failed to open IndexedDB');
-    });
-  }, (err) => (err as Error)?.message || 'IndexedDB connection failed');
+interface PreferencePayload {
+  enabled: boolean;
+  updatedAt: number;
 }
 
-/**
- * Loads the saved session state from IndexedDB if it exists.
- */
-export async function loadSavedSession(): Promise<Optional<StoredSessionState>> {
-  const dbResult = await openSessionDatabase();
-  if (dbResult.isFailure()) {
-    return none<StoredSessionState>();
+// 256-bit (32-byte) key material for Web Crypto AES-GCM authenticated storage encryption
+const STORAGE_KEY_MATERIAL = new TextEncoder().encode('SanctaBasilicaWizardChessAES256!');
+
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]!);
   }
+  return btoa(binary);
+}
 
-  const db = dbResult.value;
+export function base64ToBytes(b64: string): Result<Uint8Array, string> {
+  return tryCatch(
+    () => {
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    },
+    () => 'Invalid Base64 encoding in encrypted record'
+  );
+}
 
-  const readResult = await tryCatchAsync(async () => {
-    return new Promise<Optional<StoredSessionState>>((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(SESSION_KEY);
-
-      request.onsuccess = () => {
-        const result = fromNullable(request.result as StoredSessionState | undefined);
-        resolve(result);
-      };
-
-      request.onerror = () => reject(request.error?.message || 'Read error');
-    });
-  }, (err) => (err as Error)?.message || 'Read exception');
-
-  return readResult.fold(
-    () => none<StoredSessionState>(),
-    (opt) => opt
+async function getStorageCryptoKey(): Promise<Result<CryptoKey, string>> {
+  return tryCatchAsync(
+    async () =>
+      crypto.subtle.importKey(
+        'raw',
+        STORAGE_KEY_MATERIAL,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      ),
+    () => 'Web Crypto API unavailable for storage encryption'
   );
 }
 
 /**
- * Persists the game session state to IndexedDB.
+ * Encrypts any serializable payload into an authenticated AES-GCM-256 envelope
+ * with a fresh 12-byte random IV before writing to IndexedDB.
  */
-export async function saveSessionState(session: StoredSessionState): Promise<Result<void, string>> {
+export async function encryptPayload<T>(payload: T): Promise<Result<EncryptedEnvelope, string>> {
+  const keyResult = await getStorageCryptoKey();
+  return keyResult.flatMapAsync(key =>
+    tryCatchAsync(
+      async () => {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const plaintextBytes = new TextEncoder().encode(JSON.stringify(payload));
+        const cipherBuffer = await crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv },
+          key,
+          plaintextBytes
+        );
+        return {
+          v: 1 as const,
+          alg: 'AES-GCM-256' as const,
+          iv: bytesToBase64(iv),
+          ciphertext: bytesToBase64(new Uint8Array(cipherBuffer))
+        };
+      },
+      () => 'Failed to encrypt storage payload'
+    )
+  );
+}
+
+/**
+ * Validates and decrypts an AES-GCM-256 envelope fetched from IndexedDB.
+ */
+export async function decryptPayload<T>(candidate: unknown): Promise<Result<T, string>> {
+  const envelopeOpt: Option<EncryptedEnvelope> = fromNullable(
+    candidate as EncryptedEnvelope | null | undefined
+  ).filter(
+    env =>
+      typeof env === 'object' &&
+      env.v === 1 &&
+      env.alg === 'AES-GCM-256' &&
+      typeof env.iv === 'string' &&
+      typeof env.ciphertext === 'string'
+  );
+
+  const decodedResult = toResult(envelopeOpt, () => 'Invalid or unencrypted storage envelope').flatMap(
+    env =>
+      base64ToBytes(env.iv).flatMap(iv =>
+        base64ToBytes(env.ciphertext).map(ciphertext => ({ iv, ciphertext }))
+      )
+  );
+
+  return decodedResult.flatMapAsync(({ iv, ciphertext }) =>
+    getStorageCryptoKey().then(keyResult =>
+      keyResult.flatMapAsync(key =>
+        tryCatchAsync(
+          async () => {
+            const plainBuffer = await crypto.subtle.decrypt(
+              { name: 'AES-GCM', iv: iv as Uint8Array<ArrayBuffer> },
+              key,
+              ciphertext as Uint8Array<ArrayBuffer>
+            );
+            const jsonText = new TextDecoder().decode(plainBuffer);
+            return JSON.parse(jsonText) as T;
+          },
+          () => 'Failed to decrypt or authenticate storage payload'
+        )
+      )
+    )
+  );
+}
+
+/**
+ * Opens or upgrades the IndexedDB instance for lightweight encrypted session persistence.
+ * Completely independent of localStorage.
+ */
+export async function openSessionDatabase(): Promise<Result<IDBDatabase, string>> {
+  return tryCatchAsync(
+    async () => {
+      const idbOpt = fromNullable(
+        typeof indexedDB !== 'undefined' ? indexedDB : null
+      );
+      return idbOpt.fold(
+        () => Promise.reject(new Error('IndexedDB is not available in this environment')),
+        idb =>
+          new Promise<IDBDatabase>((resolve, reject) => {
+            const request = idb.open(DB_NAME, DB_VERSION);
+
+            request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+              const db = (event.target as IDBOpenDBRequest).result;
+              if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+              }
+            };
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () =>
+              reject(new Error(request.error?.message ?? 'Failed to open IndexedDB'));
+          })
+      );
+    },
+    err => (err as Error).message
+  );
+}
+
+async function readEncryptedRecord(
+  db: IDBDatabase,
+  key: string
+): Promise<Result<Option<EncryptedStorageRecord>, string>> {
+  return tryCatchAsync(
+    async () =>
+      new Promise<Option<EncryptedStorageRecord>>((resolve, reject) => {
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(key);
+
+        request.onsuccess = () =>
+          resolve(fromNullable(request.result as EncryptedStorageRecord | undefined));
+        request.onerror = () =>
+          reject(new Error(request.error?.message ?? 'IndexedDB read error'));
+      }),
+    err => (err as Error).message
+  );
+}
+
+async function writeEncryptedRecord(
+  db: IDBDatabase,
+  record: EncryptedStorageRecord
+): Promise<Result<void, string>> {
+  return tryCatchAsync(
+    async () =>
+      new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put(record);
+
+        request.onsuccess = () => resolve();
+        request.onerror = () =>
+          reject(new Error(request.error?.message ?? 'IndexedDB write error'));
+      }),
+    err => (err as Error).message
+  );
+}
+
+/**
+ * Loads and decrypts the saved session state from IndexedDB if it exists.
+ */
+export async function loadSavedSession(): Promise<Option<StoredSessionState>> {
   const dbResult = await openSessionDatabase();
-  if (dbResult.isFailure()) {
-    return failure(dbResult.error);
-  }
+  const decryptedResult = await dbResult
+    .flatMapAsync(db => readEncryptedRecord(db, SESSION_KEY))
+    .then(recResult =>
+      recResult.flatMapAsync(recordOpt =>
+        recordOpt.fold(
+          async () => toResult(none<StoredSessionState>(), () => 'No saved session found'),
+          record => decryptPayload<StoredSessionState>(record.envelope)
+        )
+      )
+    );
 
-  const db = dbResult.value;
+  return fromResult(decryptedResult);
+}
 
-  return tryCatchAsync(async () => {
-    return new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put({ ...session, id: SESSION_KEY });
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error?.message || 'Write error');
-    });
-  }, (err) => (err as Error)?.message || 'Failed to save session to IndexedDB');
+/**
+ * Encrypts and persists the game session state to IndexedDB.
+ */
+export async function saveSessionState(
+  session: StoredSessionState
+): Promise<Result<void, string>> {
+  const dbResult = await openSessionDatabase();
+  return dbResult.flatMapAsync(db =>
+    encryptPayload({ ...session, id: SESSION_KEY }).then(envResult =>
+      envResult.flatMapAsync(envelope =>
+        writeEncryptedRecord(db, {
+          id: SESSION_KEY,
+          envelope,
+          updatedAt: Date.now()
+        })
+      )
+    )
+  );
 }
 
 /**
@@ -100,69 +250,59 @@ export async function saveSessionState(session: StoredSessionState): Promise<Res
  */
 export async function clearSessionState(): Promise<Result<void, string>> {
   const dbResult = await openSessionDatabase();
-  if (dbResult.isFailure()) {
-    return failure(dbResult.error);
-  }
+  return dbResult.flatMapAsync(db =>
+    tryCatchAsync(
+      async () =>
+        new Promise<void>((resolve, reject) => {
+          const transaction = db.transaction([STORE_NAME], 'readwrite');
+          const store = transaction.objectStore(STORE_NAME);
+          const request = store.delete(SESSION_KEY);
 
-  const db = dbResult.value;
-
-  return tryCatchAsync(async () => {
-    return new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete(SESSION_KEY);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error?.message || 'Delete error');
-    });
-  }, (err) => (err as Error)?.message || 'Failed to clear session from IndexedDB');
+          request.onsuccess = () => resolve();
+          request.onerror = () =>
+            reject(new Error(request.error?.message ?? 'Delete error'));
+        }),
+      err => (err as Error).message
+    )
+  );
 }
 
 /**
- * Retrieves the user's preference for whether session persistence is enabled.
+ * Retrieves and decrypts the user's preference for whether session persistence is enabled.
  */
 export async function getPersistencePreference(): Promise<boolean> {
   const dbResult = await openSessionDatabase();
-  if (dbResult.isFailure()) return false;
+  const prefResult = await dbResult
+    .flatMapAsync(db => readEncryptedRecord(db, PREFERENCE_KEY))
+    .then(recResult =>
+      recResult.flatMapAsync(recordOpt =>
+        recordOpt.fold(
+          async () => toResult(none<PreferencePayload>(), () => 'No preference stored'),
+          record => decryptPayload<PreferencePayload>(record.envelope)
+        )
+      )
+    );
 
-  const db = dbResult.value;
-
-  const prefResult = await tryCatchAsync(async () => {
-    return new Promise<boolean>((resolve) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(PREFERENCE_KEY);
-
-      request.onsuccess = () => {
-        resolve(Boolean(request.result?.enabled));
-      };
-
-      request.onerror = () => resolve(false);
-    });
-  }, () => false);
-
-  return prefResult.fold(() => false, (val) => val);
+  return prefResult.map(pref => Boolean(pref.enabled)).getOrElse(false);
 }
 
 /**
- * Saves the user's checkbox preference for session persistence to IndexedDB.
+ * Encrypts and saves the user's checkbox preference for session persistence to IndexedDB.
  */
-export async function setPersistencePreference(enabled: boolean): Promise<Result<void, string>> {
+export async function setPersistencePreference(
+  enabled: boolean
+): Promise<Result<void, string>> {
   const dbResult = await openSessionDatabase();
-  if (dbResult.isFailure()) {
-    return failure(dbResult.error);
-  }
-
-  const db = dbResult.value;
-
-  return tryCatchAsync(async () => {
-    return new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put({ id: PREFERENCE_KEY, enabled, updatedAt: Date.now() });
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error?.message || 'Failed to save preference');
-    });
-  }, (err) => (err as Error)?.message || 'Failed to set preference in IndexedDB');
+  return dbResult.flatMapAsync(db =>
+    encryptPayload<PreferencePayload>({ enabled, updatedAt: Date.now() }).then(envResult =>
+      envResult.flatMapAsync(envelope =>
+        writeEncryptedRecord(db, {
+          id: PREFERENCE_KEY,
+          envelope,
+          updatedAt: Date.now()
+        })
+      )
+    )
+  );
 }
+

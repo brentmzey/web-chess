@@ -21,6 +21,14 @@ export class Success<T, E> {
     return fn(this.value);
   }
 
+  async flatMapAsync<U>(fn: (val: T) => Promise<Result<U, E>>): Promise<Result<U, E>> {
+    return fn(this.value);
+  }
+
+  getOrElse(_defaultVal: T): T {
+    return this.value;
+  }
+
   fold<U>(_onFailure: (err: E) => U, onSuccess: (val: T) => U): U {
     return onSuccess(this.value);
   }
@@ -39,6 +47,14 @@ export class Failure<T, E> {
     return new Failure<U, E>(this.error);
   }
 
+  async flatMapAsync<U>(_fn: (val: T) => Promise<Result<U, E>>): Promise<Result<U, E>> {
+    return new Failure<U, E>(this.error);
+  }
+
+  getOrElse(defaultVal: T): T {
+    return defaultVal;
+  }
+
   fold<U>(onFailure: (err: E) => U, _onSuccess: (val: T) => U): U {
     return onFailure(this.error);
   }
@@ -48,6 +64,7 @@ export const success = <T, E = Error>(value: T): Result<T, E> => new Success(val
 export const failure = <T, E = Error>(error: E): Result<T, E> => new Failure<T, E>(error);
 
 export type Optional<T> = Some<T> | None<T>;
+export type Option<T> = Optional<T>;
 
 export class Some<T> {
   constructor(public readonly value: T) {}
@@ -59,6 +76,10 @@ export class Some<T> {
   }
 
   flatMap<U>(fn: (val: T) => Optional<U>): Optional<U> {
+    return fn(this.value);
+  }
+
+  async flatMapAsync<U>(fn: (val: T) => Promise<Optional<U>>): Promise<Optional<U>> {
     return fn(this.value);
   }
 
@@ -84,6 +105,10 @@ export class None<T> {
   }
 
   flatMap<U>(_fn: (val: T) => Optional<U>): Optional<U> {
+    return new None<U>();
+  }
+
+  async flatMapAsync<U>(_fn: (val: T) => Promise<Optional<U>>): Promise<Optional<U>> {
     return new None<U>();
   }
 
