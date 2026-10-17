@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { CathedralSoundEngine } from '../audio/CathedralSoundEngine';
-import type { ShardParticle, ShockwaveRing } from '../types';
+import { PieceColorEnum, type DeviceProfileConfig, type ShardParticle, type ShockwaveRing } from '../types';
+import { DESKTOP_PROFILE } from './deviceTier';
 import type { AppMaterials } from './materials';
 
 export class ShatterSystem {
@@ -12,20 +13,28 @@ export class ShatterSystem {
     private scene: THREE.Scene,
     private materials: AppMaterials,
     private soundFX: CathedralSoundEngine,
-    private strikeFlashLight: THREE.PointLight
+    private strikeFlashLight: THREE.PointLight,
+    public profile: DeviceProfileConfig = DESKTOP_PROFILE
   ) {}
 
   /**
-   * Shatters a captured piece into 34 physics-driven marble or obsidian stone shards
+   * Shatters a captured piece into physics-driven marble or obsidian stone shards
+   * scaled to the active device profile (34 shadowed shards on Desktop, 12 non-shadowed on Mobile Lite).
    */
   public spawnShatterExplosion(
     victimPiece: THREE.Group,
     impactDir: THREE.Vector3
   ): void {
     const origin = victimPiece.position.clone();
-    const color = victimPiece.userData?.color ?? 'b';
-    const shardMat = color === 'w' ? this.materials.whitePieceMaterial : this.materials.blackPieceMaterial;
-    const accentMat = color === 'w' ? this.materials.goldAccentMaterial : this.materials.arcaneAccentMaterial;
+    const color = victimPiece.userData?.color ?? PieceColorEnum.Black;
+    const shardMat =
+      color === PieceColorEnum.White
+        ? this.materials.whitePieceMaterial
+        : this.materials.blackPieceMaterial;
+    const accentMat =
+      color === PieceColorEnum.White
+        ? this.materials.goldAccentMaterial
+        : this.materials.arcaneAccentMaterial;
 
     this.soundFX.playMeleeShatter();
     this.cameraShakeIntensity = 0.55;
@@ -34,11 +43,14 @@ export class ShatterSystem {
     this.strikeFlashLight.position.set(origin.x, 2.2, origin.z);
     this.strikeFlashLight.intensity = 4.5;
 
-    for (let i = 0; i < 34; i++) {
+    const shardTotal = this.profile.shardCount;
+
+    for (let i = 0; i < shardTotal; i++) {
       const size = 0.13 + Math.random() * 0.25;
-      const geo = i % 3 === 0
-        ? new THREE.OctahedronGeometry(size, 0)
-        : new THREE.DodecahedronGeometry(size, 0);
+      const geo =
+        i % 3 === 0
+          ? new THREE.OctahedronGeometry(size, 0)
+          : new THREE.DodecahedronGeometry(size, 0);
       const mesh = new THREE.Mesh(geo, i % 5 === 0 ? accentMat : shardMat);
       mesh.scale.set(
         0.6 + Math.random() * 0.9,
@@ -50,7 +62,7 @@ export class ShatterSystem {
         0.4 + Math.random() * 2.2,
         origin.z + (Math.random() - 0.5) * 0.7
       );
-      mesh.castShadow = true;
+      mesh.castShadow = this.profile.shardShadows;
       this.scene.add(mesh);
 
       const spreadAngle = Math.random() * Math.PI * 2;
@@ -76,7 +88,7 @@ export class ShatterSystem {
     // Expanding Arcane Shockwave Ring
     const ringGeo = new THREE.RingGeometry(0.2, 0.55, 32);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: color === 'w' ? 0xfacc15 : 0xa855f7,
+      color: color === PieceColorEnum.White ? 0xfacc15 : 0xa855f7,
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0.95

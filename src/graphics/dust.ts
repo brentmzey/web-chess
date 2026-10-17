@@ -5,8 +5,7 @@ export interface DustSystem {
   updateDust: (dt: number, elapsed: number) => void;
 }
 
-export function buildDustParticles(scene: THREE.Scene): DustSystem {
-  const dustCount = 300;
+export function buildDustParticles(scene: THREE.Scene, dustCount: number = 300): DustSystem {
   const dustGeo = new THREE.BufferGeometry();
   const dustPositions = new Float32Array(dustCount * 3);
 

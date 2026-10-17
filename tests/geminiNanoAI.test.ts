@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 import { Chess } from 'chess.js';
 import {
+  buildGeminiNanoSystemPrompt,
   checkGeminiNanoStatus,
-  matchResponseToLegalMove,
-  computeGeminiNanoAIMove
+  computeGeminiNanoAIMove,
+  matchResponseToLegalMove
 } from '../src/engine/geminiNanoAI';
+import { OpponentDifficultyEnum } from '../src/types';
 
 describe('Chrome Canary Built-in AI (Prompt API / Gemini Nano)', () => {
   it('reports unsupported gracefully in non-browser or standard test environment', async () => {
@@ -12,6 +14,16 @@ describe('Chrome Canary Built-in AI (Prompt API / Gemini Nano)', () => {
     expect(status.available).toBe(false);
     expect(status.status).toBe('unsupported');
     expect(status.message.length).toBeGreaterThan(0);
+  });
+
+  it('builds distinct persona system prompts for Cautious, Balanced, and Aggressive difficulties', () => {
+    const cautiousPrompt = buildGeminiNanoSystemPrompt(OpponentDifficultyEnum.Cautious);
+    const balancedPrompt = buildGeminiNanoSystemPrompt(OpponentDifficultyEnum.Balanced);
+    const aggressivePrompt = buildGeminiNanoSystemPrompt(OpponentDifficultyEnum.Aggressive);
+
+    expect(cautiousPrompt).toContain('cautious, defensive');
+    expect(balancedPrompt).toContain('balanced chess master');
+    expect(aggressivePrompt).toContain('ruthless, hyper-aggressive');
   });
 
   it('matches exact SAN responses from an LLM', () => {
@@ -55,14 +67,18 @@ describe('Chrome Canary Built-in AI (Prompt API / Gemini Nano)', () => {
     expect(matched).toBeNull();
   });
 
-  it('falls back to Micro-Neural AI when Gemini Nano is unavailable', async () => {
+  it('falls back to Micro-Neural AI with chosen difficulty when Gemini Nano is unavailable', async () => {
     const game = new Chess();
     game.move('e4');
 
     let statusMsg = '';
-    const result = await computeGeminiNanoAIMove(game, (msg) => {
-      statusMsg = msg;
-    });
+    const result = await computeGeminiNanoAIMove(
+      game,
+      msg => {
+        statusMsg = msg;
+      },
+      OpponentDifficultyEnum.Aggressive
+    );
 
     expect(result.source).toBe('fallback');
     expect(result.move).not.toBeNull();

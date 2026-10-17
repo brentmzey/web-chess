@@ -1,6 +1,7 @@
 import type { Chess, Move } from 'chess.js';
+import { OpponentDifficultyEnum, type OpponentDifficulty } from '../types';
+import { fromNullable, match, none, tryCatchAsync, type Optional } from '../utils/fp';
 import { computeMicroNeuralAIMove } from './neuralAI';
-import { fromNullable, none, tryCatchAsync, type Optional } from '../utils/fp';
 
 export interface GeminiNanoStatus {
   available: boolean;
@@ -42,7 +43,7 @@ export async function checkGeminiNanoStatus(): Promise<GeminiNanoStatus> {
     (caps: any) => {
       const avail = String(caps?.available);
       const branches: Record<string, () => GeminiNanoStatus> = {
-        'readily': () => ({
+        readily: () => ({
           available: true,
           status: 'ready',
           message: 'Gemini Nano is loaded and ready on-device.'
@@ -83,8 +84,9 @@ export function matchResponseToLegalMove(rawResponse: string, legalMoves: Move[]
       // 2. Exact UCI match
       const uciMatch = fromNullable(
         legalMoves.find(
-          m => (m.from + m.to).toLowerCase() === clean.toLowerCase() ||
-               (m.from + m.to + (m.promotion || '')).toLowerCase() === clean.toLowerCase()
+          m =>
+            (m.from + m.to).toLowerCase() === clean.toLowerCase() ||
+            (m.from + m.to + (m.promotion || '')).toLowerCase() === clean.toLowerCase()
         )
       );
       if (uciMatch.isSome()) return uciMatch;
@@ -94,8 +96,9 @@ export function matchResponseToLegalMove(rawResponse: string, legalMoves: Move[]
       for (const token of tokens) {
         const tokenMatch = fromNullable(
           legalMoves.find(
-            m => m.san.toLowerCase() === token.toLowerCase() ||
-                 (m.from + m.to).toLowerCase() === token.toLowerCase()
+            m =>
+              m.san.toLowerCase() === token.toLowerCase() ||
+              (m.from + m.to).toLowerCase() === token.toLowerCase()
           )
         );
         if (tokenMatch.isSome()) return tokenMatch;
@@ -110,12 +113,29 @@ export function matchResponseToLegalMove(rawResponse: string, legalMoves: Move[]
 }
 
 /**
+ * Builds the persona system prompt for Gemini Nano based on selected difficulty/aggressiveness.
+ */
+export function buildGeminiNanoSystemPrompt(
+  difficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced
+): string {
+  return match(difficulty as OpponentDifficultyEnum, {
+    [OpponentDifficultyEnum.Cautious]: () =>
+      'You are a cautious, defensive chess monk playing as Black. Prioritize king safety, solid pawn structure, and avoiding risky exchanges. Respond with ONLY the chosen legal move notation.',
+    [OpponentDifficultyEnum.Balanced]: () =>
+      'You are a balanced chess master playing as Black. Balance positional control of the center with sound tactical opportunities. Respond with ONLY the chosen legal move notation.',
+    [OpponentDifficultyEnum.Aggressive]: () =>
+      'You are a ruthless, hyper-aggressive chess grand inquisitor playing as Black. Prioritize relentless attacks, captures, checks, and aggressive invasion of White territory. Respond with ONLY the chosen legal move notation.'
+  });
+}
+
+/**
  * Queries Chrome's on-device Gemini Nano model to pick the best move for Black
  * using functional Result and Option monads for fallback safety.
  */
 export async function computeGeminiNanoAIMove(
   game: Chess,
-  onStatusUpdate?: (statusText: string) => void
+  onStatusUpdate?: (statusText: string) => void,
+  difficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced
 ): Promise<{ move: Move | null; source: 'nano' | 'fallback' }> {
   const legalMoves = game.moves({ verbose: true });
   if (legalMoves.length === 0) {
@@ -125,21 +145,28 @@ export async function computeGeminiNanoAIMove(
   const status = await checkGeminiNanoStatus();
   if (!status.available) {
     onStatusUpdate?.('Gemini Nano not available in this browser. Falling back to Micro-Neural AI.');
-    const fallbackMove = computeMicroNeuralAIMove(game);
+    const fallbackMove = computeMicroNeuralAIMove(game, difficulty);
     return { move: fallbackMove, source: 'fallback' };
   }
 
-  const promptExecutionResult = await tryCatchAsync(async () => {
-    const ai = (window as any).ai;
-    const modelFactory = ai.languageModel || ai.assistant;
+  const promptExecutionResult = await tryCatchAsync(
+    async () => {
+      const ai = (window as any).ai;
+      const modelFactory = ai.languageModel || ai.assistant;
 
-    const session = await modelFactory.create({
-      systemPrompt: 'You are an expert chess master playing as Black. When given a board state and legal moves, select the single best legal move and respond with ONLY that move notation.'
-    });
+      const session = await modelFactory.create({
+        systemPrompt: buildGeminiNanoSystemPrompt(difficulty)
+      });
 
-    const sanList = legalMoves.map(m => m.san).join(', ');
-    const historySlice = game.history().slice(-6).join(' ') || 'Opening move';
-    const prompt = `Game: Chess. You are playing Black.
+      const sanList = legalMoves.map(m => m.san).join(', ');
+      const historySlice = game.history().slice(-6).join(' ') || 'Opening move';
+      const styleDirective = match(difficulty as OpponentDifficultyEnum, {
+        [OpponentDifficultyEnum.Cautious]: () => 'Play cautiously and defensively.',
+        [OpponentDifficultyEnum.Balanced]: () => 'Play a balanced, principled move.',
+        [OpponentDifficultyEnum.Aggressive]: () => 'Play the most aggressive, attacking move (preferring captures and checks).'
+      });
+
+      const prompt = `Game: Chess. You are playing Black. Style: ${styleDirective}
 FEN: ${game.fen()}
 Recent moves: ${historySlice}
 Legal moves: [${sanList}]
@@ -147,31 +174,42 @@ Legal moves: [${sanList}]
 Select the single best move for Black from the legal moves list.
 Respond ONLY with the exact move string from the list.`;
 
-    const promptPromise = session.prompt(prompt);
-    const timeoutPromise = new Promise<string>((_, reject) =>
-      setTimeout(() => reject(new Error('Gemini Nano prompt timed out')), 4000)
-    );
+      const promptPromise = session.prompt(prompt);
+      const timeoutPromise = new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error('Gemini Nano prompt timed out')), 4000)
+      );
 
-    const rawResponse = await Promise.race([promptPromise, timeoutPromise]);
-    if (session.destroy) {
-      try { session.destroy(); } catch { /* ignore */ }
-    }
-    return rawResponse;
-  }, err => (err as Error)?.message || 'Prompt execution failure');
+      const rawResponse = await Promise.race([promptPromise, timeoutPromise]);
+      if (session.destroy) {
+        try {
+          session.destroy();
+        } catch {
+          /* ignore */
+        }
+      }
+      return rawResponse;
+    },
+    err => (err as Error)?.message || 'Prompt execution failure'
+  );
 
   return promptExecutionResult.fold(
     errMsg => {
       onStatusUpdate?.(`Gemini Nano error (${errMsg}), falling back to Micro-Neural AI.`);
-      return { move: computeMicroNeuralAIMove(game), source: 'fallback' };
+      return { move: computeMicroNeuralAIMove(game, difficulty), source: 'fallback' };
     },
     rawResponse => {
-      return fromNullable(matchResponseToLegalMove(rawResponse, legalMoves)).fold<{ move: Move | null; source: 'nano' | 'fallback' }>(
+      return fromNullable(matchResponseToLegalMove(rawResponse, legalMoves)).fold<{
+        move: Move | null;
+        source: 'nano' | 'fallback';
+      }>(
         () => {
-          onStatusUpdate?.(`Gemini Nano suggested "${rawResponse.trim()}", falling back to Micro-Neural AI.`);
-          return { move: computeMicroNeuralAIMove(game), source: 'fallback' };
+          onStatusUpdate?.(
+            `Gemini Nano suggested "${rawResponse.trim()}", falling back to Micro-Neural AI.`
+          );
+          return { move: computeMicroNeuralAIMove(game, difficulty), source: 'fallback' };
         },
         matchedMove => {
-          onStatusUpdate?.(`Gemini Nano selected: ${matchedMove.san}`);
+          onStatusUpdate?.(`Gemini Nano (${difficulty}) selected: ${matchedMove.san}`);
           return { move: matchedMove, source: 'nano' };
         }
       );

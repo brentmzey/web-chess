@@ -1,5 +1,12 @@
 import type { Chess, Move } from 'chess.js';
-import type { PieceColor, PieceType } from '../types';
+import {
+  OpponentDifficultyEnum,
+  PieceColorEnum,
+  type OpponentDifficulty,
+  type PieceColor,
+  type PieceType
+} from '../types';
+import { match } from '../utils/fp';
 
 /**
  * Micro-Neural Network Architecture for Chess Position Evaluation:
@@ -91,9 +98,9 @@ export function extractBoardTensor(game: Chess): Float32Array {
         // Spatial center density feature [775..790]
         const centerDist = Math.max(Math.abs(3.5 - f), Math.abs(3.5 - r));
         if (centerDist < 1.0) {
-          tensor[775 + pIdx] += color === 'w' ? 1.0 : -1.0;
+          tensor[775 + pIdx] += color === PieceColorEnum.White ? 1.0 : -1.0;
         } else if (centerDist < 2.0) {
-          tensor[780] += color === 'w' ? 0.5 : -0.5;
+          tensor[780] += color === PieceColorEnum.White ? 0.5 : -0.5;
         }
       }
     }
@@ -102,11 +109,11 @@ export function extractBoardTensor(game: Chess): Float32Array {
   // 2. Material count differences [768..773]
   const types: PieceType[] = ['p', 'n', 'b', 'r', 'q', 'k'];
   types.forEach((t, i) => {
-    tensor[768 + i] = (pieceCounts.w[t] - pieceCounts.b[t]);
+    tensor[768 + i] = pieceCounts.w[t] - pieceCounts.b[t];
   });
 
   // 3. Active turn [774]
-  tensor[774] = game.turn() === 'w' ? 1.0 : -1.0;
+  tensor[774] = game.turn() === PieceColorEnum.White ? 1.0 : -1.0;
 
   return tensor;
 }
@@ -121,15 +128,23 @@ function leakyReLU(x: number, alpha: number = 0.01): number {
 /**
  * Forward pass through the embedded Multi-Layer Perceptron.
  */
-export function evaluateBoardNeural(game: Chess): number {
+export function evaluateBoardNeural(
+  game: Chess,
+  difficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced
+): number {
   if (game.in_checkmate()) {
-    return game.turn() === 'w' ? -99999 : 99999;
+    return game.turn() === PieceColorEnum.White ? -99999 : 99999;
   }
   if (game.in_draw()) {
     return 0;
   }
 
   const tensor = extractBoardTensor(game);
+  const pstMultiplier = match(difficulty as OpponentDifficultyEnum, {
+    [OpponentDifficultyEnum.Cautious]: () => 0.65,
+    [OpponentDifficultyEnum.Balanced]: () => 1.0,
+    [OpponentDifficultyEnum.Aggressive]: () => 1.45
+  });
 
   // Hidden Layer 1 (32 neurons)
   const h1 = new Float32Array(32);
@@ -142,14 +157,14 @@ export function evaluateBoardNeural(game: Chess): number {
         const pieceTypeIdx = i % 12;
         const sq = Math.floor(i / 12);
         const isWhite = pieceTypeIdx < 6;
-        const pt = (['p', 'n', 'b', 'r', 'q', 'k'][pieceTypeIdx % 6]) as PieceType;
+        const pt = ['p', 'n', 'b', 'r', 'q', 'k'][pieceTypeIdx % 6] as PieceType;
 
         let pstBonus = 0;
         if (pt === 'p') pstBonus = isWhite ? PAWN_PST[sq]! : PAWN_PST[63 - sq]!;
         else if (pt === 'n') pstBonus = isWhite ? KNIGHT_PST[sq]! : KNIGHT_PST[63 - sq]!;
         else if (pt === 'b') pstBonus = isWhite ? BISHOP_PST[sq]! : BISHOP_PST[63 - sq]!;
 
-        const posVal = BASE_MATERIAL_VALUES[pt] + pstBonus;
+        const posVal = BASE_MATERIAL_VALUES[pt] + pstBonus * pstMultiplier;
         const sign = isWhite ? 1 : -1;
         const wCoeff = ((j % 4) + 1) * 0.25;
         sum += sign * posVal * wCoeff;
@@ -159,13 +174,13 @@ export function evaluateBoardNeural(game: Chess): number {
     // Material difference weights
     for (let m = 0; m < 6; m++) {
       const mDiff = tensor[768 + m]!;
-      const pt = (['p', 'n', 'b', 'r', 'q', 'k'][m]) as PieceType;
+      const pt = ['p', 'n', 'b', 'r', 'q', 'k'][m] as PieceType;
       sum += mDiff * BASE_MATERIAL_VALUES[pt] * (0.8 + (j % 5) * 0.05);
     }
 
     // Center density & turn bias
     sum += tensor[774]! * 15;
-    sum += tensor[780]! * 25;
+    sum += tensor[780]! * (25 * pstMultiplier);
 
     h1[j] = leakyReLU(sum * 0.05);
   }
@@ -175,7 +190,7 @@ export function evaluateBoardNeural(game: Chess): number {
   for (let k = 0; k < 16; k++) {
     let sum = 0;
     for (let j = 0; j < 32; j++) {
-      const w = ((k + j) % 2 === 0 ? 1 : -0.7) * (1 / (1 + Math.abs(k - j % 16)));
+      const w = ((k + j) % 2 === 0 ? 1 : -0.7) * (1 / (1 + Math.abs(k - (j % 16))));
       sum += h1[j]! * w;
     }
     h2[k] = leakyReLU(sum);
@@ -192,11 +207,35 @@ export function evaluateBoardNeural(game: Chess): number {
 
 /**
  * Computes the best move for Black using the embedded Micro-Neural Network.
- * Uses 2-ply search with capture-move ordering and neural position scoring.
+ * Supports difficulty & aggressiveness tuning via functional pattern matching.
  */
-export function computeMicroNeuralAIMove(game: Chess): Move | null {
+export function computeMicroNeuralAIMove(
+  game: Chess,
+  difficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced
+): Move | null {
   const legalMoves = game.moves({ verbose: true });
   if (legalMoves.length === 0) return null;
+
+  const neuralParams = match(difficulty as OpponentDifficultyEnum, {
+    [OpponentDifficultyEnum.Cautious]: () => ({
+      twoPly: false,
+      temperatureNoise: 28,
+      captureBias: 0,
+      checkBias: 0
+    }),
+    [OpponentDifficultyEnum.Balanced]: () => ({
+      twoPly: true,
+      temperatureNoise: 8,
+      captureBias: 12,
+      checkBias: 15
+    }),
+    [OpponentDifficultyEnum.Aggressive]: () => ({
+      twoPly: true,
+      temperatureNoise: 1,
+      captureBias: 55,
+      checkBias: 45
+    })
+  });
 
   // Move ordering: captures first, then promotions, then center moves
   legalMoves.sort((a: Move, b: Move) => {
@@ -210,26 +249,46 @@ export function computeMicroNeuralAIMove(game: Chess): Move | null {
 
   for (const move of legalMoves) {
     game.move(move);
-    const oppMoves = game.moves({ verbose: true });
-    let maxWhiteReply = -Infinity;
+    const deliversCheck = game.in_check();
+    const aggressionBonus =
+      (move.captured ? -neuralParams.captureBias : 0) +
+      (deliversCheck ? -neuralParams.checkBias : 0) +
+      (move.promotion ? -45 : 0);
 
-    if (oppMoves.length === 0) {
-      maxWhiteReply = evaluateBoardNeural(game);
+    let moveVal: number;
+
+    if (!neuralParams.twoPly) {
+      moveVal =
+        evaluateBoardNeural(game, difficulty) +
+        aggressionBonus +
+        (Math.random() - 0.5) * neuralParams.temperatureNoise;
     } else {
-      for (const reply of oppMoves) {
-        game.move(reply);
-        const evalScore = evaluateBoardNeural(game) + (Math.random() - 0.5) * 8;
-        if (evalScore > maxWhiteReply) {
-          maxWhiteReply = evalScore;
+      const oppMoves = game.moves({ verbose: true });
+      let maxWhiteReply = -Infinity;
+
+      if (oppMoves.length === 0) {
+        maxWhiteReply = evaluateBoardNeural(game, difficulty);
+      } else {
+        for (const reply of oppMoves) {
+          game.move(reply);
+          const evalScore =
+            evaluateBoardNeural(game, difficulty) +
+            aggressionBonus +
+            (Math.random() - 0.5) * neuralParams.temperatureNoise;
+          if (evalScore > maxWhiteReply) {
+            maxWhiteReply = evalScore;
+          }
+          game.undo();
         }
-        game.undo();
       }
+      moveVal = maxWhiteReply;
     }
+
     game.undo();
 
     // Black seeks the lowest score (most negative from White's perspective)
-    if (maxWhiteReply < bestVal) {
-      bestVal = maxWhiteReply;
+    if (moveVal < bestVal) {
+      bestVal = moveVal;
       bestMove = move;
     }
   }

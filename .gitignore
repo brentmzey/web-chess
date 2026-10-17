@@ -3,9 +3,11 @@ node_modules/
 .pnp
 .pnp.js
 
-# Production build
+# Production build & Coverage reports
 dist/
 dist-ssr/
+coverage/
+.scannerwork/
 
 # Netlify
 .netlify/

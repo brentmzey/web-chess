@@ -94,10 +94,97 @@ Synthesized in real-time via the Web Audio API with **zero external audio files*
 - Metallic cleave strikes and high-pitch shard clinks
 - Celestial square selection chimes
 
-### 5. Wizard AI & Game Engine
+### 5. Multi-Paradigm AI Engine & Game Modes
 - Strict chess legality enforcement via `chess.js` (en passant, castling, promotion, checkmate, stalemate, threefold repetition)
-- 2-ply Minimax engine with center-control positional evaluation and capture sorting
-- 1-Player vs. Wizard AI or 2-Player Pass & Play local duel modes
+- 4 distinct opponent modes: **Minimax Engine (Classical Tree Search)**, **Micro-Neural AI (Embedded Multi-Layer Perceptron)**, **Gemini Nano (Browser On-Device LLM)**, and **Pass & Play (Local 2P Duel)**
+- Functional programming architecture inspired by Scala and Rust (`Optional`, `Result`, compile-time exhaustive pattern matching)
+
+---
+
+## 🧠 Opponent Play Styles & Engine Architectures
+
+Players can cycle through four distinct opponent modes using the `#btn-mode` chip in the bottom navigation. Each mode represents a fundamentally different paradigm in computer chess and AI engineering:
+
+| Opponent Mode | Top Badge | Icon | Paradigm | Underlying Architecture | External Dependencies |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. Minimax Engine** | `MINIMAX` | `memory` | Classical Symbolic AI (Tree Search) | 2-ply adversarial tree search with handcrafted static heuristic evaluation | None (Pure TypeScript) |
+| **2. Micro-Neural AI** | `NEURAL AI` | `psychology` | Connectionist Machine Learning (MLP) | Embedded 791-feature tensor neural network with LeakyReLU activations | None (Zero asset files) |
+| **3. Gemini Nano (Local)** | `NANO AI` | `auto_awesome` | On-Device Generative AI (LLM) | W3C Prompt API (`window.ai.languageModel`) in Chrome Canary with auto-fallback | Chrome Canary Built-in AI |
+| **4. Pass & Play** | `2P DUEL` | `group` | Human vs. Human | Manual turn alternation across the Gothic Crossing Altar | None |
+
+---
+
+### Deep Dive: The 4 Opponent Paradigms
+
+#### 1. Minimax Engine: "Is it an AI model or just math?"
+* **What it is**: A **Classical Adversarial Game-Tree Search with a Static Heuristic Evaluation Function** (Shannon Type A engine).
+* **The Static Math Formula ([`evaluateBoard`](file:///src/engine/ai.ts))**: Takes a snapshot of the chessboard and computes a deterministic scalar score from White's perspective based on:
+  - Standard material values: Pawn = 100, Knight = 320, Bishop = 335, Rook = 505, Queen = 950, King = 20,000.
+  - Central control heuristic: Manhattan-distance bonuses rewarding pieces dominating the center squares (`d4`, `d5`, `e4`, `e5`).
+  - Terminal states: Checkmate = $\pm 99,999$, Draw = $0$.
+* **The Recursive Search ([`computeMinimaxMove`](file:///src/engine/ai.ts))**: Dynamically generates an adversarial decision tree 2 plies deep. For every candidate Black move, it simulates all possible White responses, assumes White plays the optimal countermove, and picks the branch that minimizes White's maximum potential advantage.
+* **Why it's not a machine learning model**: It contains no learned neural weights, loss functions, or training loops. It is deterministic, rule-coded "Good Old-Fashioned AI" (GOFAI).
+
+#### 2. Micro-Neural AI: Embedded Zero-Dependency Neural Network
+* **What it is**: A connectionist **Multi-Layer Perceptron (MLP)** operating directly on an encoded board tensor in [`src/engine/neuralAI.ts`](file:///src/engine/neuralAI.ts).
+* **791-Dimensional Input Tensor**:
+  - `[0..767]`: 64 squares × 12 piece types (one-hot spatial feature maps)
+  - `[768..773]`: Material count differential vector ($\text{White} - \text{Black}$)
+  - `[774]`: Active turn indicator ($+1.0$ for White, $-1.0$ for Black)
+  - `[775..790]`: Center ring & inner quadrant spatial density metrics
+* **Network Topology & Inference**:
+  - **Dense Layer 1**: $791 \to 32$ neurons with LeakyReLU activation ($\alpha = 0.01$).
+  - **Dense Layer 2**: $32 \to 16$ neurons with LeakyReLU activation ($\alpha = 0.01$).
+  - **Output Layer**: $16 \to 1$ neuron producing a centipawn position evaluation.
+* **Zero Asset Overhead**: Operates entirely in pure TypeScript with **zero downloaded binary weights or model files**, executing full inference in $<1\text{ms}$ while preserving sub-second build times.
+
+#### 3. Gemini Nano: Browser-Native On-Device LLM
+* **What it is**: An experimental browser-native **Generative AI Agent** powered by Google's Gemini Nano model running locally via the W3C Prompt API (`window.ai.languageModel`).
+* **Prompt & Reasoning Pipeline**: When Black moves, the game constructs a structured prompt containing the current board FEN, recent move history, and list of legal SAN moves.
+* **Monadic Parsing & Robust Fallback**: The response is parsed via a functional `Optional` pipeline ([`src/utils/fp.ts`](file:///src/utils/fp.ts)) supporting exact SAN, UCI notation, and conversational markdown output. If running on an unsupported browser or if the model produces an invalid move, it automatically and gracefully falls back to the Micro-Neural engine with an informative notification banner.
+
+#### 4. Pass & Play (Local 2P Duel)
+* **What it is**: Classic two-player local mode. Black piece clicks are unlocked, allowing two human opponents to command the White Marble and Black Obsidian armies face-to-face across the Gothic Crossing Altar without engine interference.
+
+---
+
+### ⚔️ Opponent Difficulty & Aggressiveness Profiles
+
+Every AI opponent mode supports three selectable **Difficulty & Aggressiveness** levels (`OpponentDifficultyEnum`: `cautious`, `balanced`, `aggressive`), configurable before a match begins in the **Consecrate Sanctuary Rite** modal or live from the bottom navigation bar (`#btn-difficulty`):
+
+| Difficulty Tier | Badge | Aggressiveness | Minimax Engine Behavior | Micro-Neural AI Behavior | Gemini Nano (Local LLM) Persona |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| **1. Novice / Cautious** | `CAUTIOUS` | Lv 1 (`shield`) | **1-Ply Initiate**: Evaluates immediate moves with higher exploratory variance ($\pm 35\text{ cp}$) and defensive restraint. | **Initiate Network**: Softened PST weights ($0.65\times$) with exploratory temperature noise ($\pm 28\text{ cp}$). | **Contemplative Monk**: System prompt instructs the LLM to prioritize king safety, solid pawn structure, and avoiding risky exchanges. |
+| **2. Tactician / Balanced** | `BALANCED` | Lv 2 (`balance`) | **2-Ply Tactician**: Full 2-ply Minimax lookahead balancing material value and Crossing Altar center control ($\pm 12\text{ cp}$). | **Sanctuary MLP**: Calibrated $791 \to 32 \to 16 \to 1$ neural evaluation with standard piece-square tables ($1.0\times$). | **Cathedral Scholar**: Instructs the LLM to play principled, balanced positional and tactical chess. |
+| **3. Grand Inquisitor / Ruthless** | `RUTHLESS` | Lv 3 (`local_fire_department`) | **2-Ply Warlord**: Deterministic 2-ply search with $+45\text{ cp}$ capture/check aggression bonus and forward-rank invasion pressure. | **Zealot Vanguard**: Amplifies neural attack weights ($1.45\times$), capture/promotion greed ($+55\text{ cp}$), and check threats ($+45\text{ cp}$). | **Arcane Warmonger**: Commands the LLM to seek relentless attacks, captures, checks, and aggressive invasion of White territory. |
+
+---
+
+### 🛡️ Pre-Game Rite Rules ("Allow Undo") & Lightweight IndexedDB Session Persistence
+
+* **Pre-Game "Allow Undo" Rule (`allowUndo: boolean`)**:
+  - Before a match begins (in the **Consecrate Sanctuary Rite** modal), players choose whether **Move Undo** is permitted for the match.
+  - **Standard Rite (`Allowed`)**: The `#btn-undo` control remains active throughout the match, reverting a full round-trip turn in AI modes or a single half-move in Pass & Play.
+  - **Ironman Rite (`Locked`)**: Once the first move is played, Undo is locked (`lock` icon) for the duration of the match until a New Rite is consecrated.
+* **Lightweight IndexedDB Session Persistence (`src/storage/indexedDbStore.ts`)**:
+  - Players can check **"Do you want to keep your session running to pick up later?"** in either the Pre-Game Setup modal or the Chronicle of Moves drawer.
+  - Powered 100% by native browser **IndexedDB** (`WizardChessSessionDB` — **zero `localStorage` usage**).
+  - Automatically persists and restores the FEN board state, full algebraic move history (`history`), active `mode`, `difficulty`, `allowUndo` rule lock, display `contrast`/`brightness`, and `deviceTier` across page refreshes or re-navigation.
+
+---
+
+### 📱 Mobile Sanctuary Lite vs. Desktop Ultra HD (`src/graphics/deviceTier.ts`)
+
+To guarantee fluid 60fps gameplay and responsive touch ergonomics on smartphones, tablets, and low-power GPUs without sacrificing visual atmosphere, the application automatically detects viewport dimensions, touch points, CPU concurrency, and device memory:
+
+| Feature / Parameter | Desktop (`Cathedral Ultra HD`) | Mobile / Underpowered (`Mobile Sanctuary Lite`) |
+| :--- | :--- | :--- |
+| **Crossing Spotlight Shadow Map** | `2048 × 2048` PCF Soft Shadows | `512 × 512` High-Efficiency Shadow Map |
+| **Melee Shatter Debris Physics** | `34` shadow-casting stone shards | `12` non-shadowed stone shards |
+| **Ambient Incense & Dust Motes** | `300` particles | `60` particles |
+| **Max WebGL Pixel Ratio** | `2.0x` Retina | `1.25x` Battery-Saver Cap |
+| **Heavy Desktop-Only Options** | Full access (`Gemini Nano` Local Chrome LLM) | Stripped with clear *"Available on Desktop"* badge & notice |
+| **Touch Gestures** | Mouse Orbit & Wheel Zoom | 1-Finger Orbit, 2-Finger Pinch-to-Zoom & Tap-to-Move |
 
 ---
 
@@ -157,8 +244,12 @@ web-chess/
 │   ├── constants/
 │   │   └── board.ts          # Board dimensions, piece values, unicode icons
 │   ├── engine/
-│   │   ├── ai.ts             # Minimax algorithm with center-control heuristic
-│   │   └── coordinates.ts    # Square-to-world & algebraic coordinate math
+│   │   ├── ai.ts             # Classical Minimax engine with center-control heuristic
+│   │   ├── coordinates.ts    # Square-to-world & algebraic coordinate math
+│   │   ├── geminiNanoAI.ts   # Chrome Canary Built-in AI (Prompt API / Gemini Nano)
+│   │   └── neuralAI.ts       # Embedded zero-dependency micro-neural network
+│   ├── utils/
+│   │   └── fp.ts             # Functional programming utilities (Optional, Result, match)
 │   ├── graphics/
 │   │   ├── board.ts          # 64-square grid, borders & square highlights
 │   │   ├── cathedral.ts      # 3D Gothic Basilica architecture & lighting
@@ -174,14 +265,18 @@ web-chess/
 │   │   └── main.css          # Tailwind directives & MD3 glass surfaces
 │   ├── types/
 │   │   ├── chess.d.ts        # Type declarations for chess.js engine
-│   │   └── index.ts          # Type interfaces for particles, pieces, camera
+│   │   └── index.ts          # Type interfaces for particles, pieces, camera, modes
 │   ├── ui/
 │   │   └── uiController.ts   # HUD status, move history & modal controller
 │   └── main.ts               # Application orchestrator & animation loop
 └── tests/
     ├── ai.test.ts            # Unit tests for Minimax AI & board evaluation
     ├── chessEngine.test.ts   # Unit tests for rules, castling, promotion & undo
-    └── coordinates.test.ts   # Unit tests for 3D coordinate transformations
+    ├── coordinates.test.ts   # Unit tests for 3D coordinate transformations
+    ├── fp.test.ts            # Unit tests for Scala/Rust functional programming monads
+    ├── geminiNanoAI.test.ts  # Unit tests for Chrome Built-in AI Prompt API
+    ├── neuralAI.test.ts      # Unit tests for embedded micro-neural network
+    └── uiController.test.ts  # Unit tests for UI state & DOM updates
 ```
 
 ---
@@ -277,7 +372,7 @@ bun run deploy:prod
 | **Select Piece** | Click or tap your piece on the board |
 | **Execute Move** | Click or tap a highlighted target square |
 | **Cycle Views** | Click the camera preset button (White Nave, Sanctuary Orbit, etc.) |
-| **Toggle Mode** | Switch between *Wizard AI* and *2-Player Pass & Play* |
+| **Cycle Mode** | Cycle between *Minimax Engine*, *Micro-Neural AI*, *Gemini Nano (Local)*, and *Pass & Play* |
 | **Toggle Audio** | Click the volume button to toggle cathedral acoustics |
 | **View Chronicle** | Open the drawer to inspect move list & shattered pieces |
 

@@ -35,9 +35,14 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
     it('flatMaps over Some and returns inner Optional', () => {
       const res = some('hello').flatMap(s => some(s.toUpperCase()));
       expect(res.getOrElse('')).toBe('HELLO');
+      expect(res.isNone()).toBe(false);
 
       const noneRes = some('hello').flatMap(() => none<string>());
       expect(noneRes.isNone()).toBe(true);
+      expect(noneRes.isSome()).toBe(false);
+
+      const flatNone = none<string>().flatMap(s => some(s));
+      expect(flatNone.isNone()).toBe(true);
     });
 
     it('filters values matching predicate', () => {
@@ -46,6 +51,9 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
 
       const discarded = some(42).filter(x => x > 50);
       expect(discarded.isNone()).toBe(true);
+
+      const noneFiltered = none<number>().filter(x => x > 0);
+      expect(noneFiltered.isNone()).toBe(true);
     });
 
     it('folds correctly for Some and None', () => {
@@ -67,10 +75,12 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
     it('maps over Success and preserves Failure', () => {
       const s = success(5).map(x => x * 3);
       expect(s.isSuccess()).toBe(true);
+      expect(s.isFailure()).toBe(false);
       expect(s.fold(() => 0, v => v)).toBe(15);
 
       const f = failure<number, string>('network error').map(x => x * 3);
       expect(f.isFailure()).toBe(true);
+      expect(f.isSuccess()).toBe(false);
       expect(f.fold(err => err, () => 'ok')).toBe('network error');
     });
 
@@ -81,6 +91,9 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
       });
       expect(s.isSuccess()).toBe(true);
       expect(s.fold(() => -1, v => v)).toBe(123);
+
+      const f = failure<string, string>('initial error').flatMap(() => success('ok'));
+      expect(f.isFailure()).toBe(true);
     });
 
     it('converts between Optional and Result', () => {

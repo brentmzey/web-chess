@@ -1,11 +1,29 @@
 import type { Chess, Move } from 'chess.js';
-import { UNICODE_PIECES } from '../constants/board';
-import type { GameMode, PieceType } from '../types';
+import {
+   getDifficultyProfile,
+  getGameModeConfig,
+  UNICODE_PIECES
+} from '../constants/board';
+import {
+  DeviceTierEnum,
+  GameModeEnum,
+  OpponentDifficultyEnum,
+  PieceColorEnum,
+  type DeviceProfileConfig,
+  type GameMode,
+  type OpponentDifficulty,
+  type PieceType
+} from '../types';
 import { fromNullable, match } from '../utils/fp';
 
 export interface UIControllerElements {
   turnDot: HTMLElement | null;
   turnText: HTMLElement | null;
+  gameModeBadge: HTMLElement | null;
+  difficultyBadge: HTMLElement | null;
+  deviceTierBadge: HTMLElement | null;
+  mobileLiteBanner: HTMLElement | null;
+  mobileLiteBannerText: HTMLElement | null;
   statusBanner: HTMLElement | null;
   statusBannerText: HTMLElement | null;
   capturedByWhite: HTMLElement | null;
@@ -19,6 +37,11 @@ export interface UIControllerElements {
   gameoverTitle: HTMLElement | null;
   gameoverSubtitle: HTMLElement | null;
   promotionModal: HTMLElement | null;
+  pregameModal: HTMLElement | null;
+  btnUndo: HTMLButtonElement | null;
+  undoIcon: HTMLElement | null;
+  undoLabel: HTMLElement | null;
+  undoRuleStatusPill: HTMLElement | null;
 }
 
 export class UIController {
@@ -29,6 +52,11 @@ export class UIController {
     this.el = {
       turnDot: document.getElementById('turn-dot'),
       turnText: document.getElementById('turn-text'),
+      gameModeBadge: document.getElementById('game-mode-badge'),
+      difficultyBadge: document.getElementById('difficulty-badge'),
+      deviceTierBadge: document.getElementById('device-tier-badge'),
+      mobileLiteBanner: document.getElementById('mobile-lite-banner'),
+      mobileLiteBannerText: document.getElementById('mobile-lite-banner-text'),
       statusBanner: document.getElementById('status-banner'),
       statusBannerText: document.getElementById('status-banner-text'),
       capturedByWhite: document.getElementById('captured-by-white'),
@@ -41,25 +69,77 @@ export class UIController {
       gameoverModal: document.getElementById('gameover-modal'),
       gameoverTitle: document.getElementById('gameover-title'),
       gameoverSubtitle: document.getElementById('gameover-subtitle'),
-      promotionModal: document.getElementById('promotion-modal')
+      promotionModal: document.getElementById('promotion-modal'),
+      pregameModal: document.getElementById('pregame-modal'),
+      btnUndo: document.getElementById('btn-undo') as HTMLButtonElement | null,
+      undoIcon: document.getElementById('undo-icon'),
+      undoLabel: document.getElementById('undo-label'),
+      undoRuleStatusPill: document.getElementById('undo-rule-status-pill')
     };
   }
 
-  public update(chess: Chess, mode: GameMode, customStatus?: string): void {
+  public applyDeviceProfileUI(profile: DeviceProfileConfig): void {
+    fromNullable(this.el.deviceTierBadge).map(badge => {
+      badge.textContent = profile.badge;
+      if (profile.tier === DeviceTierEnum.MobileLite) {
+        badge.className =
+          'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-400/15 text-teal-300 border border-teal-400/30';
+      } else {
+        badge.className =
+          'hidden md:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-400/15 text-stone-300 border border-stone-400/30';
+      }
+    });
+
+    fromNullable(this.el.mobileLiteBanner).map(banner => {
+      if (profile.tier === DeviceTierEnum.MobileLite) {
+        banner.classList.remove('hidden');
+        fromNullable(this.el.mobileLiteBannerText).map(txt => {
+          txt.textContent = profile.notice;
+        });
+      } else {
+        banner.classList.add('hidden');
+      }
+    });
+  }
+
+  public update(
+    chess: Chess,
+    mode: GameMode,
+    customStatus?: string,
+    difficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced,
+    allowUndo: boolean = true
+  ): void {
     const turn = chess.turn();
+    const diffProfile = getDifficultyProfile(difficulty);
+    const modeConfig = getGameModeConfig(mode);
+
+    fromNullable(this.el.gameModeBadge).map(badge => {
+      badge.textContent = modeConfig.badge;
+    });
+
+    fromNullable(this.el.difficultyBadge).map(badge => {
+      if (mode === GameModeEnum.PassAndPlay) {
+        badge.classList.add('hidden');
+      } else {
+        badge.classList.remove('hidden');
+        badge.textContent = diffProfile.badge;
+      }
+    });
 
     if (this.el.turnDot && this.el.turnText) {
-      if (turn === 'w') {
-        this.el.turnDot.className = 'w-2.5 h-2.5 rounded-full bg-stone-100 shadow-[0_0_8px_#fff] transition-colors duration-300';
+      if (turn === PieceColorEnum.White) {
+        this.el.turnDot.className =
+          'w-2.5 h-2.5 rounded-full bg-stone-100 shadow-[0_0_8px_#fff] transition-colors duration-300';
         this.el.turnText.textContent = "White Marble's Turn";
       } else {
-        this.el.turnDot.className = 'w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_#a855f7] transition-colors duration-300';
+        this.el.turnDot.className =
+          'w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_#a855f7] transition-colors duration-300';
         this.el.turnText.textContent = fromNullable(customStatus).getOrElse(
-          match(mode, {
-            'pass-and-play': () => "Black Obsidian's Turn",
-            'minimax': () => "Minimax (2-Ply) Thinking...",
-            'micro-neural': () => "Micro-Neural AI Evaluating...",
-            'gemini-nano': () => "Gemini Nano (Local LLM) Thinking..."
+          match(mode as GameModeEnum, {
+            [GameModeEnum.PassAndPlay]: () => "Black Obsidian's Turn",
+            [GameModeEnum.Minimax]: () => `Minimax (${diffProfile.badge}) Thinking...`,
+            [GameModeEnum.MicroNeural]: () => `Neural AI (${diffProfile.badge}) Evaluating...`,
+            [GameModeEnum.GeminiNano]: () => `Gemini Nano (${diffProfile.badge}) Thinking...`
           })
         );
       }
@@ -78,12 +158,45 @@ export class UIController {
     }
 
     const history = chess.history({ verbose: true });
+
+    // Update Undo button state based on pre-game allowUndo rule & move history
+    fromNullable(this.el.btnUndo).map(btn => {
+      if (!allowUndo) {
+        btn.classList.add('opacity-45');
+        btn.setAttribute('aria-disabled', 'true');
+        btn.title = 'Undo Disabled for this Match (Ironman Rite)';
+        fromNullable(this.el.undoIcon).map(ic => {
+          ic.textContent = 'lock';
+        });
+        fromNullable(this.el.undoLabel).map(lbl => {
+          lbl.textContent = 'Locked';
+        });
+      } else {
+        btn.classList.remove('opacity-45');
+        btn.setAttribute('aria-disabled', 'false');
+        btn.title = history.length > 0 ? 'Undo Last Move' : 'No moves to undo yet';
+        fromNullable(this.el.undoIcon).map(ic => {
+          ic.textContent = 'undo';
+        });
+        fromNullable(this.el.undoLabel).map(lbl => {
+          lbl.textContent = 'Undo';
+        });
+      }
+    });
+
+    fromNullable(this.el.undoRuleStatusPill).map(pill => {
+      pill.textContent = allowUndo ? 'Undo: Allowed' : 'Undo: Locked (Ironman)';
+      pill.className = allowUndo
+        ? 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30 font-semibold'
+        : 'text-[10px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 font-semibold';
+    });
+
     const shatteredBlack: string[] = [];
     const shatteredWhite: string[] = [];
 
     history.forEach((m: Move) => {
       if (m.captured) {
-        if (m.color === 'w') {
+        if (m.color === PieceColorEnum.White) {
           shatteredBlack.push(UNICODE_PIECES.b[m.captured as PieceType]);
         } else {
           shatteredWhite.push(UNICODE_PIECES.w[m.captured as PieceType]);
@@ -112,7 +225,8 @@ export class UIController {
 
     if (this.el.moveHistoryContainer) {
       if (history.length === 0) {
-        this.el.moveHistoryContainer.innerHTML = '<div class="text-stone-500 italic text-center py-8">Select a piece on the Crossing Altar to command your forces.</div>';
+        this.el.moveHistoryContainer.innerHTML =
+          '<div class="text-stone-500 italic text-center py-8">Select a piece on the Crossing Altar to command your forces.</div>';
       } else {
         let html = '';
         for (let i = 0; i < history.length; i += 2) {
@@ -139,7 +253,7 @@ export class UIController {
     if (!this.el.gameoverModal || !this.el.gameoverTitle || !this.el.gameoverSubtitle) return;
 
     if (chess.in_checkmate()) {
-      const winner = chess.turn() === 'w' ? 'Black Obsidian' : 'White Marble';
+      const winner = chess.turn() === PieceColorEnum.White ? 'Black Obsidian' : 'White Marble';
       this.el.gameoverTitle.textContent = 'CHECKMATE';
       this.el.gameoverSubtitle.textContent = `${winner} triumphs inside the High Gothic Basilica!`;
     } else {
@@ -169,6 +283,18 @@ export class UIController {
     this.el.promotionModal.classList.remove('flex');
   }
 
+  public showPreGameModal(): void {
+    if (!this.el.pregameModal) return;
+    this.el.pregameModal.classList.remove('hidden');
+    this.el.pregameModal.classList.add('flex');
+  }
+
+  public hidePreGameModal(): void {
+    if (!this.el.pregameModal) return;
+    this.el.pregameModal.classList.add('hidden');
+    this.el.pregameModal.classList.remove('flex');
+  }
+
   public toggleDrawer(): void {
     if (!this.el.logDrawer) return;
     this.drawerOpen = !this.drawerOpen;
@@ -192,4 +318,3 @@ export class UIController {
     }, durationMs);
   }
 }
-
