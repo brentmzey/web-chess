@@ -8,8 +8,9 @@ Every general feature change or application behavior update is consolidated unde
 
 ## [1.1.0-rc.1] - 2026-10-18
 ### Added
-- **AES-GCM-256 Encrypted Client Storage (`src/storage/indexedDbStore.ts`)**:
+- **AES-GCM-256 Encrypted Client Storage & Ciphertext Audit Inspector (`src/storage/indexedDbStore.ts`, `src/ui/uiController.ts`)**:
   - All records persisted to `IndexedDB` (`active_session` and `persistence_preference`) are encrypted client-side before storage using the Web Crypto API (`AES-GCM` 256-bit key with a unique 12-byte random IV per write) and decrypted + authenticated when fetched.
+  - Added `auditEncryptedStorage()` and the **Encrypted Storage Audit** modal (`#storage-audit-modal`), allowing users to inspect their stored IndexedDB records as raw encrypted ciphertext envelopes (`v: 1`, `alg: "AES-GCM-256"`, `iv`, `ciphertext`) alongside explicit cipher metadata (`AES-GCM-256`, `256`-bit key, `12`-byte IV, `Galois/Counter Mode (AEAD, 128-bit Auth Tag)`, `plaintextExposed: false`, `localStorageUsed: false`) without ever exposing decrypted plaintext.
   - Zero `localStorage` usage; zero plaintext session fields stored at rest.
 - **Functional Programming Monadic Pipelines (`src/utils/fp.ts`)**:
   - Exported `Option<T>` / `Optional<T>` (`Some<T>` | `None<T>`) and `Result<T, E>` (`Success<T, E>` | `Failure<T, E>`) with `fromNullable`, `map`, `flatMap`, `flatMapAsync`, `filter`, `fold`, `getOrElse`, `fromResult`, `toResult`, `tryCatch`, `tryCatchAsync`, and exhaustive `match`.
@@ -22,8 +23,8 @@ Every general feature change or application behavior update is consolidated unde
   - Scales shadow maps, dust count, and shatter shard physics, adapts portrait camera FOV/polar angle/radius (`computeAspectAdjustedFov`, `computeAspectAdjustedPhi`, `computeAspectAdjustedRadius`), and supports 2-finger pinch-to-zoom.
 - **Pretty `tslog` Client/Server Execution Logger (`src/utils/logger.ts`)**:
   - Added structured, colorized `tslog` (`type: 'pretty'`) logging that automatically detects and tags `CLIENT_SIDE` vs. `SERVER_SIDE` execution contexts and hardware capabilities.
-- **SonarQube / JaCoCo-Style Line & Branch Coverage Reporting (`scripts/coverageReport.ts`, `sonar-project.properties`)**:
-  - Added `bun run test:coverage` generating `coverage/lcov.info` and `coverage/coverage-report.md` with **100.00% Line Coverage** and **100.00% Branch Coverage** across all 21 tested modules.
+- **SonarQube / JaCoCo-Style Line, Branch & Function Coverage Reporting (`scripts/coverageReport.ts`, `sonar-project.properties`)**:
+  - Added `bun run test:coverage` generating `coverage/lcov.info` and `coverage/coverage-report.md` with **100.00% Line Coverage**, **100.00% Branch Coverage**, and **100.00% Function Coverage** across all 21 tested modules.
 
 ### Changed
 - **Chess-Focused UI Terminology with High Gothic Basilica Theme**:

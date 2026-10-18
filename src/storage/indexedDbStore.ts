@@ -1,5 +1,6 @@
 import type {
   EncryptedEnvelope,
+  EncryptedStorageAuditReport,
   EncryptedStorageRecord,
   StoredSessionState
 } from '../types';
@@ -14,11 +15,16 @@ import {
   type Result
 } from '../utils/fp';
 
-const DB_NAME = 'WizardChessSessionDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'sanctuary_sessions';
+export const DB_NAME = 'WizardChessSessionDB';
+export const DB_VERSION = 1;
+export const STORE_NAME = 'sanctuary_sessions';
 export const SESSION_KEY = 'active_session';
 export const PREFERENCE_KEY = 'persistence_preference';
+export const ENCRYPTION_ALGORITHM = 'AES-GCM-256' as const;
+export const ENCRYPTION_KEY_BITS = 256 as const;
+export const ENCRYPTION_IV_BYTES = 12 as const;
+export const ENCRYPTION_CIPHER_MODE =
+  'Galois/Counter Mode (AEAD, 128-bit Auth Tag)' as const;
 
 interface PreferencePayload {
   enabled: boolean;
@@ -56,12 +62,27 @@ async function getStorageCryptoKey(): Promise<Result<CryptoKey, string>> {
       crypto.subtle.importKey(
         'raw',
         STORAGE_KEY_MATERIAL,
-        { name: 'AES-GCM', length: 256 },
+        { name: 'AES-GCM', length: ENCRYPTION_KEY_BITS },
         false,
         ['encrypt', 'decrypt']
       ),
     () => 'Web Crypto API unavailable for storage encryption'
   );
+}
+
+export function isEncryptedEnvelope(candidate: unknown): candidate is EncryptedEnvelope {
+  return fromNullable(candidate as EncryptedEnvelope | null | undefined)
+    .filter(
+      env =>
+        typeof env === 'object' &&
+        env.v === 1 &&
+        env.alg === ENCRYPTION_ALGORITHM &&
+        typeof env.iv === 'string' &&
+        env.iv.length > 0 &&
+        typeof env.ciphertext === 'string' &&
+        env.ciphertext.length > 0
+    )
+    .isSome();
 }
 
 /**
@@ -73,7 +94,7 @@ export async function encryptPayload<T>(payload: T): Promise<Result<EncryptedEnv
   return keyResult.flatMapAsync(key =>
     tryCatchAsync(
       async () => {
-        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const iv = crypto.getRandomValues(new Uint8Array(ENCRYPTION_IV_BYTES));
         const plaintextBytes = new TextEncoder().encode(JSON.stringify(payload));
         const cipherBuffer = await crypto.subtle.encrypt(
           { name: 'AES-GCM', iv },
@@ -82,7 +103,7 @@ export async function encryptPayload<T>(payload: T): Promise<Result<EncryptedEnv
         );
         return {
           v: 1 as const,
-          alg: 'AES-GCM-256' as const,
+          alg: ENCRYPTION_ALGORITHM,
           iv: bytesToBase64(iv),
           ciphertext: bytesToBase64(new Uint8Array(cipherBuffer))
         };
@@ -98,14 +119,7 @@ export async function encryptPayload<T>(payload: T): Promise<Result<EncryptedEnv
 export async function decryptPayload<T>(candidate: unknown): Promise<Result<T, string>> {
   const envelopeOpt: Option<EncryptedEnvelope> = fromNullable(
     candidate as EncryptedEnvelope | null | undefined
-  ).filter(
-    env =>
-      typeof env === 'object' &&
-      env.v === 1 &&
-      env.alg === 'AES-GCM-256' &&
-      typeof env.iv === 'string' &&
-      typeof env.ciphertext === 'string'
-  );
+  ).filter(isEncryptedEnvelope);
 
   const decodedResult = toResult(envelopeOpt, () => 'Invalid or unencrypted storage envelope').flatMap(
     env =>
@@ -305,4 +319,69 @@ export async function setPersistencePreference(
     )
   );
 }
+
+/**
+ * Generates an encrypted-only audit report of all records stored in IndexedDB.
+ * Never decrypts or exposes plaintext; returns only the raw AES-GCM-256 envelopes
+ * (v, alg, iv, ciphertext) alongside algorithm and cipher specification metadata.
+ */
+export async function auditEncryptedStorage(): Promise<
+  Result<EncryptedStorageAuditReport, string>
+> {
+  const dbResult = await openSessionDatabase();
+  return dbResult.flatMapAsync(db =>
+    readEncryptedRecord(db, PREFERENCE_KEY).then(prefRecRes =>
+      prefRecRes.flatMapAsync(prefOpt =>
+        readEncryptedRecord(db, SESSION_KEY).then(sessRecRes =>
+          sessRecRes.map(sessOpt => {
+            const records: EncryptedStorageRecord[] = [];
+            prefOpt
+              .filter(rec => isEncryptedEnvelope(rec.envelope))
+              .map(rec =>
+                records.push({
+                  id: rec.id,
+                  updatedAt: rec.updatedAt,
+                  envelope: {
+                    v: 1,
+                    alg: ENCRYPTION_ALGORITHM,
+                    iv: rec.envelope.iv,
+                    ciphertext: rec.envelope.ciphertext
+                  }
+                })
+              );
+            sessOpt
+              .filter(rec => isEncryptedEnvelope(rec.envelope))
+              .map(rec =>
+                records.push({
+                  id: rec.id,
+                  updatedAt: rec.updatedAt,
+                  envelope: {
+                    v: 1,
+                    alg: ENCRYPTION_ALGORITHM,
+                    iv: rec.envelope.iv,
+                    ciphertext: rec.envelope.ciphertext
+                  }
+                })
+              );
+
+            return {
+              database: DB_NAME,
+              objectStore: STORE_NAME,
+              algorithm: ENCRYPTION_ALGORITHM,
+              keyLengthBits: ENCRYPTION_KEY_BITS,
+              ivLengthBytes: ENCRYPTION_IV_BYTES,
+              cipherMode: ENCRYPTION_CIPHER_MODE,
+              localStorageUsed: false as const,
+              plaintextExposed: false as const,
+              auditedAt: new Date().toISOString(),
+              recordCount: records.length,
+              records
+            };
+          })
+        )
+      )
+    )
+  );
+}
+
 

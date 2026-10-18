@@ -1,17 +1,25 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
 import {
+  auditEncryptedStorage,
   base64ToBytes,
   bytesToBase64,
   clearSessionState,
+  DB_NAME,
   decryptPayload,
+  ENCRYPTION_ALGORITHM,
+  ENCRYPTION_CIPHER_MODE,
+  ENCRYPTION_IV_BYTES,
+  ENCRYPTION_KEY_BITS,
   encryptPayload,
   getPersistencePreference,
+  isEncryptedEnvelope,
   loadSavedSession,
   openSessionDatabase,
   PREFERENCE_KEY,
   saveSessionState,
   SESSION_KEY,
-  setPersistencePreference
+  setPersistencePreference,
+  STORE_NAME
 } from '../src/storage/indexedDbStore';
 import {
   DeviceTierEnum,
@@ -109,6 +117,10 @@ describe('Encrypted IndexedDB Session Persistence (AES-GCM-256, Functional Monad
 
     const env1 = enc1.getOrElse({ v: 1, alg: 'AES-GCM-256', iv: '', ciphertext: '' });
     const env2 = enc2.getOrElse({ v: 1, alg: 'AES-GCM-256', iv: '', ciphertext: '' });
+
+    expect(isEncryptedEnvelope(env1)).toBe(true);
+    expect(isEncryptedEnvelope(null)).toBe(false);
+    expect(isEncryptedEnvelope({ v: 1, alg: 'AES-GCM-256', iv: '', ciphertext: '' })).toBe(false);
 
     expect(env1.alg).toBe('AES-GCM-256');
     expect(env1.v).toBe(1);
@@ -230,6 +242,74 @@ describe('Encrypted IndexedDB Session Persistence (AES-GCM-256, Functional Monad
     expect(loaded.deviceTier).toBe(DeviceTierEnum.Desktop);
   });
 
+  it('audits stored data returning ONLY encrypted AES-GCM-256 envelopes and algorithm metadata (zero plaintext exposed)', async () => {
+    // 1. Audit empty database
+    const emptyAuditRes = await auditEncryptedStorage();
+    expect(emptyAuditRes.isSuccess()).toBe(true);
+    const emptyReport = emptyAuditRes.fold(
+      err => {
+        throw new Error(err);
+      },
+      r => r
+    );
+    expect(emptyReport.database).toBe(DB_NAME);
+    expect(emptyReport.objectStore).toBe(STORE_NAME);
+    expect(emptyReport.algorithm).toBe(ENCRYPTION_ALGORITHM);
+    expect(emptyReport.keyLengthBits).toBe(ENCRYPTION_KEY_BITS);
+    expect(emptyReport.ivLengthBytes).toBe(ENCRYPTION_IV_BYTES);
+    expect(emptyReport.cipherMode).toBe(ENCRYPTION_CIPHER_MODE);
+    expect(emptyReport.localStorageUsed).toBe(false);
+    expect(emptyReport.plaintextExposed).toBe(false);
+    expect(emptyReport.recordCount).toBe(0);
+    expect(emptyReport.records).toEqual([]);
+
+    // 2. Store preference + session state, then audit
+    await setPersistencePreference(true);
+    const secretFen = 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3';
+    await saveSessionState({
+      id: SESSION_KEY,
+      enabled: true,
+      fen: secretFen,
+      history: ['e4', 'e5', 'Nf3', 'Nc6'],
+      mode: GameModeEnum.MicroNeural,
+      difficulty: OpponentDifficultyEnum.Aggressive,
+      allowUndo: false,
+      contrast: 120,
+      brightness: 115,
+      deviceTier: DeviceTierEnum.Desktop,
+      timestamp: Date.now()
+    });
+
+    const fullAuditRes = await auditEncryptedStorage();
+    expect(fullAuditRes.isSuccess()).toBe(true);
+    const report = fullAuditRes.fold(
+      err => {
+        throw new Error(err);
+      },
+      r => r
+    );
+
+    expect(report.algorithm).toBe('AES-GCM-256');
+    expect(report.keyLengthBits).toBe(256);
+    expect(report.ivLengthBytes).toBe(12);
+    expect(report.plaintextExposed).toBe(false);
+    expect(report.localStorageUsed).toBe(false);
+    expect(report.recordCount).toBe(2);
+
+    const serializedAudit = JSON.stringify(report);
+    // Guarantee zero plaintext is present anywhere in the audit report
+    expect(serializedAudit).not.toContain(secretFen);
+    expect(serializedAudit).not.toContain('Nf3');
+    expect(serializedAudit).not.toContain('micro-neural');
+
+    for (const rec of report.records) {
+      expect(rec.envelope.v).toBe(1);
+      expect(rec.envelope.alg).toBe('AES-GCM-256');
+      expect(rec.envelope.iv.length).toBeGreaterThan(0);
+      expect(rec.envelope.ciphertext.length).toBeGreaterThan(0);
+    }
+  });
+
   it('clears session state on command', async () => {
     const mockSession: StoredSessionState = {
       id: SESSION_KEY,
@@ -316,6 +396,7 @@ describe('Encrypted IndexedDB Session Persistence (AES-GCM-256, Functional Monad
     expect((await loadSavedSession()).isNone()).toBe(true);
     expect((await saveSessionState({} as any)).isFailure()).toBe(true);
     expect((await clearSessionState()).isFailure()).toBe(true);
+    expect((await auditEncryptedStorage()).isFailure()).toBe(true);
 
     // 3. Missing indexedDB environment fallback
     (globalThis as any).indexedDB = undefined;
@@ -325,6 +406,8 @@ describe('Encrypted IndexedDB Session Persistence (AES-GCM-256, Functional Monad
     expect((await clearSessionState()).isFailure()).toBe(true);
     expect(await getPersistencePreference()).toBe(false);
     expect((await setPersistencePreference(true)).isFailure()).toBe(true);
+    expect((await auditEncryptedStorage()).isFailure()).toBe(true);
   });
 });
+
 

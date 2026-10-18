@@ -18,6 +18,7 @@ import {
   setActiveDeviceTier
 } from '../src/graphics/deviceTier';
 import {
+  auditEncryptedStorage,
   clearSessionState,
   getPersistencePreference,
   loadSavedSession,
@@ -137,6 +138,10 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
       'gameover-subtitle': new MockDOMEl(),
       'promotion-modal': new MockDOMEl(),
       'pregame-modal': new MockDOMEl(),
+      'storage-audit-modal': new MockDOMEl(),
+      'storage-audit-algo': new MockDOMEl(),
+      'storage-audit-summary': new MockDOMEl(),
+      'storage-audit-json': new MockDOMEl(),
       'btn-undo': new MockDOMEl(),
       'undo-icon': new MockDOMEl(),
       'undo-label': new MockDOMEl(),
@@ -148,7 +153,7 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     };
   });
 
-  it('Integration Flow 1: Pre-Game Strict Mode (allowUndo=false) + Aggressive Minimax + Encrypted IndexedDB Persistence & Reload', async () => {
+  it('Integration Flow 1: Pre-Game Strict Mode (allowUndo=false) + Aggressive Minimax + Encrypted IndexedDB Persistence, Audit & Reload', async () => {
     const ui = new UIController();
     const chess = new Chess();
 
@@ -187,7 +192,15 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     };
     await saveSessionState(savedState);
 
-    // 4. Simulate browser refresh: new Chess instance decrypts and restores from IndexedDB
+    // 4. User audits stored data: receives ONLY encrypted ciphertext & AES-GCM-256 algorithm metadata
+    const auditRes = await auditEncryptedStorage();
+    expect(auditRes.isSuccess()).toBe(true);
+    ui.renderStorageAudit(auditRes);
+    expect(domElements['storage-audit-algo']?.textContent).toContain('AES-GCM-256');
+    expect(domElements['storage-audit-summary']?.textContent).toContain('Plaintext Exposed: false');
+    expect(domElements['storage-audit-json']?.textContent).not.toContain(chess.fen());
+
+    // 5. Simulate browser refresh: new Chess instance decrypts and restores from IndexedDB
     const restoredChess = new Chess();
     const loadedOpt = await loadSavedSession();
     expect(loadedOpt.isSome()).toBe(true);

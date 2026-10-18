@@ -158,6 +158,20 @@ export interface EncryptedStorageRecord {
   updatedAt: number;
 }
 
+export interface EncryptedStorageAuditReport {
+  database: string;
+  objectStore: string;
+  algorithm: 'AES-GCM-256';
+  keyLengthBits: 256;
+  ivLengthBytes: 12;
+  cipherMode: 'Galois/Counter Mode (AEAD, 128-bit Auth Tag)';
+  localStorageUsed: false;
+  plaintextExposed: false;
+  auditedAt: string;
+  recordCount: number;
+  records: EncryptedStorageRecord[];
+}
+
 export interface DeviceProfileConfig {
   tier: DeviceTierEnum;
   shadowMapSize: number;
@@ -170,4 +184,5 @@ export interface DeviceProfileConfig {
   badge: string;
   notice: string;
 }
+
 
