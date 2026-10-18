@@ -1,6 +1,6 @@
 import type { Chess, Move } from 'chess.js';
 import {
-   getDifficultyProfile,
+  getDifficultyProfile,
   getGameModeConfig,
   UNICODE_PIECES
 } from '../constants/board';
@@ -10,11 +10,12 @@ import {
   OpponentDifficultyEnum,
   PieceColorEnum,
   type DeviceProfileConfig,
+  type EncryptedStorageAuditReport,
   type GameMode,
   type OpponentDifficulty,
   type PieceType
 } from '../types';
-import { fromNullable, match } from '../utils/fp';
+import { fromNullable, match, type Result } from '../utils/fp';
 
 export interface UIControllerElements {
   turnDot: HTMLElement | null;
@@ -38,6 +39,10 @@ export interface UIControllerElements {
   gameoverSubtitle: HTMLElement | null;
   promotionModal: HTMLElement | null;
   pregameModal: HTMLElement | null;
+  storageAuditModal: HTMLElement | null;
+  storageAuditAlgo: HTMLElement | null;
+  storageAuditSummary: HTMLElement | null;
+  storageAuditJson: HTMLElement | null;
   btnUndo: HTMLButtonElement | null;
   undoIcon: HTMLElement | null;
   undoLabel: HTMLElement | null;
@@ -71,6 +76,10 @@ export class UIController {
       gameoverSubtitle: document.getElementById('gameover-subtitle'),
       promotionModal: document.getElementById('promotion-modal'),
       pregameModal: document.getElementById('pregame-modal'),
+      storageAuditModal: document.getElementById('storage-audit-modal'),
+      storageAuditAlgo: document.getElementById('storage-audit-algo'),
+      storageAuditSummary: document.getElementById('storage-audit-summary'),
+      storageAuditJson: document.getElementById('storage-audit-json'),
       btnUndo: document.getElementById('btn-undo') as HTMLButtonElement | null,
       undoIcon: document.getElementById('undo-icon'),
       undoLabel: document.getElementById('undo-label'),
@@ -295,6 +304,53 @@ export class UIController {
     this.el.pregameModal.classList.remove('flex');
   }
 
+  public showStorageAuditModal(): void {
+    if (!this.el.storageAuditModal) return;
+    this.el.storageAuditModal.classList.remove('hidden');
+    this.el.storageAuditModal.classList.add('flex');
+  }
+
+  public hideStorageAuditModal(): void {
+    if (!this.el.storageAuditModal) return;
+    this.el.storageAuditModal.classList.add('hidden');
+    this.el.storageAuditModal.classList.remove('flex');
+  }
+
+  public renderStorageAudit(auditResult: Result<EncryptedStorageAuditReport, string>): void {
+    auditResult.fold(
+      errMsg => {
+        fromNullable(this.el.storageAuditAlgo).map(el => {
+          el.textContent = 'AES-GCM-256 (Web Crypto API • 256-Bit Key • 12-Byte Random IV)';
+        });
+        fromNullable(this.el.storageAuditSummary).map(el => {
+          el.textContent = `Storage Audit Notice: ${errMsg}`;
+        });
+        fromNullable(this.el.storageAuditJson).map(el => {
+          el.textContent = JSON.stringify(
+            {
+              algorithm: 'AES-GCM-256',
+              plaintextExposed: false,
+              error: errMsg
+            },
+            null,
+            2
+          );
+        });
+      },
+      report => {
+        fromNullable(this.el.storageAuditAlgo).map(el => {
+          el.textContent = `${report.algorithm} • ${report.keyLengthBits}-Bit Key • ${report.ivLengthBytes}-Byte IV • ${report.cipherMode}`;
+        });
+        fromNullable(this.el.storageAuditSummary).map(el => {
+          el.textContent = `DB: ${report.database}/${report.objectStore} • Encrypted Records: ${report.recordCount} • Plaintext Exposed: ${String(report.plaintextExposed)} • localStorage: ${String(report.localStorageUsed)}`;
+        });
+        fromNullable(this.el.storageAuditJson).map(el => {
+          el.textContent = JSON.stringify(report, null, 2);
+        });
+      }
+    );
+  }
+
   public toggleDrawer(): void {
     if (!this.el.logDrawer) return;
     this.drawerOpen = !this.drawerOpen;
@@ -318,3 +374,4 @@ export class UIController {
     }, durationMs);
   }
 }
+

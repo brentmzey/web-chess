@@ -4,9 +4,11 @@ import { DESKTOP_PROFILE, MOBILE_LITE_PROFILE } from '../src/graphics/deviceTier
 import {
   GameModeEnum,
   OpponentDifficultyEnum,
+  type EncryptedStorageAuditReport,
   type GameMode
 } from '../src/types';
 import { UIController } from '../src/ui/uiController';
+import { failure, success } from '../src/utils/fp';
 
 class MockElement {
   public className: string = '';
@@ -30,7 +32,7 @@ class MockElement {
   }
 }
 
-describe('UIController Functional State, Difficulty Badges, Undo Lock & Device Profiles', () => {
+describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage Audit & Device Profiles', () => {
   let domElements: Record<string, MockElement>;
 
   beforeEach(() => {
@@ -56,6 +58,10 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
       'gameover-subtitle': new MockElement(),
       'promotion-modal': new MockElement(),
       'pregame-modal': new MockElement(),
+      'storage-audit-modal': new MockElement(),
+      'storage-audit-algo': new MockElement(),
+      'storage-audit-summary': new MockElement(),
+      'storage-audit-json': new MockElement(),
       'btn-undo': new MockElement(),
       'undo-icon': new MockElement(),
       'undo-label': new MockElement(),
@@ -146,7 +152,7 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
     expect(domElements['turn-text']?.textContent).toBe('Gemini Nano Processing Prompt...');
   });
 
-  it('displays Check and Checkmate banners correctly', () => {
+  it('displays Check and Checkmate banners and both White & Black captured piece lists correctly', () => {
     const ui = new UIController();
     const chess = new Chess();
 
@@ -155,12 +161,13 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
     chess.move('Qh5');
     chess.move('dxe4'); // Black captures White pawn -> populates shatteredWhite
     chess.move('Bc4');
-    chess.move('Kd7');
-    chess.move('Qd5+');
+    chess.move('Nf6');
+    chess.move('Qxf7+'); // White captures Black pawn with check -> populates shatteredBlack
     expect(chess.in_check()).toBe(true);
     ui.update(chess, 'minimax');
     expect(domElements['status-banner-text']?.textContent).toBe('KING IN CHECK!');
     expect(domElements['captured-by-black']?.textContent).toBe('1');
+    expect(domElements['captured-by-white']?.textContent).toBe('1');
 
     const mateChess = new Chess();
     mateChess.move('f3');
@@ -171,7 +178,7 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
     expect(domElements['status-banner-text']?.textContent).toBe('CHECKMATE!');
   });
 
-  it('displays Game Over (checkmate & stalemate), Promotion, and Pre-Game modals correctly', () => {
+  it('displays Game Over (checkmate & stalemate), Promotion, Pre-Game, and Encrypted Storage Audit modals correctly', () => {
     const ui = new UIController();
     const chess = new Chess();
 
@@ -204,6 +211,46 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
     expect(domElements['pregame-modal']?.classList.contains('flex')).toBe(true);
     ui.hidePreGameModal();
     expect(domElements['pregame-modal']?.classList.contains('hidden')).toBe(true);
+
+    // Encrypted Storage Audit modal (Success & Failure)
+    const sampleReport: EncryptedStorageAuditReport = {
+      database: 'WizardChessSessionDB',
+      objectStore: 'sanctuary_sessions',
+      algorithm: 'AES-GCM-256',
+      keyLengthBits: 256,
+      ivLengthBytes: 12,
+      cipherMode: 'Galois/Counter Mode (AEAD, 128-bit Auth Tag)',
+      localStorageUsed: false,
+      plaintextExposed: false,
+      auditedAt: '2026-10-18T12:00:00.000Z',
+      recordCount: 1,
+      records: [
+        {
+          id: 'active_session',
+          updatedAt: 1729250000000,
+          envelope: {
+            v: 1,
+            alg: 'AES-GCM-256',
+            iv: 'YWJjZGVmZ2hpamts',
+            ciphertext: 'c2VjcmV0Y2lwaGVydGV4dA=='
+          }
+        }
+      ]
+    };
+
+    ui.renderStorageAudit(success(sampleReport));
+    expect(domElements['storage-audit-algo']?.textContent).toContain('AES-GCM-256');
+    expect(domElements['storage-audit-summary']?.textContent).toContain('Encrypted Records: 1');
+    expect(domElements['storage-audit-json']?.textContent).toContain('c2VjcmV0Y2lwaGVydGV4dA==');
+
+    ui.renderStorageAudit(failure('IndexedDB unavailable'));
+    expect(domElements['storage-audit-summary']?.textContent).toContain('IndexedDB unavailable');
+    expect(domElements['storage-audit-json']?.textContent).toContain('IndexedDB unavailable');
+
+    ui.showStorageAuditModal();
+    expect(domElements['storage-audit-modal']?.classList.contains('flex')).toBe(true);
+    ui.hideStorageAuditModal();
+    expect(domElements['storage-audit-modal']?.classList.contains('hidden')).toBe(true);
   });
 
   it('toggles Chronicle of Moves log drawer', () => {
@@ -228,3 +275,4 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock & Device P
     expect(domElements['status-banner']?.classList.contains('hidden')).toBe(true);
   });
 });
+

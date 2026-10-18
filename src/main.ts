@@ -27,6 +27,7 @@ import { initScene } from './graphics/scene';
 import { ShatterSystem } from './graphics/shatter';
 import { CameraController } from './interaction/camera';
 import {
+  auditEncryptedStorage,
   clearSessionState,
   getPersistencePreference,
   loadSavedSession,
@@ -878,6 +879,32 @@ function main(): void {
 
   drawerPersistCheckbox?.addEventListener('change', () => {
     void handlePersistenceToggle(drawerPersistCheckbox.checked);
+  });
+
+  async function openStorageAuditInspector(): Promise<void> {
+    const auditResult = await auditEncryptedStorage();
+    ui.renderStorageAudit(auditResult);
+    ui.showStorageAuditModal();
+  }
+
+  document.getElementById('btn-audit-storage')?.addEventListener('click', () => {
+    void openStorageAuditInspector();
+  });
+
+  document.getElementById('btn-drawer-audit-storage')?.addEventListener('click', () => {
+    void openStorageAuditInspector();
+  });
+
+  document.getElementById('refresh-audit-btn')?.addEventListener('click', () => {
+    void openStorageAuditInspector();
+  });
+
+  document.getElementById('close-audit-btn')?.addEventListener('click', () => {
+    ui.hideStorageAuditModal();
+  });
+
+  document.getElementById('done-audit-btn')?.addEventListener('click', () => {
+    ui.hideStorageAuditModal();
   });
 
   // Cycle Game Mode from Bottom Bar

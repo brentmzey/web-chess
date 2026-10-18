@@ -97,6 +97,7 @@ export class Some<T> {
 }
 
 export class None<T> {
+  constructor() {}
   isSome(): this is Some<T> { return false; }
   isNone(): this is None<T> { return true; }
 
