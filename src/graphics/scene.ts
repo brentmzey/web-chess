@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import type { DeviceProfileConfig } from '../types';
+import { DESKTOP_PROFILE } from './deviceTier';
 
 export interface SceneContext {
   scene: THREE.Scene;
@@ -7,17 +9,30 @@ export interface SceneContext {
   strikeFlashLight: THREE.PointLight;
   altarWarmLight: THREE.PointLight;
   boardKeyLight: THREE.PointLight;
+  hemiLight: THREE.HemisphereLight;
+  crossingSpot: THREE.SpotLight;
 }
 
-export function initScene(container: HTMLElement): SceneContext {
+export function initScene(
+  container: HTMLElement,
+  profile: DeviceProfileConfig = DESKTOP_PROFILE
+): SceneContext {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x09070e);
   scene.fog = new THREE.FogExp2(0x0b0914, 0.0135);
 
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 180);
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    180
+  );
+  const renderer = new THREE.WebGLRenderer({
+    antialias: profile.antialias,
+    powerPreference: 'high-performance'
+  });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, profile.maxPixelRatio));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -36,8 +51,8 @@ export function initScene(container: HTMLElement): SceneContext {
   crossingSpot.decay = 1.2;
   crossingSpot.distance = 85;
   crossingSpot.castShadow = true;
-  crossingSpot.shadow.mapSize.width = 2048;
-  crossingSpot.shadow.mapSize.height = 2048;
+  crossingSpot.shadow.mapSize.width = profile.shadowMapSize;
+  crossingSpot.shadow.mapSize.height = profile.shadowMapSize;
   crossingSpot.shadow.bias = -0.0005;
   scene.add(crossingSpot);
 
@@ -72,6 +87,8 @@ export function initScene(container: HTMLElement): SceneContext {
     renderer,
     strikeFlashLight,
     altarWarmLight,
-    boardKeyLight
+    boardKeyLight,
+    hemiLight,
+    crossingSpot
   };
 }

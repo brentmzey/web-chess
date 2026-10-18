@@ -1,29 +1,47 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
 import { Chess } from 'chess.js';
+import { DESKTOP_PROFILE, MOBILE_LITE_PROFILE } from '../src/graphics/deviceTier';
+import {
+  GameModeEnum,
+  OpponentDifficultyEnum,
+  type GameMode
+} from '../src/types';
 import { UIController } from '../src/ui/uiController';
-import type { GameMode } from '../src/types';
 
 class MockElement {
   public className: string = '';
   public textContent: string = '';
   public innerHTML: string = '';
+  public title: string = '';
   public scrollTop: number = 0;
   public scrollHeight: number = 100;
+  public attrs: Record<string, string> = {};
   public classList = {
     classes: new Set<string>(),
     add: (...cls: string[]) => cls.forEach(c => this.classList.classes.add(c)),
     remove: (...cls: string[]) => cls.forEach(c => this.classList.classes.delete(c)),
     contains: (c: string) => this.classList.classes.has(c)
   };
+  setAttribute(k: string, v: string) {
+    this.attrs[k] = v;
+  }
+  getAttribute(k: string) {
+    return this.attrs[k] ?? null;
+  }
 }
 
-describe('UIController Functional State and DOM Updates', () => {
+describe('UIController Functional State, Difficulty Badges, Undo Lock & Device Profiles', () => {
   let domElements: Record<string, MockElement>;
 
   beforeEach(() => {
     domElements = {
       'turn-dot': new MockElement(),
       'turn-text': new MockElement(),
+      'game-mode-badge': new MockElement(),
+      'difficulty-badge': new MockElement(),
+      'device-tier-badge': new MockElement(),
+      'mobile-lite-banner': new MockElement(),
+      'mobile-lite-banner-text': new MockElement(),
       'status-banner': new MockElement(),
       'status-banner-text': new MockElement(),
       'captured-by-white': new MockElement(),
@@ -36,7 +54,12 @@ describe('UIController Functional State and DOM Updates', () => {
       'gameover-modal': new MockElement(),
       'gameover-title': new MockElement(),
       'gameover-subtitle': new MockElement(),
-      'promotion-modal': new MockElement()
+      'promotion-modal': new MockElement(),
+      'pregame-modal': new MockElement(),
+      'btn-undo': new MockElement(),
+      'undo-icon': new MockElement(),
+      'undo-label': new MockElement(),
+      'undo-rule-status-pill': new MockElement()
     };
 
     (globalThis as any).document = {
@@ -47,29 +70,71 @@ describe('UIController Functional State and DOM Updates', () => {
   it('updates turn indicator on White turn', () => {
     const ui = new UIController();
     const chess = new Chess();
-    ui.update(chess, 'minimax');
+    ui.update(chess, GameModeEnum.Minimax);
 
     expect(domElements['turn-text']?.textContent).toBe("White Marble's Turn");
     expect(domElements['turn-dot']?.className).toContain('bg-stone-100');
   });
 
-  it('exhaustively patterns matches all 4 game modes on Black turn', () => {
+  it('exhaustively pattern matches all 4 game modes with difficulty badge on Black turn', () => {
     const ui = new UIController();
     const chess = new Chess();
     chess.move('e4'); // White moves, now Black's turn
 
     const modeExpectations: Record<GameMode, string> = {
       'pass-and-play': "Black Obsidian's Turn",
-      'minimax': 'Minimax (2-Ply) Thinking...',
-      'micro-neural': 'Micro-Neural AI Evaluating...',
-      'gemini-nano': 'Gemini Nano (Local LLM) Thinking...'
+      minimax: 'Minimax (BALANCED) Thinking...',
+      'micro-neural': 'Neural AI (BALANCED) Evaluating...',
+      'gemini-nano': 'Gemini Nano (BALANCED) Thinking...'
     };
 
-    (Object.keys(modeExpectations) as GameMode[]).forEach((mode) => {
-      ui.update(chess, mode);
+    (Object.keys(modeExpectations) as GameMode[]).forEach(mode => {
+      ui.update(chess, mode, undefined, OpponentDifficultyEnum.Balanced, true);
       expect(domElements['turn-text']?.textContent).toBe(modeExpectations[mode]);
       expect(domElements['turn-dot']?.className).toContain('bg-purple-400');
     });
+
+    ui.update(
+      chess,
+      GameModeEnum.MicroNeural,
+      undefined,
+      OpponentDifficultyEnum.Aggressive,
+      true
+    );
+    expect(domElements['turn-text']?.textContent).toBe('Neural AI (RUTHLESS) Evaluating...');
+    expect(domElements['difficulty-badge']?.textContent).toBe('RUTHLESS');
+  });
+
+  it('locks Undo button UI when allowUndo is false (Ironman Rite)', () => {
+    const ui = new UIController();
+    const chess = new Chess();
+    chess.move('e4');
+
+    ui.update(chess, GameModeEnum.Minimax, undefined, OpponentDifficultyEnum.Balanced, false);
+    expect(domElements['btn-undo']?.classList.contains('opacity-45')).toBe(true);
+    expect(domElements['btn-undo']?.getAttribute('aria-disabled')).toBe('true');
+    expect(domElements['undo-icon']?.textContent).toBe('lock');
+    expect(domElements['undo-label']?.textContent).toBe('Locked');
+    expect(domElements['undo-rule-status-pill']?.textContent).toBe('Undo: Locked (Ironman)');
+
+    ui.update(chess, GameModeEnum.Minimax, undefined, OpponentDifficultyEnum.Balanced, true);
+    expect(domElements['btn-undo']?.classList.contains('opacity-45')).toBe(false);
+    expect(domElements['btn-undo']?.getAttribute('aria-disabled')).toBe('false');
+    expect(domElements['undo-icon']?.textContent).toBe('undo');
+    expect(domElements['undo-label']?.textContent).toBe('Undo');
+    expect(domElements['undo-rule-status-pill']?.textContent).toBe('Undo: Allowed');
+  });
+
+  it('applies Mobile Lite and Desktop device profile UI notices properly', () => {
+    const ui = new UIController();
+    ui.applyDeviceProfileUI(MOBILE_LITE_PROFILE);
+    expect(domElements['device-tier-badge']?.textContent).toBe('Mobile Lite');
+    expect(domElements['mobile-lite-banner']?.classList.contains('hidden')).toBe(false);
+    expect(domElements['mobile-lite-banner-text']?.textContent).toContain('available on Desktop');
+
+    ui.applyDeviceProfileUI(DESKTOP_PROFILE);
+    expect(domElements['device-tier-badge']?.textContent).toBe('Desktop');
+    expect(domElements['mobile-lite-banner']?.classList.contains('hidden')).toBe(true);
   });
 
   it('respects custom status override over default mode label', () => {
@@ -85,32 +150,49 @@ describe('UIController Functional State and DOM Updates', () => {
     const ui = new UIController();
     const chess = new Chess();
 
-    // 1. e4 e5 2. Qh5 Ke7 3. Qxe5#
     chess.move('e4');
     chess.move('e5');
     chess.move('Qh5');
     chess.move('Ke7');
-
-    // Check
     chess.move('Qxe5+');
     expect(chess.in_check()).toBe(true);
     ui.update(chess, 'minimax');
     expect(domElements['status-banner-text']?.textContent).toBe('CHECKMATE!');
   });
 
-  it('displays Game Over modal for checkmate and stalemate', () => {
+  it('displays Game Over (checkmate & stalemate), Promotion, and Pre-Game modals correctly', () => {
     const ui = new UIController();
     const chess = new Chess();
 
     chess.move('f3');
     chess.move('e5');
     chess.move('g4');
-    chess.move('Qh4#'); // White is checkmated by Black
+    chess.move('Qh4#');
 
     ui.showGameOver(chess);
     expect(domElements['gameover-title']?.textContent).toBe('CHECKMATE');
     expect(domElements['gameover-subtitle']?.textContent).toContain('Black Obsidian triumphs');
     expect(domElements['gameover-modal']?.classList.contains('flex')).toBe(true);
+
+    ui.hideGameOver();
+    expect(domElements['gameover-modal']?.classList.contains('hidden')).toBe(true);
+
+    // Stalemate / draw GameOver branch
+    const stalemateChess = new Chess('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1');
+    ui.showGameOver(stalemateChess);
+    expect(domElements['gameover-title']?.textContent).toBe('STALEMATE / DRAW');
+
+    // Promotion modal
+    ui.showPromotionModal();
+    expect(domElements['promotion-modal']?.classList.contains('flex')).toBe(true);
+    ui.hidePromotionModal();
+    expect(domElements['promotion-modal']?.classList.contains('hidden')).toBe(true);
+
+    // Pre-Game modal
+    ui.showPreGameModal();
+    expect(domElements['pregame-modal']?.classList.contains('flex')).toBe(true);
+    ui.hidePreGameModal();
+    expect(domElements['pregame-modal']?.classList.contains('hidden')).toBe(true);
   });
 
   it('toggles Chronicle of Moves log drawer', () => {

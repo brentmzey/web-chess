@@ -28,24 +28,26 @@
     <div id="canvas-container"></div>
 
     <!-- TOP HUD: Minimalist Material Design 3 Cathedral Header & Turn Pill -->
-    <header class="fixed top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none w-[95%] max-w-2xl">
-        <div class="md3-glass px-5 py-2.5 rounded-full flex items-center justify-between gap-4 sm:gap-7 pointer-events-auto w-full sm:w-auto">
+    <header class="fixed top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 pointer-events-none w-[96%] max-w-3xl">
+        <div class="md3-glass px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full flex items-center justify-between gap-2.5 sm:gap-5 pointer-events-auto w-full sm:w-auto">
             <!-- Basilica Title & Info -->
-            <div class="flex items-center gap-2.5">
+            <div class="flex items-center gap-2">
                 <span class="material-symbols-rounded text-amber-300">church</span>
                 <div>
-                    <h1 class="font-cathedral text-xs sm:text-sm font-bold text-amber-100 tracking-wider leading-tight">SANCTA BASILICA</h1>
+                    <h1 class="font-cathedral text-[11px] sm:text-sm font-bold text-amber-100 tracking-wider leading-tight">SANCTA BASILICA</h1>
                     <p class="text-[10px] text-stone-400 hidden sm:block">WIZARD'S CHESS • CROSSING ALTAR</p>
                 </div>
             </div>
 
             <div class="h-5 w-[1px] bg-amber-500/20"></div>
 
-            <!-- Turn Status Indicator -->
-            <div class="flex items-center gap-2.5">
+            <!-- Turn Status Indicator & Active Badges -->
+            <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center">
                 <span id="turn-dot" class="w-2.5 h-2.5 rounded-full bg-stone-100 shadow-[0_0_8px_#fff] transition-colors duration-300"></span>
-                <span id="turn-text" class="text-xs sm:text-sm font-semibold tracking-wide text-stone-100">White Marble's Turn</span>
+                <span id="turn-text" class="text-[11px] sm:text-sm font-semibold tracking-wide text-stone-100">White Marble's Turn</span>
                 <span id="game-mode-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30">MINIMAX</span>
+                <span id="difficulty-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-400/15 text-purple-200 border border-purple-400/30">BALANCED</span>
+                <span id="device-tier-badge" class="hidden md:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-400/15 text-stone-300 border border-stone-400/30">Desktop</span>
             </div>
 
             <div class="h-5 w-[1px] bg-amber-500/20 hidden sm:block"></div>
@@ -63,6 +65,12 @@
             </div>
         </div>
 
+        <!-- Mobile / Underpowered Device Notice Pill -->
+        <div id="mobile-lite-banner" class="hidden md3-glass px-3.5 py-1 rounded-full border-teal-400/40 bg-teal-950/75 text-teal-100 text-[10px] sm:text-[11px] flex items-center gap-2 pointer-events-auto max-w-full">
+            <span class="material-symbols-rounded text-teal-300 text-sm">bolt</span>
+            <span id="mobile-lite-banner-text" class="truncate">Optimized for mobile & low-power GPUs. Ultra-HD 2048p soft shadows & 34-shard debris are available on Desktop.</span>
+        </div>
+
         <!-- Dynamic Liturgical Check / Checkmate Banner -->
         <div id="status-banner" class="hidden md3-glass px-5 py-1.5 rounded-full border-red-500/60 bg-red-950/80 text-red-200 text-xs font-cathedral font-bold tracking-widest uppercase shadow-[0_0_24px_rgba(239,68,68,0.5)] animate-pulse">
             <span id="status-banner-text">KING IN CHECK!</span>
@@ -70,15 +78,18 @@
     </header>
 
     <!-- SLIDE-OVER CHRONICLE OF MOVES DRAWER (Right Side) -->
-    <aside id="log-drawer" class="fixed top-20 right-4 bottom-24 w-80 max-w-[90vw] z-30 md3-glass rounded-3xl p-5 flex flex-col gap-4 transition-all duration-300 translate-x-[115%] opacity-0 pointer-events-auto">
-        <div class="flex items-center justify-between border-b border-amber-500/20 pb-3">
+    <aside id="log-drawer" class="fixed top-20 right-3 sm:right-4 bottom-20 sm:bottom-24 w-80 max-w-[92vw] z-30 md3-glass rounded-3xl p-4 sm:p-5 flex flex-col gap-3.5 transition-all duration-300 translate-x-[115%] opacity-0 pointer-events-auto">
+        <div class="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
             <div class="flex items-center gap-2">
                 <span class="material-symbols-rounded text-amber-300">history_edu</span>
                 <h2 class="font-cathedral text-sm font-bold text-amber-100">Chronicle of Moves</h2>
             </div>
-            <button id="close-drawer-btn" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Chronicle Drawer">
-                <span class="material-symbols-rounded">close</span>
-            </button>
+            <div class="flex items-center gap-2">
+                <span id="undo-rule-status-pill" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30 font-semibold">Undo: Allowed</span>
+                <button id="close-drawer-btn" class="p-1 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Chronicle Drawer">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
         </div>
 
         <!-- Shattered Relics Display -->
@@ -102,40 +113,61 @@
             <div class="text-stone-500 italic text-center py-8">Select a piece on the Crossing Altar to command your forces.</div>
         </div>
 
-        <div class="pt-2 border-t border-white/10 text-[11px] text-stone-400 flex items-center justify-between">
-            <span>Drag to Orbit • Scroll to Zoom</span>
+        <!-- Lightweight IndexedDB Session Persistence Toggle -->
+        <label for="drawer-persist-checkbox" class="flex items-start gap-2.5 p-2.5 rounded-2xl bg-amber-400/10 border border-amber-400/25 cursor-pointer hover:bg-amber-400/15 transition">
+            <input type="checkbox" id="drawer-persist-checkbox" class="mt-0.5 accent-amber-400 w-4 h-4 rounded cursor-pointer">
+            <div class="text-[11px] leading-snug">
+                <div class="font-semibold text-amber-100">Keep session running to pick up later?</div>
+                <div class="text-[10px] text-stone-400">Lightweight IndexedDB store (no localStorage)</div>
+            </div>
+        </label>
+
+        <div class="pt-1.5 border-t border-white/10 text-[11px] text-stone-400 flex items-center justify-between">
+            <span>Drag to Orbit • Pinch/Scroll Zoom</span>
             <span class="text-amber-300/90 font-medium">64-Square Crossing</span>
         </div>
     </aside>
 
     <!-- BOTTOM SINGLE-LEVEL MATERIAL DESIGN 3 NAVIGATION BAR -->
-    <nav class="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[96vw] pointer-events-auto" aria-label="Game Controls">
-        <div class="md3-glass px-3 py-2 rounded-full flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
+    <nav class="fixed bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[98vw] pointer-events-auto" aria-label="Game Controls">
+        <div class="md3-glass px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar">
+            <!-- Pre-Game / Rite Setup Modal Launcher -->
+            <button id="btn-setup" class="md3-chip active-chip" title="Configure Match Rite, Opponent Style, Aggressiveness & Undo Rule">
+                <span class="material-symbols-rounded">tune</span>
+                <span class="hidden sm:inline">Rite Setup</span>
+            </button>
+
             <!-- Game Mode Selector (Minimax, Micro-Neural AI, Gemini Nano, Pass & Play) -->
-            <button id="btn-mode" class="md3-chip active-chip" title="Cycle Game Mode (Minimax Engine, Micro-Neural AI, Gemini Nano, Pass & Play)">
+            <button id="btn-mode" class="md3-chip" title="Cycle Game Mode (Minimax Engine, Micro-Neural AI, Gemini Nano, Pass & Play)">
                 <span id="mode-icon" class="material-symbols-rounded">memory</span>
                 <span id="mode-label">Minimax Engine</span>
+            </button>
+
+            <!-- Opponent Difficulty / Aggressiveness Selector -->
+            <button id="btn-difficulty" class="md3-chip" title="Cycle Opponent Difficulty & Aggressiveness (Cautious, Balanced, Ruthless)">
+                <span id="difficulty-icon" class="material-symbols-rounded">balance</span>
+                <span id="difficulty-label" class="hidden md:inline">Balanced</span>
             </button>
 
             <!-- Camera View Cycler -->
             <button id="btn-cam-cycle" class="md3-chip" title="Cycle Basilica Camera Angles">
                 <span class="material-symbols-rounded">videocam</span>
-                <span id="cam-label">White Nave</span>
+                <span id="cam-label" class="hidden lg:inline">White Nave</span>
             </button>
 
             <!-- Dynamic Melee Action Cam Toggle -->
             <button id="btn-cinematic" class="md3-chip active-chip" title="Zoom camera in during melee captures and shatters">
                 <span class="material-symbols-rounded">movie_filter</span>
-                <span class="hidden md:inline">Action Cam</span>
+                <span class="hidden xl:inline">Action Cam</span>
             </button>
 
             <!-- Undo Last Move -->
             <button id="btn-undo" class="md3-chip" title="Undo Move">
-                <span class="material-symbols-rounded">undo</span>
-                <span class="hidden sm:inline">Undo</span>
+                <span id="undo-icon" class="material-symbols-rounded">undo</span>
+                <span id="undo-label" class="hidden sm:inline">Undo</span>
             </button>
 
-            <!-- Reset Board -->
+            <!-- Reset Board / New Rite -->
             <button id="btn-reset" class="md3-chip" title="Consecrate New Match">
                 <span class="material-symbols-rounded">restart_alt</span>
                 <span class="hidden sm:inline">New Rite</span>
@@ -146,14 +178,228 @@
                 <span id="audio-icon" class="material-symbols-rounded">volume_up</span>
             </button>
 
+            <!-- Sanctuary Contrast & Visibility Toggle -->
+            <button id="btn-contrast" class="md3-chip" title="Adjust Sanctuary Contrast & Visibility">
+                <span class="material-symbols-rounded">contrast</span>
+                <span class="hidden lg:inline">Contrast</span>
+            </button>
+
             <!-- Chronicle of Moves Drawer Button -->
             <button id="btn-drawer" class="md3-chip" title="Open Chronicle of Moves & Shattered Relics">
                 <span class="material-symbols-rounded">menu_book</span>
-                <span class="hidden lg:inline">Chronicle</span>
+                <span class="hidden xl:inline">Chronicle</span>
                 <span id="move-count-pill" class="px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-200 text-[11px] font-bold">0</span>
             </button>
         </div>
     </nav>
+
+    <!-- SANCTUARY CONTRAST & VISIBILITY PANEL -->
+    <div id="contrast-panel" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 hidden md3-glass rounded-3xl p-5 shadow-2xl border border-amber-400/30 w-[92vw] max-w-sm space-y-4 pointer-events-auto">
+        <div class="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-rounded text-amber-300">contrast</span>
+                <h3 class="font-cathedral text-xs font-bold text-amber-100 tracking-wider">Sanctuary Contrast & Clarity</h3>
+            </div>
+            <button id="close-contrast-btn" class="p-1 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Contrast Panel">
+                <span class="material-symbols-rounded text-lg">close</span>
+            </button>
+        </div>
+
+        <!-- Contrast Slider -->
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs text-stone-300">
+                <span class="flex items-center gap-1.5">
+                    <span class="material-symbols-rounded text-sm text-amber-300">tonality</span>
+                    <span>Contrast</span>
+                </span>
+                <span id="contrast-val" class="font-mono text-amber-200 font-semibold">100%</span>
+            </div>
+            <input type="range" id="contrast-slider" min="60" max="180" value="100" step="5" class="w-full accent-amber-400 cursor-pointer bg-white/10 rounded-lg h-1.5">
+        </div>
+
+        <!-- Brightness / Exposure Slider -->
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs text-stone-300">
+                <span class="flex items-center gap-1.5">
+                    <span class="material-symbols-rounded text-sm text-amber-300">brightness_medium</span>
+                    <span>Brightness / Exposure</span>
+                </span>
+                <span id="brightness-val" class="font-mono text-amber-200 font-semibold">100%</span>
+            </div>
+            <input type="range" id="brightness-slider" min="60" max="200" value="100" step="5" class="w-full accent-amber-400 cursor-pointer bg-white/10 rounded-lg h-1.5">
+        </div>
+
+        <!-- Quick Clarity Presets -->
+        <div class="grid grid-cols-3 gap-1.5 pt-1">
+            <button data-preset="default" class="contrast-preset-btn text-[11px] py-1.5 px-2 rounded-xl bg-white/5 hover:bg-amber-400/20 border border-white/10 hover:border-amber-400/40 text-stone-200 transition text-center">
+                Default
+            </button>
+            <button data-preset="high-clarity" class="contrast-preset-btn text-[11px] py-1.5 px-2 rounded-xl bg-white/5 hover:bg-amber-400/20 border border-white/10 hover:border-amber-400/40 text-stone-200 transition text-center">
+                High Clarity
+            </button>
+            <button data-preset="max-vis" class="contrast-preset-btn text-[11px] py-1.5 px-2 rounded-xl bg-white/5 hover:bg-amber-400/20 border border-white/10 hover:border-amber-400/40 text-stone-200 transition text-center">
+                Max View
+            </button>
+        </div>
+    </div>
+
+    <!-- PRE-GAME SANCTUARY RITE CONFIGURATION MODAL -->
+    <div id="pregame-modal" class="fixed inset-0 z-40 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
+        <div class="md3-glass rounded-3xl p-5 sm:p-6 max-w-lg w-full border border-amber-400/40 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
+            <!-- Header -->
+            <div class="flex items-start justify-between border-b border-amber-500/20 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-400/15 border border-amber-400/40 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-rounded text-amber-300 text-2xl">swords</span>
+                    </div>
+                    <div>
+                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100">Consecrate Sanctuary Rite</h2>
+                        <p class="text-[11px] text-stone-300">Choose your Opponent Style, Aggressiveness & Match Rules before play begins.</p>
+                    </div>
+                </div>
+                <button id="close-pregame-btn" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Setup Modal">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+
+            <!-- Device Profile Notice (Mobile Lite vs Desktop Ultra HD) -->
+            <div id="pregame-device-notice" class="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3 text-xs">
+                <div class="flex items-center gap-2">
+                    <span id="pregame-device-icon" class="material-symbols-rounded text-amber-300">desktop_windows</span>
+                    <div>
+                        <div class="font-semibold text-amber-100" id="pregame-device-label">Cathedral Ultra HD (Desktop)</div>
+                        <div class="text-[10px] text-stone-400" id="pregame-device-desc">Full 2048p soft shadows & 34-shard debris active.</div>
+                    </div>
+                </div>
+                <span id="pregame-device-pill" class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/40 shrink-0">Desktop</span>
+            </div>
+
+            <!-- 1. Select Style of Play (Opponent Engine) -->
+            <div class="space-y-2">
+                <label class="text-xs font-cathedral font-bold text-amber-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <span class="material-symbols-rounded text-sm">psychology</span>
+                    <span>1. Opponent Style of Play</span>
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="pregame-mode-grid">
+                    <button type="button" data-mode-select="minimax" class="mode-select-card text-left p-3 rounded-2xl bg-white/5 hover:bg-amber-400/15 border border-amber-400/60 transition flex flex-col gap-1">
+                        <div class="flex items-center justify-between">
+                            <span class="flex items-center gap-1.5 font-semibold text-xs text-amber-100">
+                                <span class="material-symbols-rounded text-base text-amber-300">memory</span>
+                                Minimax Engine
+                            </span>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-200">MINIMAX</span>
+                        </div>
+                        <p class="text-[10px] text-stone-400 leading-relaxed">Algorithmic game-tree search with material & center heuristics.</p>
+                    </button>
+
+                    <button type="button" data-mode-select="micro-neural" class="mode-select-card text-left p-3 rounded-2xl bg-white/5 hover:bg-amber-400/15 border border-white/10 transition flex flex-col gap-1">
+                        <div class="flex items-center justify-between">
+                            <span class="flex items-center gap-1.5 font-semibold text-xs text-amber-100">
+                                <span class="material-symbols-rounded text-base text-purple-300">psychology</span>
+                                Micro-Neural AI
+                            </span>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-400/20 text-purple-200">NEURAL</span>
+                        </div>
+                        <p class="text-[10px] text-stone-400 leading-relaxed">Embedded 791→32→16→1 neural network position evaluator.</p>
+                    </button>
+
+                    <button type="button" id="card-gemini-nano" data-mode-select="gemini-nano" class="mode-select-card text-left p-3 rounded-2xl bg-white/5 hover:bg-amber-400/15 border border-white/10 transition flex flex-col gap-1">
+                        <div class="flex items-center justify-between">
+                            <span class="flex items-center gap-1.5 font-semibold text-xs text-amber-100">
+                                <span class="material-symbols-rounded text-base text-teal-300">auto_awesome</span>
+                                Gemini Nano
+                            </span>
+                            <span id="gemini-card-badge" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-teal-400/20 text-teal-200">LOCAL LLM</span>
+                        </div>
+                        <p id="gemini-card-desc" class="text-[10px] text-stone-400 leading-relaxed">On-device LLM via Desktop Chrome Prompt API (window.ai).</p>
+                    </button>
+
+                    <button type="button" data-mode-select="pass-and-play" class="mode-select-card text-left p-3 rounded-2xl bg-white/5 hover:bg-amber-400/15 border border-white/10 transition flex flex-col gap-1">
+                        <div class="flex items-center justify-between">
+                            <span class="flex items-center gap-1.5 font-semibold text-xs text-amber-100">
+                                <span class="material-symbols-rounded text-base text-stone-300">group</span>
+                                Pass & Play
+                            </span>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-stone-300">2P DUEL</span>
+                        </div>
+                        <p class="text-[10px] text-stone-400 leading-relaxed">Two human players alternating turns on this device.</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. Select Opponent Difficulty & Aggressiveness -->
+            <div class="space-y-2" id="pregame-difficulty-section">
+                <label class="text-xs font-cathedral font-bold text-amber-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <span class="material-symbols-rounded text-sm">local_fire_department</span>
+                    <span>2. Opponent Difficulty & Aggressiveness</span>
+                </label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" data-diff-select="cautious" class="diff-select-btn p-2.5 rounded-2xl bg-white/5 hover:bg-amber-400/15 border border-white/10 transition flex flex-col items-center gap-1 text-center">
+                        <span class="material-symbols-rounded text-emerald-300 text-lg">shield</span>
+                        <span class="text-xs font-semibold text-stone-100">Cautious</span>
+                        <span class="text-[10px] text-stone-400">Novice • Lv 1</span>
+                    </button>
+
+                    <button type="button" data-diff-select="balanced" class="diff-select-btn p-2.5 rounded-2xl bg-white/5 hover:bg-amber-400/15 border border-amber-400/60 transition flex flex-col items-center gap-1 text-center">
+                        <span class="material-symbols-rounded text-amber-300 text-lg">balance</span>
+                        <span class="text-xs font-semibold text-amber-100">Balanced</span>
+                        <span class="text-[10px] text-stone-400">Tactician • Lv 2</span>
+                    </button>
+
+                    <button type="button" data-diff-select="aggressive" class="diff-select-btn p-2.5 rounded-2xl bg-white/5 hover:bg-amber-400/15 border border-white/10 transition flex flex-col items-center gap-1 text-center">
+                        <span class="material-symbols-rounded text-red-400 text-lg">local_fire_department</span>
+                        <span class="text-xs font-semibold text-stone-100">Ruthless</span>
+                        <span class="text-[10px] text-stone-400">Inquisitor • Lv 3</span>
+                    </button>
+                </div>
+                <div id="pregame-difficulty-desc" class="text-[11px] text-purple-200/90 bg-purple-950/35 border border-purple-400/20 rounded-xl px-3 py-2">
+                    2-Ply Tactician: Full 2-ply Minimax lookahead balancing material value and Crossing Altar center control.
+                </div>
+            </div>
+
+            <!-- 3. Pre-Game Rules & Lightweight Session Persistence -->
+            <div class="space-y-2">
+                <label class="text-xs font-cathedral font-bold text-amber-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <span class="material-symbols-rounded text-sm">gavel</span>
+                    <span>3. Sanctuary Rite Rules & Session State</span>
+                </label>
+
+                <!-- Allow Undo Before Game Starts -->
+                <label for="allow-undo-checkbox" class="flex items-start gap-3 p-3 rounded-2xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition">
+                    <input type="checkbox" id="allow-undo-checkbox" checked class="mt-0.5 accent-amber-400 w-4 h-4 rounded cursor-pointer">
+                    <div class="text-xs leading-snug flex-1">
+                        <div class="font-semibold text-amber-100 flex items-center justify-between">
+                            <span>Allow Move Undo during this Rite</span>
+                            <span id="allow-undo-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-bold">ALLOWED</span>
+                        </div>
+                        <div class="text-[11px] text-stone-400 mt-0.5">Set before the match starts. Uncheck for an Ironman Rite (locks Undo once the first move is played; saved in state).</div>
+                        <div id="undo-locked-inprogress-note" class="hidden text-[10px] text-amber-300 mt-1 font-medium">Match in progress: click "Consecrate New Rite" below to apply a new Undo rule.</div>
+                    </div>
+                </label>
+
+                <!-- Lightweight IndexedDB Persistence Checkbox -->
+                <label for="persist-session-checkbox" class="flex items-start gap-3 p-3 rounded-2xl bg-amber-400/10 border border-amber-400/25 cursor-pointer hover:bg-amber-400/15 transition">
+                    <input type="checkbox" id="persist-session-checkbox" class="mt-0.5 accent-amber-400 w-4 h-4 rounded cursor-pointer">
+                    <div class="text-xs leading-snug flex-1">
+                        <div class="font-semibold text-amber-100">Do you want to keep your session running to pick up later?</div>
+                        <div class="text-[11px] text-stone-400 mt-0.5">Persists board moves, opponent style, difficulty, and undo rule in a lightweight IndexedDB store (zero localStorage).</div>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
+                <button type="button" id="resume-rite-btn" class="md3-chip px-4 py-2 text-xs">
+                    <span class="material-symbols-rounded">play_arrow</span>
+                    <span id="resume-rite-label">Enter Sanctuary</span>
+                </button>
+                <button type="button" id="start-rite-btn" class="md3-chip active-chip px-5 py-2 text-xs font-semibold">
+                    <span class="material-symbols-rounded">auto_fix_high</span>
+                    <span>Consecrate New Rite</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- PAWN PROMOTION MODAL (Liturgical Consecration) -->
     <div id="promotion-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/75 backdrop-blur-md p-4">

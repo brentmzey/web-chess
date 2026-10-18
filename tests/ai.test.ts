@@ -1,25 +1,30 @@
 import { describe, expect, it } from 'bun:test';
 import { Chess } from 'chess.js';
-import { computeMinimaxMove, computeBestWizardAIMove, evaluateBoard } from '../src/engine/ai';
+import { computeBestWizardAIMove, computeMinimaxMove, evaluateBoard } from '../src/engine/ai';
+import { OpponentDifficultyEnum } from '../src/types';
 
-describe('Minimax Engine and Board Evaluation', () => {
-  it('evaluates starting board position as symmetrical / near 0', () => {
+describe('Minimax Engine and Board Evaluation with Difficulty Profiles', () => {
+  it('evaluates starting board position as symmetrical / near 0 across all difficulties', () => {
     const game = new Chess();
-    const score = evaluateBoard(game);
-    expect(score).toBe(0);
+    expect(evaluateBoard(game, OpponentDifficultyEnum.Cautious)).toBe(0);
+    expect(evaluateBoard(game, OpponentDifficultyEnum.Balanced)).toBe(0);
+    expect(evaluateBoard(game, OpponentDifficultyEnum.Aggressive)).toBe(0);
   });
 
-  it('rewards center control and developed pieces', () => {
+  it('rewards center control and forward aggression proportionally to difficulty', () => {
     const game = new Chess();
-    // 1. e4
     game.move('e4');
-    const scoreWhiteAhead = evaluateBoard(game);
-    expect(scoreWhiteAhead).toBeGreaterThan(0);
+    const scoreCautious = evaluateBoard(game, OpponentDifficultyEnum.Cautious);
+    const scoreBalanced = evaluateBoard(game, OpponentDifficultyEnum.Balanced);
+    const scoreAggressive = evaluateBoard(game, OpponentDifficultyEnum.Aggressive);
+
+    expect(scoreCautious).toBeGreaterThan(0);
+    expect(scoreBalanced).toBeGreaterThan(scoreCautious);
+    expect(scoreAggressive).toBeGreaterThan(scoreBalanced);
   });
 
   it('detects checkmate as extreme score', () => {
     const game = new Chess();
-    // Scholar's mate: 1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7#
     game.move('e4');
     game.move('e5');
     game.move('Bc4');
@@ -29,38 +34,42 @@ describe('Minimax Engine and Board Evaluation', () => {
     game.move('Qxf7#');
 
     expect(game.in_checkmate()).toBe(true);
-    // Black is in checkmate, turn is 'b', score should be 99999 for White
     expect(evaluateBoard(game)).toBe(99999);
   });
 
-  it('computes a valid legal AI move for Black', () => {
-    const game = new Chess();
-    game.move('e4');
-    const aiMove = computeMinimaxMove(game);
-    expect(aiMove).not.toBeNull();
-    expect(aiMove?.color).toBe('b');
+  it('computes a valid legal AI move for Black across Cautious, Balanced, and Aggressive levels', () => {
+    const difficulties = [
+      OpponentDifficultyEnum.Cautious,
+      OpponentDifficultyEnum.Balanced,
+      OpponentDifficultyEnum.Aggressive
+    ];
 
-    // Ensure the move is legally executable
-    const result = game.move(aiMove!);
-    expect(result).not.toBeNull();
-    expect(game.turn()).toBe('w');
+    for (const diff of difficulties) {
+      const game = new Chess();
+      game.move('e4');
+      const aiMove = computeMinimaxMove(game, diff);
+      expect(aiMove).not.toBeNull();
+      expect(aiMove?.color).toBe('b');
 
-    // Test backward-compatible alias produces valid move
-    const aliasMove = computeBestWizardAIMove(game);
-    expect(aliasMove).not.toBeNull();
+      const result = game.move(aiMove!);
+      expect(result).not.toBeNull();
+      expect(game.turn()).toBe('w');
+    }
+
+    const gameAlias = new Chess();
+    gameAlias.move('d4');
+    expect(computeBestWizardAIMove(gameAlias)).not.toBeNull();
   });
 
   it('finds defensive move when in check', () => {
     const game = new Chess();
-    // 1. e4 f5 2. Qh5+
     game.move('e4');
     game.move('f5');
     game.move('Qh5+');
     expect(game.in_check()).toBe(true);
 
-    const aiMove = computeBestWizardAIMove(game);
+    const aiMove = computeBestWizardAIMove(game, OpponentDifficultyEnum.Aggressive);
     expect(aiMove).not.toBeNull();
-    // Black must block or escape (e.g. g6)
     game.move(aiMove!);
     expect(game.in_check()).toBe(false);
   });

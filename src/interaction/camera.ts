@@ -9,6 +9,19 @@ export const CAMERA_PRESETS: CameraPreset[] = [
   { name: 'Choir Side View', theta: Math.PI / 2, phi: 1.02, radius: 25.0, target: new THREE.Vector3(0, 1.0, 0) }
 ];
 
+/**
+ * Computes an aspect-ratio-adjusted camera distance so narrow portrait mobile screens
+ * (aspect < 1.0) keep all 64 squares (a1..h8) framed without horizontal clipping.
+ */
+export function computeAspectAdjustedRadius(baseRadius: number, aspect: number): number {
+  if (!Number.isFinite(aspect) || aspect >= 1.0) {
+    return baseRadius;
+  }
+  const safeAspect = Math.max(0.42, aspect);
+  const portraitMultiplier = Math.min(1.55, Math.max(1.0, 0.92 / safeAspect));
+  return baseRadius * portraitMultiplier;
+}
+
 export class CameraController {
   public camState: CameraState = {
     theta: 0,
@@ -38,9 +51,19 @@ export class CameraController {
   }
 
   public update(cameraShakeIntensity: number): void {
-    const desiredX = this.camState.target.x + this.camState.radius * Math.sin(this.camState.phi) * Math.sin(this.camState.theta);
-    const desiredY = this.camState.target.y + this.camState.radius * Math.cos(this.camState.phi);
-    const desiredZ = this.camState.target.z + this.camState.radius * Math.sin(this.camState.phi) * Math.cos(this.camState.theta);
+    const effectiveRadius = computeAspectAdjustedRadius(
+      this.camState.radius,
+      this.camera.aspect || 1.0
+    );
+
+    const desiredX =
+      this.camState.target.x +
+      effectiveRadius * Math.sin(this.camState.phi) * Math.sin(this.camState.theta);
+    const desiredY =
+      this.camState.target.y + effectiveRadius * Math.cos(this.camState.phi);
+    const desiredZ =
+      this.camState.target.z +
+      effectiveRadius * Math.sin(this.camState.phi) * Math.cos(this.camState.theta);
 
     this.currentCamPos.lerp(new THREE.Vector3(desiredX, desiredY, desiredZ), 0.09);
     this.currentLookAt.lerp(this.camState.target, 0.1);

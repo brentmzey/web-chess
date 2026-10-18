@@ -52,6 +52,7 @@ declare module 'chess.js' {
     insufficient_material(): boolean;
     game_over(): boolean;
     fen(): string;
+    load(fen: string): boolean;
     get(square: Square | string): Piece | null;
     reset(): void;
   }

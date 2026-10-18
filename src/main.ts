@@ -1,29 +1,77 @@
 import * as THREE from 'three';
 import { Chess, type Move } from 'chess.js';
 import { CathedralSoundEngine } from './audio/CathedralSoundEngine';
+import {
+  DIFFICULTY_PROFILES,
+  GAME_MODES,
+  getDifficultyProfile,
+  getGameModeConfig
+} from './constants/board';
 import { computeMinimaxMove } from './engine/ai';
-import { computeMicroNeuralAIMove } from './engine/neuralAI';
-import { checkGeminiNanoStatus, computeGeminiNanoAIMove } from './engine/geminiNanoAI';
 import { indicesToSquare, squareToWorld } from './engine/coordinates';
+import { checkGeminiNanoStatus, computeGeminiNanoAIMove } from './engine/geminiNanoAI';
+import { computeMicroNeuralAIMove } from './engine/neuralAI';
 import { buildChessboardGrid, updateBoardHighlights } from './graphics/board';
 import { buildGothicCathedral } from './graphics/cathedral';
+import { initDeviceTier } from './graphics/deviceTier';
+import {
+  applyDisplaySettings,
+  DISPLAY_PRESETS,
+  getDisplaySettings,
+  setDisplaySettings
+} from './graphics/displaySettings';
 import { buildDustParticles } from './graphics/dust';
 import { createMaterials } from './graphics/materials';
 import { buildWizardPieceMesh } from './graphics/pieces';
 import { initScene } from './graphics/scene';
 import { ShatterSystem } from './graphics/shatter';
 import { CameraController } from './interaction/camera';
+import {
+  clearSessionState,
+  getPersistencePreference,
+  loadSavedSession,
+  saveSessionState,
+  SESSION_KEY,
+  setPersistencePreference
+} from './storage/indexedDbStore';
+import {
+  DeviceTierEnum,
+  GameModeEnum,
+  OpponentDifficultyEnum,
+  PieceColorEnum,
+  type GameMode,
+  type OpponentDifficulty,
+  type PieceColor,
+  type PieceMeshGroup,
+  type PieceType,
+  type SavedCamState
+} from './types';
 import { UIController } from './ui/uiController';
-import type { GameMode, GameModeConfig, PieceColor, PieceMeshGroup, PieceType, SavedCamState } from './types';
 import { fromNullable, match } from './utils/fp';
+import { logExecutionContext, logger } from './utils/logger';
 
 // Entry point initialization
 function main(): void {
   const container = document.getElementById('canvas-container');
   if (!container) throw new Error('Canvas container (#canvas-container) not found in DOM');
 
-  // 1. Scene, Renderer, Lights
-  const { scene, camera, renderer, strikeFlashLight, altarWarmLight } = initScene(container);
+  // 0. Detect Device Tier (Desktop Ultra HD vs Mobile Sanctuary Lite) & Log Execution Side
+  const deviceProfile = initDeviceTier();
+  logExecutionContext('SanctuaryMain', {
+    tier: deviceProfile.tier,
+    profile: deviceProfile.label
+  });
+
+  // 1. Scene, Renderer, Lights (configured for active DeviceProfileConfig)
+  const {
+    scene,
+    camera,
+    renderer,
+    strikeFlashLight,
+    altarWarmLight,
+    boardKeyLight,
+    hemiLight
+  } = initScene(container, deviceProfile);
 
   // 2. Audio & Materials
   const soundFX = new CathedralSoundEngine();
@@ -35,55 +83,56 @@ function main(): void {
   // 4. 64-Square Board Grid
   const { squareMeshes, highlightGroup } = buildChessboardGrid(scene, materials);
 
-  // 5. Shatter Physics System & Ambient Dust
-  const shatterSystem = new ShatterSystem(scene, materials, soundFX, strikeFlashLight);
-  const { updateDust } = buildDustParticles(scene);
+  // 5. Shatter Physics System & Ambient Dust (scaled to device tier)
+  const shatterSystem = new ShatterSystem(
+    scene,
+    materials,
+    soundFX,
+    strikeFlashLight,
+    deviceProfile
+  );
+  const { updateDust } = buildDustParticles(scene, deviceProfile.dustCount);
 
   // 6. Camera & UI Controllers
   const camController = new CameraController(camera);
   const ui = new UIController();
+  ui.applyDeviceProfileUI(deviceProfile);
 
-  // 7. Chess State
+  // 7. Chess & Match Configuration State
   const chess = new Chess();
   const pieceMap: Record<string, PieceMeshGroup> = {};
 
   let selectedSquare: string | null = null;
   let legalMovesForSelected: Move[] = [];
-  const GAME_MODES: GameModeConfig[] = [
-    {
-      id: 'minimax',
-      label: 'Minimax Engine',
-      badge: 'MINIMAX',
-      icon: 'memory',
-      description: 'Classical 2-ply algorithmic search with capture-ordering heuristic'
-    },
-    {
-      id: 'micro-neural',
-      label: 'Micro-Neural AI',
-      badge: 'NEURAL AI',
-      icon: 'psychology',
-      description: 'Embedded zero-dependency neural network evaluator'
-    },
-    {
-      id: 'gemini-nano',
-      label: 'Gemini Nano (Local)',
-      badge: 'NANO AI',
-      icon: 'auto_awesome',
-      description: 'On-device LLM via Chrome Canary Prompt API'
-    },
-    {
-      id: 'pass-and-play',
-      label: 'Pass & Play',
-      badge: '2P DUEL',
-      icon: 'group',
-      description: 'Two players alternating turns on this device'
-    }
-  ];
-
   let isAnimating = false;
-  let currentMode: GameMode = 'minimax';
+  let currentMode: GameMode = GameModeEnum.Minimax;
+  let currentDifficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced;
+  let allowUndo = true;
+  let pendingAllowUndo = true;
+  let persistenceEnabled = false;
   let useActionCam = true;
   let pendingPromotionMove: { from: string; to: string } | null = null;
+
+  // Display settings (in-memory + persisted in IndexedDB when session persistence is enabled)
+  const displaySettings = getDisplaySettings();
+  applyDisplaySettings(displaySettings, renderer, hemiLight, boardKeyLight, container);
+
+  async function persistCurrentSession(): Promise<void> {
+    if (!persistenceEnabled) return;
+    await saveSessionState({
+      id: SESSION_KEY,
+      enabled: true,
+      fen: chess.fen(),
+      history: chess.history(),
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      allowUndo,
+      contrast: displaySettings.contrast,
+      brightness: displaySettings.brightness,
+      deviceTier: deviceProfile.tier,
+      timestamp: Date.now()
+    });
+  }
 
   function syncBoardPiecesWithChessState(): void {
     Object.keys(pieceMap).forEach(sq => {
@@ -127,6 +176,136 @@ function main(): void {
     );
   }
 
+  function syncAllControlsUI(): void {
+    const modeCfg = getGameModeConfig(currentMode);
+    const diffCfg = getDifficultyProfile(currentDifficulty);
+    const inProgress = chess.history().length > 0;
+
+    // Bottom bar mode & difficulty chips
+    fromNullable(document.getElementById('mode-label')).map(el => {
+      el.textContent = modeCfg.label;
+    });
+    fromNullable(document.getElementById('mode-icon')).map(el => {
+      el.textContent = modeCfg.icon;
+    });
+    fromNullable(document.getElementById('btn-mode')).map(btn => {
+      btn.title = `${modeCfg.label}: ${modeCfg.description} (Click to cycle)`;
+    });
+
+    fromNullable(document.getElementById('difficulty-label')).map(el => {
+      el.textContent =
+        currentMode === GameModeEnum.PassAndPlay ? '2P Human' : diffCfg.badge;
+    });
+    fromNullable(document.getElementById('difficulty-icon')).map(el => {
+      el.textContent =
+        currentMode === GameModeEnum.PassAndPlay ? 'group' : diffCfg.icon;
+    });
+    fromNullable(document.getElementById('btn-difficulty')).map(btn => {
+      if (currentMode === GameModeEnum.PassAndPlay) {
+        btn.classList.add('opacity-50');
+        btn.title = 'Pass & Play mode: Both sides controlled by humans';
+      } else {
+        btn.classList.remove('opacity-50');
+        btn.title = `Opponent Difficulty: ${diffCfg.label} (Click to cycle)`;
+      }
+    });
+
+    // Pre-Game Modal Device Tier Notice
+    fromNullable(document.getElementById('pregame-device-icon')).map(el => {
+      el.textContent =
+        deviceProfile.tier === DeviceTierEnum.MobileLite ? 'smartphone' : 'desktop_windows';
+    });
+    fromNullable(document.getElementById('pregame-device-label')).map(el => {
+      el.textContent = deviceProfile.label;
+    });
+    fromNullable(document.getElementById('pregame-device-desc')).map(el => {
+      el.textContent = deviceProfile.notice;
+    });
+    fromNullable(document.getElementById('pregame-device-pill')).map(el => {
+      el.textContent = deviceProfile.badge;
+    });
+
+    // Strip / disable heavy desktop-only Gemini Nano card on Mobile Lite
+    fromNullable(document.getElementById('card-gemini-nano') as HTMLButtonElement | null).map(
+      card => {
+        if (deviceProfile.tier === DeviceTierEnum.MobileLite) {
+          card.classList.add('opacity-50');
+          card.setAttribute('data-desktop-only', 'true');
+          fromNullable(document.getElementById('gemini-card-badge')).map(b => {
+            b.textContent = 'DESKTOP ONLY';
+            b.className =
+              'text-[9px] font-bold px-1.5 py-0.5 rounded bg-stone-500/30 text-stone-300';
+          });
+          fromNullable(document.getElementById('gemini-card-desc')).map(d => {
+            d.textContent =
+              'Requires Desktop Chrome Canary with on-device window.ai. Stripped on Mobile Lite.';
+          });
+        }
+      }
+    );
+
+    // Pre-game mode selection cards highlight
+    document.querySelectorAll('.mode-select-card').forEach(card => {
+      const cardMode = card.getAttribute('data-mode-select');
+      const isSelected = cardMode === currentMode;
+      card.classList.toggle('border-amber-400/70', isSelected);
+      card.classList.toggle('bg-amber-400/15', isSelected);
+      card.classList.toggle('border-white/10', !isSelected);
+    });
+
+    // Pre-game difficulty buttons highlight & tailored description
+    document.querySelectorAll('.diff-select-btn').forEach(btn => {
+      const btnDiff = btn.getAttribute('data-diff-select');
+      const isSelected = btnDiff === currentDifficulty;
+      btn.classList.toggle('border-amber-400/70', isSelected);
+      btn.classList.toggle('bg-amber-400/15', isSelected);
+      btn.classList.toggle('border-white/10', !isSelected);
+    });
+
+    fromNullable(document.getElementById('pregame-difficulty-section')).map(sec => {
+      sec.classList.toggle('opacity-55', currentMode === GameModeEnum.PassAndPlay);
+    });
+
+    fromNullable(document.getElementById('pregame-difficulty-desc')).map(descEl => {
+      descEl.textContent = diffCfg.styleDescriptions[currentMode as GameModeEnum];
+    });
+
+    // Pre-game Allow Undo checkbox & badge
+    const allowUndoCheckbox = document.getElementById(
+      'allow-undo-checkbox'
+    ) as HTMLInputElement | null;
+    if (allowUndoCheckbox) {
+      allowUndoCheckbox.checked = inProgress ? pendingAllowUndo : allowUndo;
+    }
+    fromNullable(document.getElementById('allow-undo-badge')).map(badge => {
+      const activeVal = inProgress ? pendingAllowUndo : allowUndo;
+      badge.textContent = activeVal ? 'ALLOWED' : 'IRONMAN (NO UNDO)';
+      badge.className = activeVal
+        ? 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-bold'
+        : 'text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-bold';
+    });
+    fromNullable(document.getElementById('undo-locked-inprogress-note')).map(note => {
+      note.classList.toggle('hidden', !inProgress);
+    });
+
+    // Persistence checkboxes (Pre-game modal + Chronicle drawer)
+    const pregamePersist = document.getElementById(
+      'persist-session-checkbox'
+    ) as HTMLInputElement | null;
+    const drawerPersist = document.getElementById(
+      'drawer-persist-checkbox'
+    ) as HTMLInputElement | null;
+    if (pregamePersist) pregamePersist.checked = persistenceEnabled;
+    if (drawerPersist) drawerPersist.checked = persistenceEnabled;
+
+    // Resume / Enter Sanctuary button label
+    fromNullable(document.getElementById('resume-rite-label')).map(lbl => {
+      lbl.textContent = inProgress ? 'Resume Active Rite' : 'Enter Sanctuary';
+    });
+
+    ui.update(chess, currentMode, undefined, currentDifficulty, allowUndo);
+  }
+
   function finishMoveState(
     moveObj: Move,
     attacker: PieceMeshGroup,
@@ -139,7 +318,7 @@ function main(): void {
 
     // Castling Rook Movement
     if (moveObj.flags.includes('k') || moveObj.flags.includes('q')) {
-      const rank = moveObj.color === 'w' ? '1' : '8';
+      const rank = moveObj.color === PieceColorEnum.White ? '1' : '8';
       const rookFrom = moveObj.flags.includes('k') ? 'h' + rank : 'a' + rank;
       const rookTo = moveObj.flags.includes('k') ? 'f' + rank : 'd' + rank;
       const rookMesh = pieceMap[rookFrom];
@@ -175,7 +354,8 @@ function main(): void {
     }
 
     isAnimating = false;
-    ui.update(chess, currentMode);
+    syncAllControlsUI();
+    void persistCurrentSession();
     if (onComplete) onComplete();
   }
 
@@ -195,7 +375,7 @@ function main(): void {
 
     let victimSquare = moveObj.to;
     if (moveObj.flags.includes('e')) {
-      const epRank = moveObj.color === 'w' ? '5' : '4';
+      const epRank = moveObj.color === PieceColorEnum.White ? '5' : '4';
       victimSquare = moveObj.to[0] + epRank;
     }
     const victim = isCapture ? pieceMap[victimSquare] : null;
@@ -226,25 +406,24 @@ function main(): void {
         const p = Math.min(1, (now - t0) / duration);
         const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
 
-        attacker.position.lerpVectors(startPos, endPos, ease);
+        attacker!.position.lerpVectors(startPos, endPos, ease);
         if (isKnight) {
-          attacker.position.y = Math.sin(p * Math.PI) * 2.85;
-          attacker.rotation.x = Math.sin(p * Math.PI * 2) * 0.25;
+          attacker!.position.y = Math.sin(p * Math.PI) * 2.85;
+          attacker!.rotation.x = Math.sin(p * Math.PI * 2) * 0.25;
         } else {
-          attacker.position.y = Math.sin(p * Math.PI) * 0.18;
+          attacker!.position.y = Math.sin(p * Math.PI) * 0.18;
         }
 
         if (p < 1) {
           requestAnimationFrame(stepQuiet);
         } else {
-          attacker.position.copy(endPos);
-          attacker.rotation.x = 0;
-          attacker.rotation.y = attacker.userData.baseRotY;
-          finishMoveState(moveObj, attacker, savedCamState, onComplete);
+          attacker!.position.copy(endPos);
+          attacker!.rotation.x = 0;
+          attacker!.rotation.y = attacker!.userData.baseRotY;
+          finishMoveState(moveObj, attacker!, savedCamState, onComplete);
         }
       }
       requestAnimationFrame(stepQuiet);
-
     } else {
       const stopPos = endPos.clone().addScaledVector(dirNorm, -Math.min(1.65, moveDist * 0.45));
       const duration = 980;
@@ -254,22 +433,22 @@ function main(): void {
 
       function stepCombat(now: number): void {
         const p = Math.min(1, (now - t0) / duration);
-        const weaponGroup = attacker.userData.weaponGroup;
+        const weaponGroup = attacker!.userData.weaponGroup;
 
         if (p < 0.48) {
           const subP = p / 0.48;
           const ease = 1 - Math.pow(1 - subP, 2);
-          attacker.position.lerpVectors(startPos, stopPos, ease);
+          attacker!.position.lerpVectors(startPos, stopPos, ease);
           if (isKnight) {
-            attacker.position.y = Math.sin(subP * Math.PI) * 2.1;
+            attacker!.position.y = Math.sin(subP * Math.PI) * 2.1;
           }
         } else if (p < 0.68) {
-          const subP = (p - 0.48) / 0.20;
-          attacker.rotation.x = -subP * 0.28;
+          const subP = (p - 0.48) / 0.2;
+          attacker!.rotation.x = -subP * 0.28;
           if (weaponGroup) weaponGroup.rotation.x = -subP * 1.15;
-        } else if (p < 0.80) {
+        } else if (p < 0.8) {
           const subP = (p - 0.68) / 0.12;
-          attacker.rotation.x = -0.28 + subP * 0.54;
+          attacker!.rotation.x = -0.28 + subP * 0.54;
           if (weaponGroup) weaponGroup.rotation.x = -1.15 + subP * 2.38;
           if (!hasShattered && subP >= 0.45) {
             hasShattered = true;
@@ -279,22 +458,22 @@ function main(): void {
             }
           }
         } else {
-          const subP = (p - 0.80) / 0.20;
-          attacker.position.lerpVectors(stopPos, endPos, subP);
-          attacker.rotation.x = (1 - subP) * 0.26;
+          const subP = (p - 0.8) / 0.2;
+          attacker!.position.lerpVectors(stopPos, endPos, subP);
+          attacker!.rotation.x = (1 - subP) * 0.26;
           if (weaponGroup) weaponGroup.rotation.x = (1 - subP) * 1.23;
         }
 
         if (p < 1) {
           requestAnimationFrame(stepCombat);
         } else {
-          attacker.position.copy(endPos);
-          attacker.rotation.x = 0;
-          attacker.rotation.y = attacker.userData.baseRotY;
-          if (attacker.userData.weaponGroup) {
-            attacker.userData.weaponGroup.rotation.set(0, 0, 0);
+          attacker!.position.copy(endPos);
+          attacker!.rotation.x = 0;
+          attacker!.rotation.y = attacker!.userData.baseRotY;
+          if (attacker!.userData.weaponGroup) {
+            attacker!.userData.weaponGroup.rotation.set(0, 0, 0);
           }
-          finishMoveState(moveObj, attacker, savedCamState, onComplete);
+          finishMoveState(moveObj, attacker!, savedCamState, onComplete);
         }
       }
       requestAnimationFrame(stepCombat);
@@ -308,17 +487,32 @@ function main(): void {
       return;
     }
 
-    if (currentMode !== 'pass-and-play' && chess.turn() === 'b' && !isAnimating) {
+    if (
+      currentMode !== GameModeEnum.PassAndPlay &&
+      chess.turn() === PieceColorEnum.Black &&
+      !isAnimating
+    ) {
       setTimeout(async () => {
-        const aiMove = await match(currentMode, {
-          'pass-and-play': async () => null,
-          'minimax': async () => computeMinimaxMove(chess),
-          'micro-neural': async () => computeMicroNeuralAIMove(chess),
-          'gemini-nano': async () => {
-            ui.update(chess, currentMode, 'Gemini Nano (Local LLM) Thinking...');
-            const result = await computeGeminiNanoAIMove(chess, (statusText) => {
-              ui.showTemporaryBanner(statusText, 3200);
-            });
+        const aiMove = await match(currentMode as GameModeEnum, {
+          [GameModeEnum.PassAndPlay]: async () => null,
+          [GameModeEnum.Minimax]: async () => computeMinimaxMove(chess, currentDifficulty),
+          [GameModeEnum.MicroNeural]: async () =>
+            computeMicroNeuralAIMove(chess, currentDifficulty),
+          [GameModeEnum.GeminiNano]: async () => {
+            ui.update(
+              chess,
+              currentMode,
+              `Gemini Nano (${currentDifficulty.toUpperCase()}) Thinking...`,
+              currentDifficulty,
+              allowUndo
+            );
+            const result = await computeGeminiNanoAIMove(
+              chess,
+              statusText => {
+                ui.showTemporaryBanner(statusText, 3200);
+              },
+              currentDifficulty
+            );
             return result.move;
           }
         });
@@ -335,7 +529,7 @@ function main(): void {
               if (chess.game_over()) {
                 ui.showGameOver(chess);
               } else {
-                ui.update(chess, currentMode);
+                syncAllControlsUI();
               }
             });
           });
@@ -343,7 +537,11 @@ function main(): void {
     }
   }
 
-  function executeMoveOnBoard(moveAttempt: { from: string; to: string; promotion?: string }): void {
+  function executeMoveOnBoard(moveAttempt: {
+    from: string;
+    to: string;
+    promotion?: string;
+  }): void {
     const executed = chess.move(moveAttempt);
     if (!executed) return;
 
@@ -357,34 +555,64 @@ function main(): void {
     });
   }
 
-  // Pointer Interaction & Raycasting
+  // Pointer & Multi-Touch Interaction (Orbit + Mobile Pinch-to-Zoom + Tap to Select)
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let isDragging = false;
   let dragStartPos = { x: 0, y: 0 };
   let prevPointer = { x: 0, y: 0 };
+  const activeTouches = new Map<number, { x: number; y: number }>();
+  let lastPinchDist: number | null = null;
 
   const canvasEl = renderer.domElement;
 
   canvasEl.addEventListener('pointerdown', (e: PointerEvent) => {
-    isDragging = true;
-    dragStartPos = { x: e.clientX, y: e.clientY };
-    prevPointer = { x: e.clientX, y: e.clientY };
+    activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activeTouches.size === 1) {
+      isDragging = true;
+      dragStartPos = { x: e.clientX, y: e.clientY };
+      prevPointer = { x: e.clientX, y: e.clientY };
+    } else if (activeTouches.size === 2) {
+      isDragging = false;
+      const pts = Array.from(activeTouches.values());
+      lastPinchDist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+    }
   });
 
   window.addEventListener('pointermove', (e: PointerEvent) => {
+    if (activeTouches.has(e.pointerId)) {
+      activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (activeTouches.size === 2) {
+      const pts = Array.from(activeTouches.values());
+      const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+      if (lastPinchDist !== null) {
+        const delta = lastPinchDist - dist;
+        camController.camState.radius = Math.max(
+          12,
+          Math.min(44, camController.camState.radius + delta * 0.06)
+        );
+      }
+      lastPinchDist = dist;
+      return;
+    }
+
     if (!isDragging) return;
     const dx = e.clientX - prevPointer.x;
     const dy = e.clientY - prevPointer.y;
     prevPointer = { x: e.clientX, y: e.clientY };
 
     camController.camState.theta -= dx * 0.0065;
-    camController.camState.phi = Math.max(0.18, Math.min(1.42, camController.camState.phi - dy * 0.0055));
+    camController.camState.phi = Math.max(
+      0.18,
+      Math.min(1.42, camController.camState.phi - dy * 0.0055)
+    );
   });
 
   function handleBoardClick(clientX: number, clientY: number): void {
     if (isAnimating || chess.game_over()) return;
-    if (currentMode !== 'pass-and-play' && chess.turn() === 'b') return;
+    if (currentMode !== GameModeEnum.PassAndPlay && chess.turn() === PieceColorEnum.Black) return;
 
     pointer.x = (clientX / window.innerWidth) * 2 - 1;
     pointer.y = -(clientY / window.innerHeight) * 2 + 1;
@@ -431,46 +659,220 @@ function main(): void {
   }
 
   window.addEventListener('pointerup', (e: PointerEvent) => {
+    activeTouches.delete(e.pointerId);
+    if (activeTouches.size < 2) {
+      lastPinchDist = null;
+    }
     if (!isDragging) return;
     isDragging = false;
     const dist = Math.hypot(e.clientX - dragStartPos.x, e.clientY - dragStartPos.y);
-    if (dist < 6) {
+    if (dist < 8) {
       handleBoardClick(e.clientX, e.clientY);
     }
   });
 
-  canvasEl.addEventListener('wheel', (e: WheelEvent) => {
-    e.preventDefault();
-    camController.camState.radius = Math.max(12, Math.min(44, camController.camState.radius + e.deltaY * 0.018));
-  }, { passive: false });
+  window.addEventListener('pointercancel', (e: PointerEvent) => {
+    activeTouches.delete(e.pointerId);
+    lastPinchDist = null;
+    isDragging = false;
+  });
 
-  // UI Event Listeners
-  const btnMode = document.getElementById('btn-mode');
-  const modeLabel = document.getElementById('mode-label');
-  const modeIcon = document.getElementById('mode-icon');
-  const gameModeBadge = document.getElementById('game-mode-badge');
+  canvasEl.addEventListener(
+    'wheel',
+    (e: WheelEvent) => {
+      e.preventDefault();
+      camController.camState.radius = Math.max(
+        12,
+        Math.min(44, camController.camState.radius + e.deltaY * 0.018)
+      );
+    },
+    { passive: false }
+  );
 
-  btnMode?.addEventListener('click', async () => {
-    const currentIndex = GAME_MODES.findIndex(m => m.id === currentMode);
-    const nextConfig = GAME_MODES[(currentIndex + 1) % GAME_MODES.length]!;
-    currentMode = nextConfig.id;
+  // Mode Selection Logic
+  async function selectGameMode(nextMode: GameModeEnum): Promise<void> {
+    if (
+      nextMode === GameModeEnum.GeminiNano &&
+      deviceProfile.tier === DeviceTierEnum.MobileLite
+    ) {
+      ui.showTemporaryBanner(
+        'Gemini Nano Local LLM requires Desktop Chrome. Available on Desktop!',
+        3500
+      );
+      return;
+    }
 
-    if (modeLabel) modeLabel.textContent = nextConfig.label;
-    if (modeIcon) modeIcon.textContent = nextConfig.icon;
-    if (gameModeBadge) gameModeBadge.textContent = nextConfig.badge;
-    btnMode.title = `${nextConfig.label}: ${nextConfig.description} (Click to cycle)`;
+    currentMode = nextMode;
+    logger.info('Opponent style selected', {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      tier: deviceProfile.tier
+    });
 
-    if (currentMode === 'gemini-nano') {
+    if (currentMode === GameModeEnum.GeminiNano) {
       const nanoStatus = await checkGeminiNanoStatus();
       if (!nanoStatus.available) {
-        ui.showTemporaryBanner('Chrome Canary with window.ai needed. Auto-fallback to Neural AI.', 3500);
+        ui.showTemporaryBanner(
+          'Chrome Canary with window.ai needed. Auto-fallback to Neural AI.',
+          3500
+        );
       } else {
         ui.showTemporaryBanner('Gemini Nano On-Device AI Active', 2500);
       }
     }
 
-    ui.update(chess, currentMode);
+    syncAllControlsUI();
+    void persistCurrentSession();
     triggerTurnOrAI();
+  }
+
+  // Difficulty Selection Logic
+  function selectDifficulty(nextDiff: OpponentDifficultyEnum): void {
+    currentDifficulty = nextDiff;
+    const diffCfg = getDifficultyProfile(currentDifficulty);
+    logger.info('Opponent difficulty/aggressiveness updated', {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      aggressiveness: diffCfg.aggressiveness
+    });
+    soundFX.playSelect();
+    syncAllControlsUI();
+    void persistCurrentSession();
+    if (currentMode !== GameModeEnum.PassAndPlay) {
+      ui.showTemporaryBanner(
+        `Opponent set to ${diffCfg.label} (${diffCfg.badge})`,
+        2200
+      );
+    }
+  }
+
+  // Bottom Bar Event Listeners
+  document.getElementById('btn-setup')?.addEventListener('click', () => {
+    pendingAllowUndo = allowUndo;
+    syncAllControlsUI();
+    ui.showPreGameModal();
+  });
+
+  document.getElementById('close-pregame-btn')?.addEventListener('click', () => {
+    ui.hidePreGameModal();
+  });
+
+  document.getElementById('resume-rite-btn')?.addEventListener('click', () => {
+    if (chess.history().length === 0) {
+      allowUndo = pendingAllowUndo;
+    }
+    syncAllControlsUI();
+    void persistCurrentSession();
+    ui.hidePreGameModal();
+    triggerTurnOrAI();
+  });
+
+  function startNewConsecratedRite(): void {
+    chess.reset();
+    allowUndo = pendingAllowUndo;
+    logger.info('Consecrated new Sanctuary Rite', {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      allowUndo,
+      persistenceEnabled,
+      deviceTier: deviceProfile.tier
+    });
+    selectedSquare = null;
+    legalMovesForSelected = [];
+    syncBoardPiecesWithChessState();
+    updateHighlights();
+    syncAllControlsUI();
+    ui.hideGameOver();
+    ui.hidePreGameModal();
+    soundFX.playSelect();
+    void persistCurrentSession();
+  }
+
+  document.getElementById('start-rite-btn')?.addEventListener('click', startNewConsecratedRite);
+
+  // Pre-Game Modal Mode Cards
+  document.querySelectorAll('.mode-select-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const modeAttr = card.getAttribute('data-mode-select') as GameModeEnum | null;
+      if (modeAttr) {
+        soundFX.playSelect();
+        void selectGameMode(modeAttr);
+      }
+    });
+  });
+
+  // Pre-Game Modal Difficulty Buttons
+  document.querySelectorAll('.diff-select-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const diffAttr = btn.getAttribute('data-diff-select') as OpponentDifficultyEnum | null;
+      if (diffAttr) {
+        selectDifficulty(diffAttr);
+      }
+    });
+  });
+
+  // Pre-Game Allow Undo Checkbox
+  const allowUndoCheckbox = document.getElementById(
+    'allow-undo-checkbox'
+  ) as HTMLInputElement | null;
+  allowUndoCheckbox?.addEventListener('change', () => {
+    pendingAllowUndo = allowUndoCheckbox.checked;
+    // If the game hasn't started yet (0 moves), apply immediately
+    if (chess.history().length === 0) {
+      allowUndo = pendingAllowUndo;
+      void persistCurrentSession();
+    }
+    syncAllControlsUI();
+  });
+
+  // IndexedDB Session Persistence Toggle Handler
+  async function handlePersistenceToggle(enabled: boolean): Promise<void> {
+    persistenceEnabled = enabled;
+    await setPersistencePreference(enabled);
+    if (enabled) {
+      await persistCurrentSession();
+      ui.showTemporaryBanner('Session persistence active in IndexedDB', 2400);
+    } else {
+      await clearSessionState();
+      ui.showTemporaryBanner('IndexedDB session state cleared', 2400);
+    }
+    syncAllControlsUI();
+  }
+
+  const pregamePersistCheckbox = document.getElementById(
+    'persist-session-checkbox'
+  ) as HTMLInputElement | null;
+  const drawerPersistCheckbox = document.getElementById(
+    'drawer-persist-checkbox'
+  ) as HTMLInputElement | null;
+
+  pregamePersistCheckbox?.addEventListener('change', () => {
+    void handlePersistenceToggle(pregamePersistCheckbox.checked);
+  });
+
+  drawerPersistCheckbox?.addEventListener('change', () => {
+    void handlePersistenceToggle(drawerPersistCheckbox.checked);
+  });
+
+  // Cycle Game Mode from Bottom Bar
+  document.getElementById('btn-mode')?.addEventListener('click', async () => {
+    const availableModes = GAME_MODES.filter(
+      m => !(deviceProfile.tier === DeviceTierEnum.MobileLite && m.desktopOnly)
+    );
+    const currentIndex = availableModes.findIndex(m => m.id === currentMode);
+    const nextConfig = availableModes[(currentIndex + 1) % availableModes.length]!;
+    await selectGameMode(nextConfig.id);
+  });
+
+  // Cycle Difficulty from Bottom Bar
+  document.getElementById('btn-difficulty')?.addEventListener('click', () => {
+    if (currentMode === GameModeEnum.PassAndPlay) {
+      ui.showTemporaryBanner('Pass & Play: Two human players duel directly', 2200);
+      return;
+    }
+    const idx = DIFFICULTY_PROFILES.findIndex(d => d.id === currentDifficulty);
+    const nextDiff = DIFFICULTY_PROFILES[(idx + 1) % DIFFICULTY_PROFILES.length]!;
+    selectDifficulty(nextDiff.id);
   });
 
   const btnCamCycle = document.getElementById('btn-cam-cycle');
@@ -481,49 +883,121 @@ function main(): void {
   });
 
   const btnCinematic = document.getElementById('btn-cinematic');
-  btnCinematic?.addEventListener('click', (e) => {
+  btnCinematic?.addEventListener('click', e => {
     useActionCam = !useActionCam;
     (e.currentTarget as HTMLElement).classList.toggle('active-chip', useActionCam);
   });
 
+  // Undo Last Move (respects Pre-Game allowUndo rule)
   const btnUndo = document.getElementById('btn-undo');
   btnUndo?.addEventListener('click', () => {
+    if (!allowUndo) {
+      ui.showTemporaryBanner('Ironman Rite: Undo was disallowed before this match began!', 2800);
+      return;
+    }
     if (isAnimating || chess.history().length === 0) return;
     chess.undo();
-    if (currentMode !== 'pass-and-play' && chess.turn() === 'b' && chess.history().length > 0) {
+    if (
+      currentMode !== GameModeEnum.PassAndPlay &&
+      chess.turn() === PieceColorEnum.Black &&
+      chess.history().length > 0
+    ) {
       chess.undo();
     }
     selectedSquare = null;
     legalMovesForSelected = [];
     syncBoardPiecesWithChessState();
     updateHighlights();
-    ui.update(chess, currentMode);
+    syncAllControlsUI();
     soundFX.playSelect();
+    void persistCurrentSession();
   });
 
-  function resetGame(): void {
-    chess.reset();
-    selectedSquare = null;
-    legalMovesForSelected = [];
-    syncBoardPiecesWithChessState();
-    updateHighlights();
-    ui.update(chess, currentMode);
-    ui.hideGameOver();
-    soundFX.playSelect();
-  }
+  // New Rite button opens the Pre-Game Setup modal so user can configure Undo & Difficulty before starting
+  document.getElementById('btn-reset')?.addEventListener('click', () => {
+    pendingAllowUndo = allowUndo;
+    syncAllControlsUI();
+    ui.showPreGameModal();
+  });
 
-  document.getElementById('btn-reset')?.addEventListener('click', resetGame);
-  document.getElementById('modal-new-game')?.addEventListener('click', resetGame);
+  document.getElementById('modal-new-game')?.addEventListener('click', () => {
+    ui.hideGameOver();
+    pendingAllowUndo = allowUndo;
+    syncAllControlsUI();
+    ui.showPreGameModal();
+  });
+
   document.getElementById('modal-inspect')?.addEventListener('click', () => {
     ui.hideGameOver();
   });
 
   const btnAudio = document.getElementById('btn-audio');
   const audioIcon = document.getElementById('audio-icon');
-  btnAudio?.addEventListener('click', (e) => {
+  btnAudio?.addEventListener('click', e => {
     soundFX.enabled = !soundFX.enabled;
     if (audioIcon) audioIcon.textContent = soundFX.enabled ? 'volume_up' : 'volume_off';
     (e.currentTarget as HTMLElement).classList.toggle('active-chip', soundFX.enabled);
+  });
+
+  // Sanctuary Contrast & Visibility Controls
+  const btnContrast = document.getElementById('btn-contrast');
+  const contrastPanel = document.getElementById('contrast-panel');
+  const closeContrastBtn = document.getElementById('close-contrast-btn');
+  const contrastSlider = document.getElementById('contrast-slider') as HTMLInputElement | null;
+  const brightnessSlider = document.getElementById('brightness-slider') as HTMLInputElement | null;
+  const contrastVal = document.getElementById('contrast-val');
+  const brightnessVal = document.getElementById('brightness-val');
+
+  function syncDisplayInputs(): void {
+    const activeDisp = getDisplaySettings();
+    if (contrastSlider) contrastSlider.value = String(activeDisp.contrast);
+    if (brightnessSlider) brightnessSlider.value = String(activeDisp.brightness);
+    if (contrastVal) contrastVal.textContent = `${activeDisp.contrast}%`;
+    if (brightnessVal) brightnessVal.textContent = `${activeDisp.brightness}%`;
+  }
+  syncDisplayInputs();
+
+  function updateDisplay(): void {
+    applyDisplaySettings(displaySettings, renderer, hemiLight, boardKeyLight, container);
+    syncDisplayInputs();
+    void persistCurrentSession();
+  }
+
+  btnContrast?.addEventListener('click', e => {
+    if (!contrastPanel) return;
+    const isHidden = contrastPanel.classList.contains('hidden');
+    contrastPanel.classList.toggle('hidden', !isHidden);
+    (e.currentTarget as HTMLElement).classList.toggle('active-chip', isHidden);
+  });
+
+  closeContrastBtn?.addEventListener('click', () => {
+    contrastPanel?.classList.add('hidden');
+    btnContrast?.classList.remove('active-chip');
+  });
+
+  contrastSlider?.addEventListener('input', () => {
+    displaySettings.contrast = parseInt(contrastSlider.value, 10);
+    setDisplaySettings(displaySettings);
+    updateDisplay();
+  });
+
+  brightnessSlider?.addEventListener('input', () => {
+    displaySettings.brightness = parseInt(brightnessSlider.value, 10);
+    setDisplaySettings(displaySettings);
+    updateDisplay();
+  });
+
+  document.querySelectorAll('.contrast-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const presetKey = btn.getAttribute('data-preset');
+      const preset = presetKey ? DISPLAY_PRESETS[presetKey] : null;
+      if (preset) {
+        displaySettings.contrast = preset.contrast;
+        displaySettings.brightness = preset.brightness;
+        setDisplaySettings(displaySettings);
+        updateDisplay();
+      }
+    });
   });
 
   document.getElementById('btn-drawer')?.addEventListener('click', () => ui.toggleDrawer());
@@ -544,9 +1018,67 @@ function main(): void {
     });
   });
 
-  // Initial Sync
+  // Restore Saved Session from IndexedDB if Persistence Preference is Enabled
+  async function restoreSessionIfEnabled(): Promise<void> {
+    const pref = await getPersistencePreference();
+    persistenceEnabled = pref;
+
+    if (pref) {
+      const savedOpt = await loadSavedSession();
+      savedOpt.map(saved => {
+        // Restore Mode (strip desktop-only GeminiNano if on MobileLite)
+        if (
+          saved.mode === GameModeEnum.GeminiNano &&
+          deviceProfile.tier === DeviceTierEnum.MobileLite
+        ) {
+          currentMode = GameModeEnum.MicroNeural;
+        } else {
+          currentMode = saved.mode || GameModeEnum.Minimax;
+        }
+
+        currentDifficulty = saved.difficulty || OpponentDifficultyEnum.Balanced;
+        allowUndo = saved.allowUndo ?? true;
+        pendingAllowUndo = allowUndo;
+
+        // Restore Display Contrast & Brightness
+        if (typeof saved.contrast === 'number' && typeof saved.brightness === 'number') {
+          displaySettings.contrast = saved.contrast;
+          displaySettings.brightness = saved.brightness;
+          applyDisplaySettings(displaySettings, renderer, hemiLight, boardKeyLight, container);
+          syncDisplayInputs();
+        }
+
+        // Replay move history so full algebraic chronicle & captured pieces restore
+        chess.reset();
+        if (Array.isArray(saved.history) && saved.history.length > 0) {
+          for (const san of saved.history) {
+            const moved = chess.move(san);
+            if (!moved) {
+              chess.load(saved.fen);
+              break;
+            }
+          }
+          // Hide Pre-Game setup modal automatically when resuming an active match
+          ui.hidePreGameModal();
+          ui.showTemporaryBanner('Sanctuary Session Restored from IndexedDB', 2800);
+        } else if (saved.fen) {
+          chess.load(saved.fen);
+        }
+      });
+    }
+
+    syncBoardPiecesWithChessState();
+    updateHighlights();
+    syncAllControlsUI();
+    if (chess.history().length > 0) {
+      triggerTurnOrAI();
+    }
+  }
+
+  // Initial Sync & IndexedDB Restore
   syncBoardPiecesWithChessState();
-  ui.update(chess, currentMode);
+  syncAllControlsUI();
+  void restoreSessionIfEnabled();
 
   // Main Render Animation Loop
   const clock = new THREE.Clock();
@@ -583,7 +1115,10 @@ function main(): void {
 
     // 4. Flickering Altar Candlesticks
     candleFlames.forEach(cf => {
-      const flicker = 0.88 + Math.sin(elapsed * 14 + cf.phase) * 0.14 + Math.cos(elapsed * 23 + cf.phase) * 0.08;
+      const flicker =
+        0.88 +
+        Math.sin(elapsed * 14 + cf.phase) * 0.14 +
+        Math.cos(elapsed * 23 + cf.phase) * 0.08;
       cf.mesh.scale.set(1, flicker, 1);
       cf.mesh.position.y = cf.baseY + (flicker - 1) * 0.05;
     });
