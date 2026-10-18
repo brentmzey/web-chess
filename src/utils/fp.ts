@@ -6,6 +6,9 @@
  * - Safe monadic constructors (fromNullable, tryCatch, tryCatchAsync)
  */
 
+const toError = (errOrMsg: unknown): Error =>
+  errOrMsg instanceof Error ? errOrMsg : new Error(String(errOrMsg));
+
 export type Result<T, E = Error> = Success<T, E> | Failure<T, E>;
 
 export class Success<T, E> {
@@ -29,8 +32,16 @@ export class Success<T, E> {
     return this.value;
   }
 
+  getOrThrow(_errorOrMessage?: Error | string | ((err: E) => Error | string)): T {
+    return this.value;
+  }
+
   fold<U>(_onFailure: (err: E) => U, onSuccess: (val: T) => U): U {
     return onSuccess(this.value);
+  }
+
+  match<U>(branches: { Ok: (val: T) => U; Err: (err: E) => U }): U {
+    return branches.Ok(this.value);
   }
 }
 
@@ -55,8 +66,21 @@ export class Failure<T, E> {
     return defaultVal;
   }
 
+  getOrThrow(errorOrMessage?: Error | string | ((err: E) => Error | string)): T {
+    if (errorOrMessage !== undefined) {
+      const resolved =
+        typeof errorOrMessage === 'function' ? errorOrMessage(this.error) : errorOrMessage;
+      throw toError(resolved);
+    }
+    throw toError(this.error);
+  }
+
   fold<U>(onFailure: (err: E) => U, _onSuccess: (val: T) => U): U {
     return onFailure(this.error);
+  }
+
+  match<U>(branches: { Ok: (val: T) => U; Err: (err: E) => U }): U {
+    return branches.Err(this.error);
   }
 }
 
@@ -87,12 +111,20 @@ export class Some<T> {
     return this.value;
   }
 
+  getOrThrow(_errorOrMessage?: Error | string | (() => Error | string)): T {
+    return this.value;
+  }
+
   filter(predicate: (val: T) => boolean): Optional<T> {
     return predicate(this.value) ? this : new None<T>();
   }
 
   fold<U>(_onNone: () => U, onSome: (val: T) => U): U {
     return onSome(this.value);
+  }
+
+  match<U>(branches: { Some: (val: T) => U; None: () => U }): U {
+    return branches.Some(this.value);
   }
 }
 
@@ -117,12 +149,23 @@ export class None<T> {
     return defaultVal;
   }
 
+  getOrThrow(
+    errorOrMessage: Error | string | (() => Error | string) = 'Expected Some(value), found None'
+  ): T {
+    const resolved = typeof errorOrMessage === 'function' ? errorOrMessage() : errorOrMessage;
+    throw toError(resolved);
+  }
+
   filter(_predicate: (val: T) => boolean): Optional<T> {
     return new None<T>();
   }
 
   fold<U>(onNone: () => U, _onSome: (val: T) => U): U {
     return onNone();
+  }
+
+  match<U>(branches: { Some: (val: T) => U; None: () => U }): U {
+    return branches.None();
   }
 }
 
@@ -148,6 +191,15 @@ export const match = <K extends string | number, R>(
   const handler = branches[target];
   return handler();
 };
+
+/**
+ * Rust / Scala-like exhaustive pattern matching for boolean conditions.
+ */
+export const matchBool = <R>(
+  condition: boolean,
+  branches: { true: () => R; false: () => R }
+): R => (condition ? branches.true() : branches.false());
+
 
 /**
  * Evaluates a synchronous function into a Result monad.

@@ -5,7 +5,9 @@ import {
   GAME_MODES,
   getDifficultyProfile,
   getGameModeConfig,
+  getSettingsActionButtonLabel,
   haveMatchSettingsChanged,
+  resolveSettingsApplyAction,
   shouldResetBoardOnSettingsApply,
   type MatchSettingsSnapshot
 } from '../src/constants/board';
@@ -33,6 +35,7 @@ import {
   DeviceTierEnum,
   GameModeEnum,
   OpponentDifficultyEnum,
+  SettingsApplyActionEnum,
   type StoredSessionState
 } from '../src/types';
 import { UIController } from '../src/ui/uiController';
@@ -183,6 +186,23 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     const activeSnapshot: MatchSettingsSnapshot = { mode, difficulty, allowUndo };
     expect(haveMatchSettingsChanged(activeSnapshot, { ...activeSnapshot })).toBe(false);
     expect(
+      resolveSettingsApplyAction(
+        chess.history().length > 0,
+        activeSnapshot,
+        { ...activeSnapshot },
+        false
+      )
+    ).toBe(SettingsApplyActionEnum.KeepActiveGame);
+    expect(getSettingsActionButtonLabel(SettingsApplyActionEnum.KeepActiveGame)).toBe(
+      'Keep Current Game'
+    );
+    expect(getSettingsActionButtonLabel(SettingsApplyActionEnum.ApplyAndReset)).toBe(
+      'Apply & Start New Game'
+    );
+    expect(getSettingsActionButtonLabel(SettingsApplyActionEnum.StartNewGame)).toBe(
+      'Start New Game'
+    );
+    expect(
       shouldResetBoardOnSettingsApply(
         chess.history().length > 0,
         activeSnapshot,
@@ -191,6 +211,14 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
       )
     ).toBe(false);
     // Changing mode, difficulty, or allowUndo (or forcing New Game or pre-game) returns true
+    expect(
+      resolveSettingsApplyAction(
+        true,
+        activeSnapshot,
+        { ...activeSnapshot, mode: GameModeEnum.MicroNeural },
+        false
+      )
+    ).toBe(SettingsApplyActionEnum.ApplyAndReset);
     expect(
       shouldResetBoardOnSettingsApply(
         true,
@@ -216,11 +244,18 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
       )
     ).toBe(true);
     expect(
+      resolveSettingsApplyAction(true, activeSnapshot, { ...activeSnapshot }, true)
+    ).toBe(SettingsApplyActionEnum.StartNewGame);
+    expect(
       shouldResetBoardOnSettingsApply(true, activeSnapshot, { ...activeSnapshot }, true)
     ).toBe(true);
     expect(
+      resolveSettingsApplyAction(false, activeSnapshot, { ...activeSnapshot }, false)
+    ).toBe(SettingsApplyActionEnum.StartNewGame);
+    expect(
       shouldResetBoardOnSettingsApply(false, activeSnapshot, { ...activeSnapshot }, false)
     ).toBe(true);
+
 
     // 3. Encrypt and persist state to IndexedDB
     const savedState: StoredSessionState = {

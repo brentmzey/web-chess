@@ -29,9 +29,10 @@ We exclusively use **Bun** as our runtime, package manager, and test runner.
 
 ## 📐 Core Engineering Paradigms
 
-1. **Functional Programming Paradigms ([`src/utils/fp.ts`](file:///Users/brentzey/personal/web-chess/src/utils/fp.ts))**:
-   - Always program using functional paradigms (`Option<T>` / `Optional<T>`, `Result<T, E>`, `fromNullable`, `map`, `flatMap`, `flatMapAsync`, `filter`, `fold`, `getOrElse`, `tryCatch`, `tryCatchAsync`, and exhaustive `match`).
-   - Avoid imperative null-branching (`if (x !== null && x !== undefined)`) or raw `try/catch` blocks when transforming nullable values, DOM elements, or asynchronous I/O.
+1. **Functional Programming Paradigms & Rust/Scala Pattern Matching ([`src/utils/fp.ts`](file:///Users/brentzey/personal/web-chess/src/utils/fp.ts))**:
+   - Always program using functional paradigms (`Option<T>` / `Optional<T>`, `Result<T, E>`, `fromNullable`, `map`, `flatMap`, `flatMapAsync`, `filter`, `fold`, `getOrElse`, `getOrThrow`, `tryCatch`, `tryCatchAsync`) and exhaustive Rust/Scala-style pattern matching (`match`, `matchBool`, `opt.match({ Some, None })`, `res.match({ Ok, Err })`).
+   - Avoid imperative null-branching (`if (x !== null && x !== undefined)`), nested `if/else` ladders, or raw `try/catch` blocks when transforming nullable values, DOM elements, or asynchronous I/O. Use `fromNullable(...).getOrElse(...)` when a fallback is sensible, or `fromNullable(...).getOrThrow(...)` when a missing reference violates a required invariant.
+
 2. **Encrypted Client Storage ([`src/storage/indexedDbStore.ts`](file:///Users/brentzey/personal/web-chess/src/storage/indexedDbStore.ts))**:
    - All client persistence uses **IndexedDB** (`WizardChessSessionDB`)—never `localStorage`.
    - Every payload written to storage **must** be encrypted using Web Crypto API `AES-GCM-256` (`encryptPayload`) with a unique 12-byte random IV before writing, and decrypted + authenticated (`decryptPayload`) when fetching.

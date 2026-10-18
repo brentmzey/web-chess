@@ -6,7 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.1] - 2026-10-18
+### Added
+- **Rust / Scala-Style Exhaustive Pattern Matching & Unwrap Combinators (`src/utils/fp.ts`, `src/constants/board.ts`, `src/types/index.ts`)**:
+  - Extended `Optional<T>` (`Some<T>` | `None<T>`) with `.match({ Some, None })` and `.getOrThrow(errorOrMessage?)` for explicit fallback mapping vs. fail-fast invariant enforcement.
+  - Extended `Result<T, E>` (`Success<T, E>` | `Failure<T, E>`) with `.match({ Ok, Err })` and `.getOrThrow(errorOrMessage?)`.
+  - Added `matchBool(condition, { true: () => ..., false: () => ... })` for exhaustive boolean pattern matching alongside enum/union `match(target, branches)`.
+  - Added `SettingsApplyActionEnum` (`KeepActiveGame`, `ApplyAndReset`, `StartNewGame`), `resolveSettingsApplyAction()`, and `getSettingsActionButtonLabel()` to model mid-game vs. pre-game settings transitions as an algebraic sum type.
+
+### Changed
+- **Functional & Pattern-Matched UI / Board Control Flows (`src/main.ts`, `src/constants/board.ts`)**:
+  - Refactored `main()`, `syncAllControlsUI()`, `handleBoardClick()`, `startNewGame()`, `handlePersistenceToggle()`, and `restoreSessionIfEnabled()` to use `match`, `matchBool`, `Option.match({ Some, None })`, `fromNullable(...).getOrElse(...)`, and `fromNullable(...).getOrThrow(...)`.
+
+### Fixed
+- **Non-Destructive Mid-Game Settings Modal (`src/constants/board.ts`, `src/main.ts`, `index.html`)**:
+  - Opening **Game Settings** (`#btn-setup`) while a match is already in progress (`chess.history().length > 0`) snapshots `{ mode, difficulty, allowUndo }` and resolves `SettingsApplyActionEnum.KeepActiveGame` when no match settings changed, preserving the active chessboard and move history intact unless settings were modified (`ApplyAndReset`) or **New Game** (`#btn-reset` / `#modal-new-game`) was explicitly triggered (`StartNewGame`).
+
 ## [1.1.0-rc.1] - 2026-10-18
+
 ### Added
 - **AES-GCM-256 Encrypted Client Storage & Ciphertext Audit Inspector (`src/storage/indexedDbStore.ts`, `src/ui/uiController.ts`)**:
   - All records persisted to `IndexedDB` (`active_session` and `persistence_preference`) are encrypted client-side before storage using the Web Crypto API (`AES-GCM` 256-bit key with a unique 12-byte random IV per write) and decrypted + authenticated when fetched.
