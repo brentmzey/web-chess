@@ -340,13 +340,16 @@ export function buildGothicCathedral(scene: THREE.Scene, materials: AppMaterials
   }
   cathedralGroup.add(southOrganGroup);
 
-  // North & South Radiant Rose Windows
+  // North & South Radiant Rose Windows (FrontSide facing inward toward the Crossing)
   const roseTex = createRoseWindowTexture();
-  const roseMat = new THREE.MeshBasicMaterial({ map: roseTex, side: THREE.DoubleSide });
+  const roseMat = new THREE.MeshBasicMaterial({ map: roseTex, side: THREE.FrontSide });
 
   [-31.8, 30.5].forEach((rz, idx) => {
     const roseMesh = new THREE.Mesh(new THREE.CircleGeometry(7.6, 48), roseMat);
     roseMesh.position.set(0, 23.2, rz);
+    if (idx === 1) {
+      roseMesh.rotation.y = Math.PI;
+    }
     cathedralGroup.add(roseMesh);
 
     const roseRing = new THREE.Mesh(
@@ -381,7 +384,7 @@ export function buildGothicCathedral(scene: THREE.Scene, materials: AppMaterials
 
       const glassMat = new THREE.MeshBasicMaterial({
         map: lancetTextures[(wIdx + sideIdx) % lancetTextures.length],
-        side: THREE.DoubleSide
+        side: THREE.FrontSide
       });
 
       const pane = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 9.2), glassMat);

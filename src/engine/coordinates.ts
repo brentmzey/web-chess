@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BOARD_OFFSET, SQUARE_SIZE } from '../constants/board';
+import { none, some, type Option } from '../utils/fp';
 
 /**
  * Converts standard chess algebraic square notation (e.g. 'e4', 'a1') to Three.js world coordinates
@@ -23,3 +24,17 @@ export function squareToWorld(sq: string): THREE.Vector3 {
 export function indicesToSquare(fileIdx: number, rankIdx: number): string {
   return String.fromCharCode(97 + fileIdx) + (8 - rankIdx);
 }
+
+/**
+ * Converts a Three.js world (x, z) point on the board plane (y = 0) into an Option<string> square ('a1'..'h8').
+ */
+export function worldToSquare(x: number, z: number): Option<string> {
+  const fileIdx = Math.floor((x + BOARD_OFFSET + SQUARE_SIZE * 0.5) / SQUARE_SIZE);
+  const rankIdx = Math.floor((z + BOARD_OFFSET + SQUARE_SIZE * 0.5) / SQUARE_SIZE);
+  if (fileIdx >= 0 && fileIdx < 8 && rankIdx >= 0 && rankIdx < 8) {
+    return some(indicesToSquare(fileIdx, rankIdx));
+  }
+  return none();
+}
+
+

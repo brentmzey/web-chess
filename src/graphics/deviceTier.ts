@@ -30,7 +30,7 @@ export const MOBILE_LITE_PROFILE: DeviceProfileConfig = {
   shardCount: 12,
   shardShadows: false,
   dustCount: 60,
-  maxPixelRatio: 1.25,
+  maxPixelRatio: 2.0,
   antialias: false,
   label: 'Mobile Sanctuary Lite',
   badge: 'Mobile Lite',

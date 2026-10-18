@@ -8,7 +8,7 @@ import {
   getGameModeConfig
 } from './constants/board';
 import { computeMinimaxMove } from './engine/ai';
-import { indicesToSquare, squareToWorld } from './engine/coordinates';
+import { indicesToSquare, squareToWorld, worldToSquare } from './engine/coordinates';
 import { checkGeminiNanoStatus, computeGeminiNanoAIMove } from './engine/geminiNanoAI';
 import { computeMicroNeuralAIMove } from './engine/neuralAI';
 import { buildChessboardGrid, updateBoardHighlights } from './graphics/board';
@@ -559,6 +559,8 @@ function main(): void {
   // Pointer & Multi-Touch Interaction (Orbit + Mobile Pinch-to-Zoom + Tap to Select)
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
+  const boardPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const planeHitPoint = new THREE.Vector3();
   let isDragging = false;
   let dragStartPos = { x: 0, y: 0 };
   let prevPointer = { x: 0, y: 0 };
@@ -591,8 +593,8 @@ function main(): void {
       if (lastPinchDist !== null) {
         const delta = lastPinchDist - dist;
         camController.camState.radius = Math.max(
-          12,
-          Math.min(44, camController.camState.radius + delta * 0.06)
+          13.5,
+          Math.min(27.5, camController.camState.radius + delta * 0.05)
         );
       }
       lastPinchDist = dist;
@@ -600,6 +602,9 @@ function main(): void {
     }
 
     if (!isDragging) return;
+    const totalDist = Math.hypot(e.clientX - dragStartPos.x, e.clientY - dragStartPos.y);
+    if (totalDist < 6) return;
+
     const dx = e.clientX - prevPointer.x;
     const dy = e.clientY - prevPointer.y;
     prevPointer = { x: e.clientX, y: e.clientY };
@@ -607,7 +612,7 @@ function main(): void {
     camController.camState.theta -= dx * 0.0065;
     camController.camState.phi = Math.max(
       0.18,
-      Math.min(1.42, camController.camState.phi - dy * 0.0055)
+      Math.min(1.28, camController.camState.phi - dy * 0.0055)
     );
   });
 
@@ -615,8 +620,14 @@ function main(): void {
     if (isAnimating || chess.game_over()) return;
     if (currentMode !== GameModeEnum.PassAndPlay && chess.turn() === PieceColorEnum.Black) return;
 
-    pointer.x = (clientX / window.innerWidth) * 2 - 1;
-    pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+    const rect = canvasEl.getBoundingClientRect?.();
+    const width = rect && rect.width > 0 ? rect.width : window.innerWidth;
+    const height = rect && rect.height > 0 ? rect.height : window.innerHeight;
+    const offsetX = rect ? clientX - rect.left : clientX;
+    const offsetY = rect ? clientY - rect.top : clientY;
+
+    pointer.x = (offsetX / width) * 2 - 1;
+    pointer.y = -(offsetY / height) * 2 + 1;
 
     raycaster.setFromCamera(pointer, camera);
 
@@ -626,13 +637,27 @@ function main(): void {
     ];
 
     const intersects = raycaster.intersectObjects(interactables, true);
-    if (intersects.length === 0) return;
+    let clickedSquare: string | undefined;
 
-    let hitObj: THREE.Object3D | null = intersects[0]?.object ?? null;
-    while (hitObj && !hitObj.userData?.['square'] && hitObj.parent) {
-      hitObj = hitObj.parent;
+    for (const hit of intersects) {
+      let hitObj: THREE.Object3D | null = hit.object;
+      while (hitObj && !hitObj.userData?.['square'] && hitObj.parent) {
+        hitObj = hitObj.parent;
+      }
+      if (hitObj?.userData?.['square']) {
+        clickedSquare = hitObj.userData['square'] as string;
+        break;
+      }
     }
-    const clickedSquare = hitObj?.userData?.['square'] as string | undefined;
+
+    // Fallback to mathematical board-plane intersection so mobile taps never miss between tile bevels
+    if (!clickedSquare && raycaster.ray.intersectPlane(boardPlane, planeHitPoint)) {
+      clickedSquare = worldToSquare(planeHitPoint.x, planeHitPoint.z).fold(
+        () => undefined,
+        sq => sq
+      );
+    }
+
     if (!clickedSquare) return;
 
     const candidateMove = legalMovesForSelected.find(m => m.to === clickedSquare);
@@ -667,7 +692,7 @@ function main(): void {
     if (!isDragging) return;
     isDragging = false;
     const dist = Math.hypot(e.clientX - dragStartPos.x, e.clientY - dragStartPos.y);
-    if (dist < 8) {
+    if (dist < 18) {
       handleBoardClick(e.clientX, e.clientY);
     }
   });
@@ -683,8 +708,8 @@ function main(): void {
     (e: WheelEvent) => {
       e.preventDefault();
       camController.camState.radius = Math.max(
-        12,
-        Math.min(44, camController.camState.radius + e.deltaY * 0.018)
+        13.5,
+        Math.min(27.5, camController.camState.radius + e.deltaY * 0.018)
       );
     },
     { passive: false }

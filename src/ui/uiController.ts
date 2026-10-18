@@ -83,7 +83,7 @@ export class UIController {
       badge.textContent = profile.badge;
       if (profile.tier === DeviceTierEnum.MobileLite) {
         badge.className =
-          'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-400/15 text-teal-300 border border-teal-400/30';
+          'hidden md:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-400/15 text-teal-300 border border-teal-400/30';
       } else {
         badge.className =
           'hidden md:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-400/15 text-stone-300 border border-stone-400/30';

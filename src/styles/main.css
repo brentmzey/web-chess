@@ -20,7 +20,9 @@ body, html {
   padding: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
   background-color: #09080c;
   font-family: 'Inter', sans-serif;
   color: #f4f0ea;
@@ -36,7 +38,9 @@ body, html {
   inset: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   z-index: 1;
+  touch-action: none;
 }
 
 canvas {
@@ -44,6 +48,7 @@ canvas {
   width: 100%;
   height: 100%;
   cursor: grab;
+  touch-action: none;
 }
 
 canvas:active {
@@ -62,6 +67,7 @@ canvas:active {
 .md3-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.45rem;
   padding: 0.55rem 0.95rem;
   border-radius: 9999px;
@@ -73,6 +79,15 @@ canvas:active {
   transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
   cursor: pointer;
   white-space: nowrap;
+  touch-action: manipulation;
+}
+
+@media (max-width: 639px) {
+  .md3-chip {
+    padding: 0.42rem 0.56rem;
+    font-size: 0.74rem;
+    gap: 0.25rem;
+  }
 }
 
 .md3-chip:hover {

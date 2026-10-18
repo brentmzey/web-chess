@@ -11,7 +11,11 @@ import {
 } from '../src/graphics/deviceTier';
 import { buildDustParticles } from '../src/graphics/dust';
 import { ShatterSystem } from '../src/graphics/shatter';
-import { computeAspectAdjustedRadius } from '../src/interaction/camera';
+import {
+  computeAspectAdjustedFov,
+  computeAspectAdjustedPhi,
+  computeAspectAdjustedRadius
+} from '../src/interaction/camera';
 import { DeviceTierEnum } from '../src/types';
 
 describe('Mobile, Small-Screen & Low-Capability / Low-RAM Device Optimization', () => {
@@ -38,13 +42,13 @@ describe('Mobile, Small-Screen & Low-Capability / Low-RAM Device Optimization', 
     expect(desktop.badge).toBe('Desktop');
   });
 
-  it('provides correct mobile-lite profile configurations (VRAM-saving 512p shadows, no MSAA)', () => {
+  it('provides correct mobile-lite profile configurations (VRAM-saving 512p shadows, Retina 2x DPR, no MSAA)', () => {
     const mobile = getDeviceProfileConfig(DeviceTierEnum.MobileLite);
     expect(mobile.shadowMapSize).toBe(512);
     expect(mobile.shardCount).toBe(12);
     expect(mobile.shardShadows).toBe(false);
     expect(mobile.dustCount).toBe(60);
-    expect(mobile.maxPixelRatio).toBe(1.25);
+    expect(mobile.maxPixelRatio).toBe(2.0);
     expect(mobile.antialias).toBe(false);
     expect(mobile.badge).toBe('Mobile Lite');
     expect(mobile.notice).toContain('available on Desktop');
@@ -162,14 +166,29 @@ describe('Mobile, Small-Screen & Low-Capability / Low-RAM Device Optimization', 
     expect(shatter.activeShards.every(s => s.mesh.castShadow === false)).toBe(true);
   });
 
-  it('adjusts camera orbit radius on narrow portrait mobile screens so 64 squares fit without clipping', () => {
+  it('adjusts camera radius, FOV, and polar angle on narrow portrait mobile screens so the camera stays inside the Basilica and frames all 64 squares', () => {
     const desktopRadius = computeAspectAdjustedRadius(25.5, 16 / 9);
+    const desktopFov = computeAspectAdjustedFov(45, 16 / 9);
+    const desktopPhi = computeAspectAdjustedPhi(0.96, 16 / 9);
     expect(desktopRadius).toBe(25.5);
+    expect(desktopFov).toBe(45);
+    expect(desktopPhi).toBe(0.96);
 
     // Portrait iPhone (375x812 -> aspect ~0.46)
-    const portraitMobileRadius = computeAspectAdjustedRadius(25.5, 375 / 812);
-    expect(portraitMobileRadius).toBeGreaterThan(35);
-    expect(portraitMobileRadius).toBeLessThanOrEqual(25.5 * 1.55);
+    const aspect = 375 / 812;
+    const portraitRadius = computeAspectAdjustedRadius(25.5, aspect);
+    const portraitFov = computeAspectAdjustedFov(45, aspect);
+    const portraitPhi = computeAspectAdjustedPhi(0.96, aspect);
+
+    // Must stay strictly inside the Basilica crossing (South Rose Window is at z = 30.5, Nave piers at x = ±16.2)
+    expect(portraitRadius).toBeLessThanOrEqual(24.5);
+    expect(portraitRadius).toBeGreaterThanOrEqual(13.5);
+    expect(portraitPhi).toBeLessThan(0.96);
+    expect(portraitRadius * Math.sin(portraitPhi)).toBeLessThan(15.5);
+
+    // Vertical FOV widens on portrait so horizontal board span (a1..h8) fits without clipping
+    expect(portraitFov).toBeGreaterThan(65);
+    expect(portraitFov).toBeLessThanOrEqual(86);
   });
 
   it('initializes device tier and logs execution context via tslog', () => {
@@ -188,3 +207,4 @@ describe('Mobile, Small-Screen & Low-Capability / Low-RAM Device Optimization', 
     expect(getActiveDeviceTier()).toBe(DeviceTierEnum.MobileLite);
   });
 });
+
