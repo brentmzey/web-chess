@@ -150,7 +150,7 @@ Players can cycle through four distinct opponent modes using the `#btn-mode` chi
 
 ### ⚔️ Opponent Difficulty & Aggressiveness Profiles
 
-Every AI opponent mode supports three selectable **Difficulty & Aggressiveness** levels (`OpponentDifficultyEnum`: `cautious`, `balanced`, `aggressive`), configurable before a match begins in the **Consecrate Sanctuary Rite** modal or live from the bottom navigation bar (`#btn-difficulty`):
+Every AI opponent mode supports three selectable **Difficulty & Aggressiveness** levels (`OpponentDifficultyEnum`: `cautious`, `balanced`, `aggressive`), configurable before a match begins in the **Game Settings & Match Setup** modal or live from the bottom navigation bar (`#btn-difficulty`):
 
 | Difficulty Tier | Badge | Aggressiveness | Minimax Engine Behavior | Micro-Neural AI Behavior | Gemini Nano (Local LLM) Persona |
 | :--- | :--- | :---: | :--- | :--- | :--- |
@@ -160,16 +160,16 @@ Every AI opponent mode supports three selectable **Difficulty & Aggressiveness**
 
 ---
 
-### 🛡️ Pre-Game Rite Rules ("Allow Undo") & Lightweight IndexedDB Session Persistence
+### 🛡️ Pre-Game Match Rules ("Allow Undo") & Encrypted IndexedDB Session Persistence
 
 * **Pre-Game "Allow Undo" Rule (`allowUndo: boolean`)**:
-  - Before a match begins (in the **Consecrate Sanctuary Rite** modal), players choose whether **Move Undo** is permitted for the match.
-  - **Standard Rite (`Allowed`)**: The `#btn-undo` control remains active throughout the match, reverting a full round-trip turn in AI modes or a single half-move in Pass & Play.
-  - **Ironman Rite (`Locked`)**: Once the first move is played, Undo is locked (`lock` icon) for the duration of the match until a New Rite is consecrated.
-* **Lightweight IndexedDB Session Persistence (`src/storage/indexedDbStore.ts`)**:
-  - Players can check **"Do you want to keep your session running to pick up later?"** in either the Pre-Game Setup modal or the Chronicle of Moves drawer.
-  - Powered 100% by native browser **IndexedDB** (`WizardChessSessionDB` — **zero `localStorage` usage**).
-  - Automatically persists and restores the FEN board state, full algebraic move history (`history`), active `mode`, `difficulty`, `allowUndo` rule lock, display `contrast`/`brightness`, and `deviceTier` across page refreshes or re-navigation.
+  - Before a match begins (in the **Game Settings & Match Setup** modal), players choose whether **Move Undo** is permitted for the match.
+  - **Standard Mode (`Allowed`)**: The `#btn-undo` control remains active throughout the match, reverting a full round-trip turn in AI modes or a single half-move in Pass & Play.
+  - **Strict Mode (`Locked`)**: Once the first move is played, Undo is locked (`lock` icon) for the duration of the match until a New Game is started.
+* **AES-GCM-256 Encrypted IndexedDB Session Persistence (`src/storage/indexedDbStore.ts`)**:
+  - Players can check **"Do you want to keep your session running to pick up later?"** in either the Game Settings modal or the Chronicle of Moves drawer.
+  - Powered 100% by native browser **IndexedDB** (`WizardChessSessionDB` — **zero `localStorage` usage**) with **Web Crypto API `AES-GCM-256` authenticated encryption** (unique 12-byte random IV per write) and decrypted on fetch via functional `Option`/`Result` monadic pipelines.
+  - Automatically encrypts, persists, and decrypts the FEN board state, full algebraic move history (`history`), active `mode`, `difficulty`, `allowUndo` rule lock, display `contrast`/`brightness`, and `deviceTier` across page refreshes or re-navigation.
 
 ---
 

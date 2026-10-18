@@ -1,2 +1,12 @@
+# Wizard's Chess 3D — High Gothic Basilica Theme
+# Governance & Engineering Policies (see /AGENTS.md, /CONTRIBUTING.md, /CHANGELOG.md):
+# - Storage Security: All IndexedDB records are AES-GCM-256 encrypted before write and decrypted on fetch (zero localStorage).
+# - Functional Paradigm: Codebase uses functional monads (Option/Optional, Result, fromNullable, map, flatMap, fold, match).
+# - Release & Changelog Policy: Every feature/behavior change is tracked in CHANGELOG.md under SemVer RC# (X.Y.Z-rc.N) until pushing main to remote triggers Build & Release.
+# - Quality & Coverage: Enforces high code coverage (100% line & branch coverage, >99% function coverage) with comprehensive unit and integration test suites (bun run test:coverage).
+# - Theme & Wording: High Gothic Basilica/Sanctuary is the visual/audio theme; UI controls use standard chess terminology (Game Settings, New Game, Strict Mode).
+
 User-agent: *
 Allow: /
+
+

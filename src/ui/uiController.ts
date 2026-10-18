@@ -164,7 +164,7 @@ export class UIController {
       if (!allowUndo) {
         btn.classList.add('opacity-45');
         btn.setAttribute('aria-disabled', 'true');
-        btn.title = 'Undo Disabled for this Match (Ironman Rite)';
+        btn.title = 'Undo Disabled for this Match (Strict Mode)';
         fromNullable(this.el.undoIcon).map(ic => {
           ic.textContent = 'lock';
         });
@@ -185,7 +185,7 @@ export class UIController {
     });
 
     fromNullable(this.el.undoRuleStatusPill).map(pill => {
-      pill.textContent = allowUndo ? 'Undo: Allowed' : 'Undo: Locked (Ironman)';
+      pill.textContent = allowUndo ? 'Undo: Allowed' : 'Undo: Locked (Strict)';
       pill.className = allowUndo
         ? 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30 font-semibold'
         : 'text-[10px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 font-semibold';

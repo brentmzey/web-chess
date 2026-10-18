@@ -145,6 +145,19 @@ export interface StoredSessionState {
   timestamp: number;
 }
 
+export interface EncryptedEnvelope {
+  v: 1;
+  alg: 'AES-GCM-256';
+  iv: string;
+  ciphertext: string;
+}
+
+export interface EncryptedStorageRecord {
+  id: string;
+  envelope: EncryptedEnvelope;
+  updatedAt: number;
+}
+
 export interface DeviceProfileConfig {
   tier: DeviceTierEnum;
   shadowMapSize: number;
@@ -157,3 +170,4 @@ export interface DeviceProfileConfig {
   badge: string;
   notice: string;
 }
+

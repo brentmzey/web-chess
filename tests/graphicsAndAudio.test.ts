@@ -222,7 +222,7 @@ describe('3D Graphics, Procedural Textures, Pieces, Physics & Cathedral Audio', 
       public destination = {};
       resume() {
         this.state = 'running';
-        return Promise.resolve();
+        return Promise.reject(new Error('Autoplay policy restricted'));
       }
       createOscillator() {
         return {

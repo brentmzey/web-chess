@@ -29,30 +29,48 @@ We exclusively use **Bun** as our runtime, package manager, and test runner.
 
 ## 📐 Core Engineering Paradigms
 
-1. **Strict TypeScript**:
-   - Zero `any` types. All methods, function signatures, mesh user data, and event parameters must have explicit interfaces or types.
+1. **Functional Programming Paradigms ([`src/utils/fp.ts`](file:///Users/brentzey/personal/web-chess/src/utils/fp.ts))**:
+   - Always program using functional paradigms (`Option<T>` / `Optional<T>`, `Result<T, E>`, `fromNullable`, `map`, `flatMap`, `flatMapAsync`, `filter`, `fold`, `getOrElse`, `tryCatch`, `tryCatchAsync`, and exhaustive `match`).
+   - Avoid imperative null-branching (`if (x !== null && x !== undefined)`) or raw `try/catch` blocks when transforming nullable values, DOM elements, or asynchronous I/O.
+2. **Encrypted Client Storage ([`src/storage/indexedDbStore.ts`](file:///Users/brentzey/personal/web-chess/src/storage/indexedDbStore.ts))**:
+   - All client persistence uses **IndexedDB** (`WizardChessSessionDB`)—never `localStorage`.
+   - Every payload written to storage **must** be encrypted using Web Crypto API `AES-GCM-256` (`encryptPayload`) with a unique 12-byte random IV before writing, and decrypted + authenticated (`decryptPayload`) when fetching.
+3. **Strict TypeScript**:
+   - All methods, function signatures, mesh user data, and event parameters must have explicit interfaces or types.
    - Run `bun run typecheck` before submitting changes.
-2. **Zero External Media Assets**:
+4. **Theme Separation & Chess UI Terminology**:
+   - The **High Gothic Basilica & Sanctuary** aesthetic (architecture, stained glass, lighting, articulated pieces, and pipe organ acoustics) is the visual and audio theme of the chessboard (architected so additional themes can be added in the future).
+   - All game settings, modals, and match rules must use clear, standard **chess terminology** (e.g., *"Game Settings"*, *"Game Settings & Match Setup"*, *"New Game"*, *"Strict Mode"*, *"Pawn Promotion"*). Do not label game settings or matches as *"Sanctuary Rites"*.
+5. **Zero External Media Assets**:
    - Audio is generated procedurally via the Web Audio API in [`CathedralSoundEngine.ts`](file:///Users/brentzey/personal/web-chess/src/audio/CathedralSoundEngine.ts). Do not commit `.mp3`, `.wav`, or `.ogg` files.
    - Textures are generated procedurally on HTML5 `<canvas>` in [`textures.ts`](file:///Users/brentzey/personal/web-chess/src/graphics/textures.ts). Do not commit bitmap image files.
-3. **PBR & Three.js Efficiency**:
+6. **PBR & Three.js Efficiency (Desktop & Mobile Sanctuary Lite)**:
    - Reuse geometries and shared materials where possible.
-   - Ensure all dynamic lights have appropriate decay and shadows configured with sensible map sizes.
-4. **Chess Engine Integrity**:
+   - Respect `DeviceProfileConfig` in [`deviceTier.ts`](file:///Users/brentzey/personal/web-chess/src/graphics/deviceTier.ts) so small-screen and low-RAM/low-CPU devices maintain smooth 60fps performance.
+7. **Chess Engine Integrity**:
    - All board modifications must go through `chess.js` and sync accurately via `syncBoardPiecesWithChessState()`.
    - Never bypass legal chess rules (check, checkmate, stalemate, castling rights, promotion, en passant).
 
 ---
 
-## 🧪 Testing Requirements
+## 📦 Versioning, `CHANGELOG.md` & Release Candidates (`SemVer` + `RC#`)
 
-We maintain strict regression protection:
-- **Test Runner**: Run `bun test` to execute all unit tests.
-- **Coverage**: Any new algorithmic features (such as AI heuristics, board coordinates, or rule enhancements) must include corresponding unit tests under `tests/`.
+Every general feature change, enhancement, or application behavior update **MUST** include a [`CHANGELOG.md`](file:///Users/brentzey/personal/web-chess/CHANGELOG.md) entry:
+- **Semantic Versioning with Release Candidates (`X.Y.Z-rc.N`)**:
+  - Feature changes and behavior updates are grouped under a single active Release Candidate entry (e.g., `## [1.1.0-rc.1]`) in `CHANGELOG.md` (with matching `"version"` in `package.json`).
+  - Changes continue to accumulate under the active `RC#` entry during development and iteration **until `main` is pushed to remote (`origin/main`)**, which triggers the production **Build & Release** pipeline.
+
+---
+
+## 🧪 High Code Coverage, Unit & Integration Testing Requirements
+
+We enforce high levels of automated test coverage (**100% Line & Branch Coverage**, **>99% Function Coverage**) across both unit and end-to-end integration suites:
+- **Unit & Integration Test Runner**: Run `bun run test:coverage` to execute all unit tests (`tests/*.test.ts`) and full end-to-end integration flows (`tests/integration.test.ts`), generating SonarQube / JaCoCo-compatible LCOV (`coverage/lcov.info`) and Markdown (`coverage/coverage-report.md`) reports.
+- **New Features & Behavior Changes**: Every new feature or behavior change (AI difficulty heuristics, AES-GCM-256 encrypted storage, device tier detection, or UI state flows) **must** include both isolated unit tests and end-to-end integration coverage under `tests/`.
 
 ```bash
-# Run unit tests
-bun test
+# Run unit & integration tests with Line & Branch Coverage Report
+bun run test:coverage
 
 # Run TypeScript typecheck
 bun run typecheck
@@ -69,6 +87,8 @@ bun run build
    ```bash
    git checkout -b feat/my-enhancement
    ```
-2. Commit your changes using conventional commit messages (`feat: ...`, `fix: ...`, `perf: ...`, `refactor: ...`).
-3. Ensure `bun test && bun run typecheck && bun run build` passes with zero errors or warnings.
-4. Push to your branch and open a Pull Request against the `main` branch.
+2. Update [`CHANGELOG.md`](file:///Users/brentzey/personal/web-chess/CHANGELOG.md) under the current `X.Y.Z-rc.N` release candidate heading.
+3. Commit your changes using conventional commit messages (`feat: ...`, `fix: ...`, `perf: ...`, `refactor: ...`).
+4. Ensure `bun run test:coverage && bun run typecheck && bun run build` passes with zero errors or warnings.
+5. Push to your branch and open a Pull Request against the `main` branch (pushing `main` to remote triggers the production Build & Release).
+

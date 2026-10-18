@@ -9,7 +9,8 @@ import {
   toResult,
   match,
   tryCatch,
-  tryCatchAsync
+  tryCatchAsync,
+  type Option
 } from '../src/utils/fp';
 
 describe('Functional Programming Utilities (Scala/Rust Style)', () => {
@@ -103,11 +104,29 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
       const f = failure('oops');
       expect(fromResult(f).isNone()).toBe(true);
 
-      const opt = some('beta');
+      const opt: Option<string> = some('beta');
       expect(toResult(opt, () => 'err').isSuccess()).toBe(true);
+      expect(toResult(opt, () => 'err').getOrElse('fallback')).toBe('beta');
 
-      const noOpt = none<string>();
+      const noOpt: Option<string> = none<string>();
       expect(toResult(noOpt, () => 'missing').isFailure()).toBe(true);
+      expect(toResult(noOpt, () => 'missing').getOrElse('fallback')).toBe('fallback');
+    });
+
+    it('supports asynchronous flatMapAsync across Optional and Result monads', async () => {
+      const someAsync = await some(7).flatMapAsync(async n => some(n * 3));
+      expect(someAsync.getOrElse(0)).toBe(21);
+
+      const noneAsync = await none<number>().flatMapAsync(async n => some(n * 3));
+      expect(noneAsync.isNone()).toBe(true);
+
+      const okAsync = await success<number, string>(10).flatMapAsync(async n => success(n + 5));
+      expect(okAsync.getOrElse(0)).toBe(15);
+
+      const errAsync = await failure<number, string>('failed').flatMapAsync(async n =>
+        success(n + 5)
+      );
+      expect(errAsync.isFailure()).toBe(true);
     });
   });
 
