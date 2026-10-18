@@ -8,6 +8,7 @@ import {
   fromResult,
   toResult,
   match,
+  matchBool,
   tryCatch,
   tryCatchAsync,
   type Option
@@ -57,7 +58,7 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
       expect(noneFiltered.isNone()).toBe(true);
     });
 
-    it('folds correctly for Some and None', () => {
+    it('folds and pattern-matches (match({ Some, None })) correctly for Some and None', () => {
       const someRes = some('found').fold(
         () => 'fallback',
         val => `got:${val}`
@@ -69,6 +70,29 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
         val => `got:${val}`
       );
       expect(noneRes).toBe('fallback');
+
+      const matchedSome = some(99).match({
+        Some: val => `val=${val}`,
+        None: () => 'empty'
+      });
+      expect(matchedSome).toBe('val=99');
+
+      const matchedNone = none<number>().match({
+        Some: val => `val=${val}`,
+        None: () => 'empty'
+      });
+      expect(matchedNone).toBe('empty');
+    });
+
+    it('getOrThrow unwraps Some and throws descriptive Error on None', () => {
+      expect(some('sanctuary').getOrThrow()).toBe('sanctuary');
+      expect(() => none<string>().getOrThrow()).toThrow('Expected Some(value), found None');
+      expect(() => none<string>().getOrThrow('Custom missing element')).toThrow(
+        'Custom missing element'
+      );
+      expect(() => none<string>().getOrThrow(() => new Error('Lazy error instance'))).toThrow(
+        'Lazy error instance'
+      );
     });
   });
 
@@ -95,6 +119,30 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
 
       const f = failure<string, string>('initial error').flatMap(() => success('ok'));
       expect(f.isFailure()).toBe(true);
+    });
+
+    it('pattern-matches Result with match({ Ok, Err }) and unwraps with getOrThrow', () => {
+      const okVal = success<number, string>(42);
+      expect(
+        okVal.match({
+          Ok: v => `ok:${v}`,
+          Err: e => `err:${e}`
+        })
+      ).toBe('ok:42');
+      expect(okVal.getOrThrow()).toBe(42);
+
+      const errVal = failure<number, string>('corrupted cipher');
+      expect(
+        errVal.match({
+          Ok: v => `ok:${v}`,
+          Err: e => `err:${e}`
+        })
+      ).toBe('err:corrupted cipher');
+      expect(() => errVal.getOrThrow()).toThrow('corrupted cipher');
+      expect(() => errVal.getOrThrow('Override failure')).toThrow('Override failure');
+      expect(() => errVal.getOrThrow(e => new Error(`Wrapped: ${e}`))).toThrow(
+        'Wrapped: corrupted cipher'
+      );
     });
 
     it('converts between Optional and Result', () => {
@@ -130,10 +178,10 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
     });
   });
 
-  describe('Pattern Matching (match)', () => {
+  describe('Pattern Matching (match & matchBool)', () => {
     type Light = 'red' | 'yellow' | 'green';
 
-    it('exhaustively matches string union branches', () => {
+    it('exhaustively matches string union branches and boolean conditions', () => {
       const getAction = (color: Light): string =>
         match(color, {
           red: () => 'stop',
@@ -144,6 +192,19 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
       expect(getAction('red')).toBe('stop');
       expect(getAction('yellow')).toBe('caution');
       expect(getAction('green')).toBe('go');
+
+      expect(
+        matchBool(true, {
+          true: () => 'yes',
+          false: () => 'no'
+        })
+      ).toBe('yes');
+      expect(
+        matchBool(false, {
+          true: () => 'yes',
+          false: () => 'no'
+        })
+      ).toBe('no');
     });
   });
 
@@ -167,3 +228,4 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
     });
   });
 });
+

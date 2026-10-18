@@ -110,7 +110,14 @@ export enum ExecutionSideEnum {
   ServerSide = 'SERVER_SIDE'
 }
 
+export enum SettingsApplyActionEnum {
+  KeepActiveGame = 'keep_active_game',
+  ApplyAndReset = 'apply_and_reset',
+  StartNewGame = 'start_new_game'
+}
+
 export type GameMode = GameModeEnum | 'pass-and-play' | 'minimax' | 'micro-neural' | 'gemini-nano';
+
 export type OpponentDifficulty = OpponentDifficultyEnum | 'cautious' | 'balanced' | 'aggressive';
 
 export interface DifficultyLevelProfile {

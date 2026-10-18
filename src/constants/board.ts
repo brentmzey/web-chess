@@ -1,6 +1,7 @@
 import {
   GameModeEnum,
   OpponentDifficultyEnum,
+  SettingsApplyActionEnum,
   type DifficultyLevelProfile,
   type GameMode,
   type GameModeConfig,
@@ -8,7 +9,7 @@ import {
   type PieceColor,
   type PieceType
 } from '../types';
-import { fromNullable } from '../utils/fp';
+import { fromNullable, match, matchBool } from '../utils/fp';
 
 export const SQUARE_SIZE = 2.15;
 export const BOARD_OFFSET = (8 * SQUARE_SIZE) / 2 - SQUARE_SIZE / 2; // 7.525
@@ -105,11 +106,15 @@ export const DIFFICULTY_PROFILES: readonly DifficultyLevelProfile[] = [
 ] as const;
 
 export function getGameModeConfig(mode: GameMode): GameModeConfig {
-  return fromNullable(GAME_MODES.find(m => m.id === mode)).getOrElse(GAME_MODES[0]!);
+  const defaultMode = fromNullable(GAME_MODES[0]).getOrThrow('GAME_MODES registry cannot be empty');
+  return fromNullable(GAME_MODES.find(m => m.id === mode)).getOrElse(defaultMode);
 }
 
 export function getDifficultyProfile(difficulty: OpponentDifficulty): DifficultyLevelProfile {
-  return fromNullable(DIFFICULTY_PROFILES.find(d => d.id === difficulty)).getOrElse(DIFFICULTY_PROFILES[1]!);
+  const defaultProfile = fromNullable(DIFFICULTY_PROFILES[1]).getOrThrow(
+    'DIFFICULTY_PROFILES registry cannot be empty'
+  );
+  return fromNullable(DIFFICULTY_PROFILES.find(d => d.id === difficulty)).getOrElse(defaultProfile);
 }
 
 export interface MatchSettingsSnapshot {
@@ -134,9 +139,46 @@ export function haveMatchSettingsChanged(
 }
 
 /**
+ * Resolves the SettingsApplyActionEnum variant using Rust/Scala-style exhaustive pattern matching.
+ * - `StartNewGame`: when `forceNewGame` is true OR when no game is currently in progress.
+ * - `ApplyAndReset`: when a game is in progress AND at least one match setting (`mode`, `difficulty`, `allowUndo`) changed.
+ * - `KeepActiveGame`: when a game is in progress AND no match settings changed.
+ */
+export function resolveSettingsApplyAction(
+  inProgress: boolean,
+  before: MatchSettingsSnapshot,
+  after: MatchSettingsSnapshot,
+  forceNewGame: boolean = false
+): SettingsApplyActionEnum {
+  return matchBool(forceNewGame, {
+    true: () => SettingsApplyActionEnum.StartNewGame,
+    false: () =>
+      matchBool(inProgress, {
+        false: () => SettingsApplyActionEnum.StartNewGame,
+        true: () =>
+          matchBool(haveMatchSettingsChanged(before, after), {
+            true: () => SettingsApplyActionEnum.ApplyAndReset,
+            false: () => SettingsApplyActionEnum.KeepActiveGame
+          })
+      })
+  });
+}
+
+/**
+ * Maps a `SettingsApplyActionEnum` variant to its primary modal button label using exhaustive pattern matching.
+ */
+export function getSettingsActionButtonLabel(action: SettingsApplyActionEnum): string {
+  return match(action, {
+    [SettingsApplyActionEnum.KeepActiveGame]: () => 'Keep Current Game',
+    [SettingsApplyActionEnum.ApplyAndReset]: () => 'Apply & Start New Game',
+    [SettingsApplyActionEnum.StartNewGame]: () => 'Start New Game'
+  });
+}
+
+/**
  * Determines whether applying settings should reset the chess board.
  * If a game is already in progress (`inProgress === true`), the board is NEVER wiped
- * if nothing changed in the match settings (`!haveMatchSettingsChanged(before, after)`),
+ * if nothing changed in the match settings (`SettingsApplyActionEnum.KeepActiveGame`),
  * unless the user explicitly requested a forced New Game reset (`forceNewGame === true`).
  */
 export function shouldResetBoardOnSettingsApply(
@@ -145,8 +187,12 @@ export function shouldResetBoardOnSettingsApply(
   after: MatchSettingsSnapshot,
   forceNewGame: boolean = false
 ): boolean {
-  if (forceNewGame) return true;
-  if (!inProgress) return true;
-  return haveMatchSettingsChanged(before, after);
+  const action = resolveSettingsApplyAction(inProgress, before, after, forceNewGame);
+  return match(action, {
+    [SettingsApplyActionEnum.KeepActiveGame]: () => false,
+    [SettingsApplyActionEnum.ApplyAndReset]: () => true,
+    [SettingsApplyActionEnum.StartNewGame]: () => true
+  });
 }
+
 

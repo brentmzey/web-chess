@@ -42,8 +42,10 @@ When operating in this repository, agents must adhere to the following without e
 
 1. **Always Use Bun**:
    - Execute all package management, testing, and script commands via `bun` (`bun test`, `bun run test:coverage`, `bun run build`, `bun add`). Do not invoke `npm`, `yarn`, or `pnpm`.
-2. **Always Program Using Functional Paradigms (`src/utils/fp.ts`)**:
-   - Always use functional monads and combinators (`Option<T>` / `Optional<T>`, `Result<T, E>`, `fromNullable`, `map`, `flatMap`, `flatMapAsync`, `filter`, `fold`, `getOrElse`, `fromResult`, `toResult`, `tryCatch`, `tryCatchAsync`, and exhaustive `match`) rather than imperative null-checks or ad-hoc `try/catch` blocks.
+2. **Always Program Using Functional Paradigms & Rust/Scala Pattern Matching (`src/utils/fp.ts`)**:
+   - Always use functional monads and combinators (`Option<T>` / `Optional<T>`, `Result<T, E>`, `fromNullable`, `map`, `flatMap`, `flatMapAsync`, `filter`, `fold`, `getOrElse`, `getOrThrow`, `fromResult`, `toResult`, `tryCatch`, `tryCatchAsync`) and Rust/Scala-style exhaustive pattern matching (`match`, `matchBool`, `opt.match({ Some, None })`, `res.match({ Ok, Err })`) rather than imperative null-checks, `if/else` chains, or ad-hoc `try/catch` blocks.
+   - When wrapping nullable lookups with `fromNullable(...)`, map fallback data via `.getOrElse(...)` / `.match({ Some, None })` where a default is sensible, or call `.getOrThrow(...)` when a missing value is an unrecoverable invariant violation.
+
 3. **Encrypted Client Storage Only (`src/storage/indexedDbStore.ts`)**:
    - All data written to client storage (`IndexedDB`) **MUST** be encrypted prior to storage (`AES-GCM-256` via Web Crypto API with a fresh 12-byte random IV per write) and decrypted + authenticated when fetched (`encryptPayload` / `decryptPayload`).
    - **Never** use `localStorage` or store unencrypted plaintext session/preference payloads at rest.
