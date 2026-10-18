@@ -19,7 +19,7 @@ Every general feature change or application behavior update is consolidated unde
   - Added pre-game **Game Settings & Match Setup** modal (`#pregame-modal`) allowing players to configure Play Style, Opponent Difficulty, **Allow Move Undo** (Standard Mode vs. Strict Mode), and Encrypted IndexedDB Session Persistence before play begins.
 - **Mobile Sanctuary Lite & Low-Capability Hardware Tier (`src/graphics/deviceTier.ts`)**:
   - Added `inspectHardwareCapabilities()` to detect narrow/short mobile screens (`<768px` width or `<550px` height), low RAM (`deviceMemory <= 4` GB), low CPU (`hardwareConcurrency <= 4` cores), and Data Saver (`saveData: true`).
-  - Scales shadow maps, pixel ratio, MSAA, dust count, and shatter shard physics, widens portrait camera radius (`computeAspectAdjustedRadius`), and supports 2-finger pinch-to-zoom.
+  - Scales shadow maps, dust count, and shatter shard physics, adapts portrait camera FOV/polar angle/radius (`computeAspectAdjustedFov`, `computeAspectAdjustedPhi`, `computeAspectAdjustedRadius`), and supports 2-finger pinch-to-zoom.
 - **Pretty `tslog` Client/Server Execution Logger (`src/utils/logger.ts`)**:
   - Added structured, colorized `tslog` (`type: 'pretty'`) logging that automatically detects and tags `CLIENT_SIDE` vs. `SERVER_SIDE` execution contexts and hardware capabilities.
 - **SonarQube / JaCoCo-Style Line & Branch Coverage Reporting (`scripts/coverageReport.ts`, `sonar-project.properties`)**:
@@ -28,6 +28,16 @@ Every general feature change or application behavior update is consolidated unde
 ### Changed
 - **Chess-Focused UI Terminology with High Gothic Basilica Theme**:
   - Replaced liturgical UI labels ("Consecrate Sanctuary Rite", "Rite Setup", "New Rite", "Ironman Rite") with standard chess game terminology ("Game Settings & Match Setup", "Game Settings", "New Game", "Strict Mode", "Pawn Promotion") while preserving the complete High Gothic Basilica & Sanctuary 3D visual and acoustic theme.
+
+### Fixed
+- **Mobile Portrait Camera Framing & Rose Window Occlusion (`src/interaction/camera.ts`, `src/graphics/cathedral.ts`)**:
+  - Fixed portrait mobile camera radius (`computeAspectAdjustedRadius <= 24.5`), vertical FOV (`computeAspectAdjustedFov`), and overhead polar angle (`computeAspectAdjustedPhi`) so the camera stays strictly inside the Basilica crossing in front of the South Rose Window (`z = 30.5`) and Nave piers (`x = ±16.2`) while framing all 64 squares (`a1..h8`).
+  - Changed stained glass rose and lancet windows from `THREE.DoubleSide` to inward-facing `THREE.FrontSide` so exterior window geometry can never occlude the camera from behind.
+- **Retina Mobile Rendering & Touch Gameplay (`src/graphics/deviceTier.ts`, `src/main.ts`, `src/engine/coordinates.ts`, `src/styles/main.css`)**:
+  - Increased `MOBILE_LITE_PROFILE.maxPixelRatio` to `2.0` for crisp Retina rendering on mobile phones.
+  - Added `touch-action: none` on `#canvas-container` and `canvas`, `getBoundingClientRect()` touch coordinate normalization, mathematical board-plane (`y = 0`) raycast fallback via `worldToSquare(x, z): Option<string>`, `6px` orbit drag deadzone, and `18px` capacitive tap tolerance.
+  - Compacted mobile top HUD and bottom navigation chips (`<640px`) so all 10 game controls fit on a single row without horizontal clipping.
+
 
 ## [1.0.0] - 2026-10-15
 ### Added

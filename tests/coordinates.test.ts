@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { indicesToSquare, squareToWorld } from '../src/engine/coordinates';
+import { indicesToSquare, squareToWorld, worldToSquare } from '../src/engine/coordinates';
 import { BOARD_OFFSET, SQUARE_SIZE } from '../src/constants/board';
 
 describe('Coordinate transformations', () => {
@@ -36,4 +36,20 @@ describe('Coordinate transformations', () => {
     expect(fallback.y).toBe(0);
     expect(fallback.z).toBe(0);
   });
+
+  it('round-trips world coordinates back to algebraic squares via worldToSquare and returns None out of bounds', () => {
+    for (const sq of ['a8', 'h8', 'e4', 'd5', 'a1', 'h1', 'e2', 'c7']) {
+      const pos = squareToWorld(sq);
+      const resolved = worldToSquare(pos.x, pos.z);
+      expect(resolved.isSome()).toBe(true);
+      expect(resolved.getOrElse('')).toBe(sq);
+    }
+
+    // Out-of-bounds points outside the 8x8 grid return None
+    expect(worldToSquare(-10.5, 0).isNone()).toBe(true);
+    expect(worldToSquare(10.5, 0).isNone()).toBe(true);
+    expect(worldToSquare(0, -10.5).isNone()).toBe(true);
+    expect(worldToSquare(0, 10.5).isNone()).toBe(true);
+  });
 });
+

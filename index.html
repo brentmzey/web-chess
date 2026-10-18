@@ -140,7 +140,7 @@
             <!-- Game Mode Selector (Minimax, Micro-Neural AI, Gemini Nano, Pass & Play) -->
             <button id="btn-mode" class="md3-chip" title="Cycle Game Mode (Minimax Engine, Micro-Neural AI, Gemini Nano, Pass & Play)">
                 <span id="mode-icon" class="material-symbols-rounded">memory</span>
-                <span id="mode-label">Minimax Engine</span>
+                <span id="mode-label" class="hidden sm:inline">Minimax Engine</span>
             </button>
 
             <!-- Opponent Difficulty / Aggressiveness Selector -->
@@ -244,7 +244,7 @@
     </div>
 
     <!-- PRE-GAME SETTINGS & MATCH CONFIGURATION MODAL -->
-    <div id="pregame-modal" class="fixed inset-0 z-40 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
+    <div id="pregame-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
         <div class="md3-glass rounded-3xl p-5 sm:p-6 max-w-lg w-full border border-amber-400/40 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
             <!-- Header -->
             <div class="flex items-start justify-between border-b border-amber-500/20 pb-3">
