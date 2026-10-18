@@ -5,7 +5,10 @@ import {
   DIFFICULTY_PROFILES,
   GAME_MODES,
   getDifficultyProfile,
-  getGameModeConfig
+  getGameModeConfig,
+  haveMatchSettingsChanged,
+  shouldResetBoardOnSettingsApply,
+  type MatchSettingsSnapshot
 } from './constants/board';
 import { computeMinimaxMove } from './engine/ai';
 import { indicesToSquare, squareToWorld, worldToSquare } from './engine/coordinates';
@@ -110,6 +113,12 @@ function main(): void {
   let currentDifficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced;
   let allowUndo = true;
   let pendingAllowUndo = true;
+  let modalOpenedFromReset = false;
+  let settingsSnapshotOnOpen: MatchSettingsSnapshot = {
+    mode: currentMode,
+    difficulty: currentDifficulty,
+    allowUndo
+  };
   let persistenceEnabled = false;
   let useActionCam = true;
   let pendingPromotionMove: { from: string; to: string } | null = null;
@@ -181,6 +190,21 @@ function main(): void {
     const modeCfg = getGameModeConfig(currentMode);
     const diffCfg = getDifficultyProfile(currentDifficulty);
     const inProgress = chess.history().length > 0;
+    const currentSnapshot: MatchSettingsSnapshot = {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      allowUndo: pendingAllowUndo
+    };
+    const settingsChanged = haveMatchSettingsChanged(
+      settingsSnapshotOnOpen,
+      currentSnapshot
+    );
+    const willResetBoard = shouldResetBoardOnSettingsApply(
+      inProgress,
+      settingsSnapshotOnOpen,
+      currentSnapshot,
+      modalOpenedFromReset
+    );
 
     // Bottom bar mode & difficulty chips
     fromNullable(document.getElementById('mode-label')).map(el => {
@@ -300,9 +324,24 @@ function main(): void {
       chk.checked = persistenceEnabled;
     });
 
-    // Resume / Enter Game button label
+    // Resume / Enter Game & Start New Game button labels and active-chip highlight
     fromNullable(document.getElementById('resume-rite-label')).map(lbl => {
       lbl.textContent = inProgress ? 'Resume Active Game' : 'Enter Game';
+    });
+    fromNullable(document.getElementById('start-rite-label')).map(lbl => {
+      if (inProgress && !willResetBoard) {
+        lbl.textContent = 'Keep Current Game';
+      } else if (inProgress && settingsChanged) {
+        lbl.textContent = 'Apply & Start New Game';
+      } else {
+        lbl.textContent = 'Start New Game';
+      }
+    });
+    fromNullable(document.getElementById('resume-rite-btn')).map(btn => {
+      btn.classList.toggle('active-chip', inProgress && !willResetBoard);
+    });
+    fromNullable(document.getElementById('start-rite-btn')).map(btn => {
+      btn.classList.toggle('active-chip', !inProgress || willResetBoard);
     });
 
     ui.update(chess, currentMode, undefined, currentDifficulty, allowUndo);
@@ -775,19 +814,32 @@ function main(): void {
 
   // Bottom Bar Event Listeners
   document.getElementById('btn-setup')?.addEventListener('click', () => {
+    modalOpenedFromReset = false;
     pendingAllowUndo = allowUndo;
+    settingsSnapshotOnOpen = {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      allowUndo
+    };
     syncAllControlsUI();
     ui.showPreGameModal();
   });
 
   document.getElementById('close-pregame-btn')?.addEventListener('click', () => {
+    modalOpenedFromReset = false;
     ui.hidePreGameModal();
   });
 
   document.getElementById('resume-rite-btn')?.addEventListener('click', () => {
+    modalOpenedFromReset = false;
     if (chess.history().length === 0) {
       allowUndo = pendingAllowUndo;
     }
+    settingsSnapshotOnOpen = {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      allowUndo
+    };
     syncAllControlsUI();
     void persistCurrentSession();
     ui.hidePreGameModal();
@@ -795,8 +847,36 @@ function main(): void {
   });
 
   function startNewGame(): void {
+    const inProgress = chess.history().length > 0;
+    const currentSnapshot: MatchSettingsSnapshot = {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      allowUndo: pendingAllowUndo
+    };
+    const shouldReset = shouldResetBoardOnSettingsApply(
+      inProgress,
+      settingsSnapshotOnOpen,
+      currentSnapshot,
+      modalOpenedFromReset
+    );
+    modalOpenedFromReset = false;
+
+    if (!shouldReset) {
+      // Nothing changed from active match settings -> keep current game intact!
+      syncAllControlsUI();
+      void persistCurrentSession();
+      ui.hidePreGameModal();
+      triggerTurnOrAI();
+      return;
+    }
+
     chess.reset();
     allowUndo = pendingAllowUndo;
+    settingsSnapshotOnOpen = {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      allowUndo
+    };
     logger.info('Started new Chess Match', {
       mode: currentMode,
       difficulty: currentDifficulty,
@@ -970,14 +1050,26 @@ function main(): void {
 
   // New Game button opens the Pre-Game Settings modal so user can configure Undo & Difficulty before starting
   document.getElementById('btn-reset')?.addEventListener('click', () => {
+    modalOpenedFromReset = true;
     pendingAllowUndo = allowUndo;
+    settingsSnapshotOnOpen = {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      allowUndo
+    };
     syncAllControlsUI();
     ui.showPreGameModal();
   });
 
   document.getElementById('modal-new-game')?.addEventListener('click', () => {
     ui.hideGameOver();
+    modalOpenedFromReset = true;
     pendingAllowUndo = allowUndo;
+    settingsSnapshotOnOpen = {
+      mode: currentMode,
+      difficulty: currentDifficulty,
+      allowUndo
+    };
     syncAllControlsUI();
     ui.showPreGameModal();
   });
@@ -1094,6 +1186,11 @@ function main(): void {
         currentDifficulty = saved.difficulty || OpponentDifficultyEnum.Balanced;
         allowUndo = saved.allowUndo ?? true;
         pendingAllowUndo = allowUndo;
+        settingsSnapshotOnOpen = {
+          mode: currentMode,
+          difficulty: currentDifficulty,
+          allowUndo
+        };
 
         // Restore Display Contrast & Brightness
         if (typeof saved.contrast === 'number' && typeof saved.brightness === 'number') {

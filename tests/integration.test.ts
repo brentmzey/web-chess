@@ -4,7 +4,10 @@ import {
   DIFFICULTY_PROFILES,
   GAME_MODES,
   getDifficultyProfile,
-  getGameModeConfig
+  getGameModeConfig,
+  haveMatchSettingsChanged,
+  shouldResetBoardOnSettingsApply,
+  type MatchSettingsSnapshot
 } from '../src/constants/board';
 import { computeMinimaxMove, evaluateBoard } from '../src/engine/ai';
 import {
@@ -175,6 +178,49 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     expect(domElements['btn-undo']?.getAttribute('aria-disabled')).toBe('true');
     expect(domElements['undo-icon']?.textContent).toBe('lock');
     expect(domElements['move-count-pill']?.textContent).toBe('2');
+
+    // 2b. Verify opening Game Settings mid-game without changing settings NEVER resets the active board
+    const activeSnapshot: MatchSettingsSnapshot = { mode, difficulty, allowUndo };
+    expect(haveMatchSettingsChanged(activeSnapshot, { ...activeSnapshot })).toBe(false);
+    expect(
+      shouldResetBoardOnSettingsApply(
+        chess.history().length > 0,
+        activeSnapshot,
+        { ...activeSnapshot },
+        false
+      )
+    ).toBe(false);
+    // Changing mode, difficulty, or allowUndo (or forcing New Game or pre-game) returns true
+    expect(
+      shouldResetBoardOnSettingsApply(
+        true,
+        activeSnapshot,
+        { ...activeSnapshot, mode: GameModeEnum.MicroNeural },
+        false
+      )
+    ).toBe(true);
+    expect(
+      shouldResetBoardOnSettingsApply(
+        true,
+        activeSnapshot,
+        { ...activeSnapshot, difficulty: OpponentDifficultyEnum.Cautious },
+        false
+      )
+    ).toBe(true);
+    expect(
+      shouldResetBoardOnSettingsApply(
+        true,
+        activeSnapshot,
+        { ...activeSnapshot, allowUndo: true },
+        false
+      )
+    ).toBe(true);
+    expect(
+      shouldResetBoardOnSettingsApply(true, activeSnapshot, { ...activeSnapshot }, true)
+    ).toBe(true);
+    expect(
+      shouldResetBoardOnSettingsApply(false, activeSnapshot, { ...activeSnapshot }, false)
+    ).toBe(true);
 
     // 3. Encrypt and persist state to IndexedDB
     const savedState: StoredSessionState = {

@@ -38,6 +38,8 @@ Every general feature change or application behavior update is consolidated unde
   - Increased `MOBILE_LITE_PROFILE.maxPixelRatio` to `2.0` for crisp Retina rendering on mobile phones.
   - Added `touch-action: none` on `#canvas-container` and `canvas`, `getBoundingClientRect()` touch coordinate normalization, mathematical board-plane (`y = 0`) raycast fallback via `worldToSquare(x, z): Option<string>`, `6px` orbit drag deadzone, and `18px` capacitive tap tolerance.
   - Compacted mobile top HUD and bottom navigation chips (`<640px`) so all 10 game controls fit on a single row without horizontal clipping.
+- **Non-Destructive Mid-Game Settings Modal (`src/constants/board.ts`, `src/main.ts`, `index.html`)**:
+  - Opening **Game Settings** (`#btn-setup`) while a match is already in progress (`chess.history().length > 0`) snapshots the active `{ mode, difficulty, allowUndo }` configuration and uses `haveMatchSettingsChanged` / `shouldResetBoardOnSettingsApply` to preserve the current board and move history unless match settings were actually modified or **New Game** (`#btn-reset` / `#modal-new-game`) was explicitly triggered.
 
 
 ## [1.0.0] - 2026-10-15
