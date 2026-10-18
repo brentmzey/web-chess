@@ -111,3 +111,42 @@ export function getGameModeConfig(mode: GameMode): GameModeConfig {
 export function getDifficultyProfile(difficulty: OpponentDifficulty): DifficultyLevelProfile {
   return fromNullable(DIFFICULTY_PROFILES.find(d => d.id === difficulty)).getOrElse(DIFFICULTY_PROFILES[1]!);
 }
+
+export interface MatchSettingsSnapshot {
+  mode: GameMode;
+  difficulty: OpponentDifficulty;
+  allowUndo: boolean;
+}
+
+/**
+ * Returns true only if any match setting (mode, difficulty, or allowUndo)
+ * has changed compared to the snapshot captured when Game Settings was opened.
+ */
+export function haveMatchSettingsChanged(
+  before: MatchSettingsSnapshot,
+  after: MatchSettingsSnapshot
+): boolean {
+  return (
+    before.mode !== after.mode ||
+    before.difficulty !== after.difficulty ||
+    before.allowUndo !== after.allowUndo
+  );
+}
+
+/**
+ * Determines whether applying settings should reset the chess board.
+ * If a game is already in progress (`inProgress === true`), the board is NEVER wiped
+ * if nothing changed in the match settings (`!haveMatchSettingsChanged(before, after)`),
+ * unless the user explicitly requested a forced New Game reset (`forceNewGame === true`).
+ */
+export function shouldResetBoardOnSettingsApply(
+  inProgress: boolean,
+  before: MatchSettingsSnapshot,
+  after: MatchSettingsSnapshot,
+  forceNewGame: boolean = false
+): boolean {
+  if (forceNewGame) return true;
+  if (!inProgress) return true;
+  return haveMatchSettingsChanged(before, after);
+}
+
