@@ -30,6 +30,10 @@ Every general feature change or application behavior update is consolidated unde
   - Decrypted JSON is parsed with `safeJsonParse` (strips `__proto__` / `constructor` / `prototype`); move text rendered into `innerHTML` is escaped via `escapeHtml`.
   - Storage Audit report now states `keyExtractable: false`, `hardcodedBundleKey: false`, `aadContextBound: true`, `authTagBits: 128`.
   - **Note:** sessions encrypted with the old bundled key cannot be decrypted and are discarded on first load (a new game starts).
+- **Wipe & Start Over (`src/storage/indexedDbStore.ts`, `src/ui/uiController.ts`, `src/main.ts`, `index.html`)**:
+  - New two-step **Danger Zone** in the Storage Audit panel (`#wipe-storage-btn` → confirm/cancel). `wipeAllStorage()` clears every record *and the encryption key*, drops the in-memory key, and the app resets to a fresh game, default settings/theme, and a brand-new key; ciphertext copied beforehand becomes permanently undecryptable.
+  - Restoring a session is modelled as an exhaustive sum type (`StorageLoadStatusEnum`: `Restored` / `Empty` / `Unreadable` / `Unavailable`) consumed with Rust/Scala-style `match`, so the user is told exactly what happened (e.g. unreadable legacy data points to **Wipe & Start Over**). An unreadable persistence preference now resets to the default (on) instead of silently disabling persistence.
+- **Strict Content-Security-Policy (`netlify.toml`)**: removed `'unsafe-inline'` and `'unsafe-eval'` from `script-src`; added `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `upgrade-insecure-requests`; dropped `https:` from `img-src`; added `Cross-Origin-Opener-Policy` / `Cross-Origin-Resource-Policy: same-origin`. Locked by `tests/securityHeaders.test.ts`.
 
 ### Fixed
 - **Non-Destructive Mid-Game Settings Modal (`src/constants/board.ts`, `src/main.ts`, `index.html`)**:

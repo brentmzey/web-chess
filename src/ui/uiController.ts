@@ -59,6 +59,7 @@ export interface UIControllerElements {
   storageAuditAlgo: HTMLElement | null;
   storageAuditSummary: HTMLElement | null;
   storageAuditJson: HTMLElement | null;
+  wipeConfirmRow: HTMLElement | null;
   btnUndo: HTMLButtonElement | null;
   undoIcon: HTMLElement | null;
   undoLabel: HTMLElement | null;
@@ -96,6 +97,7 @@ export class UIController {
       storageAuditAlgo: document.getElementById('storage-audit-algo'),
       storageAuditSummary: document.getElementById('storage-audit-summary'),
       storageAuditJson: document.getElementById('storage-audit-json'),
+      wipeConfirmRow: document.getElementById('wipe-confirm-row'),
       btnUndo: document.getElementById('btn-undo') as HTMLButtonElement | null,
       undoIcon: document.getElementById('undo-icon'),
       undoLabel: document.getElementById('undo-label'),
@@ -333,9 +335,24 @@ export class UIController {
   }
 
   public hideStorageAuditModal(): void {
+    this.hideWipeConfirm();
     if (!this.el.storageAuditModal) return;
     this.el.storageAuditModal.classList.add('hidden');
     this.el.storageAuditModal.classList.remove('flex');
+  }
+
+  public showWipeConfirm(): void {
+    fromNullable(this.el.wipeConfirmRow).map(row => {
+      row.classList.remove('hidden');
+      row.classList.add('flex');
+    });
+  }
+
+  public hideWipeConfirm(): void {
+    fromNullable(this.el.wipeConfirmRow).map(row => {
+      row.classList.add('hidden');
+      row.classList.remove('flex');
+    });
   }
 
   public renderStorageAudit(auditResult: Result<EncryptedStorageAuditReport, string>): void {
