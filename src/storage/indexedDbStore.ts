@@ -20,6 +20,7 @@ import {
   type Option,
   type Result
 } from '../utils/fp';
+import { logger } from '../utils/logger';
 
 export const DB_NAME = 'WizardChessSessionDB';
 export const DB_VERSION = 1;
@@ -52,6 +53,50 @@ interface StoredCryptoKeyRecord {
  * ZERO hardcoded key material exists anywhere in the source code or bundle.
  */
 let fallbackMasterKeyOpt: Option<CryptoKey> = none();
+let devModeOverrideOpt: Option<boolean> = none();
+
+/**
+ * Explicitly sets or resets a development mode override (primarily for automated testing).
+ * Passing `none()` restores automated environment detection.
+ */
+export function setDevModeOverride(overrideOpt: Option<boolean>): void {
+  devModeOverrideOpt = overrideOpt;
+}
+
+export interface DevModeEnvProbe {
+  viteDev?: boolean;
+  nodeEnv?: string;
+}
+
+/**
+ * Pure environment probe for dev mode (Vite client DEV flag or local development NODE_ENV).
+ */
+export function detectDevMode(probe?: DevModeEnvProbe): boolean {
+  return fromNullable(probe).fold(
+    () => {
+      const isViteDev =
+        typeof import.meta !== 'undefined' &&
+        Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV);
+      return isViteDev || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
+    },
+    p =>
+      matchBool(Boolean(p.viteDev), {
+        true: () => true,
+        false: () => p.nodeEnv === 'development'
+      })
+  );
+}
+
+/**
+ * Returns whether client storage is operating in "dev mode" (local/non-deployed environment).
+ * Evaluates `devModeOverrideOpt` first, falling back to `detectDevMode(probe)`.
+ */
+export function isDevMode(probe?: DevModeEnvProbe): boolean {
+  return devModeOverrideOpt.fold(
+    () => detectDevMode(probe),
+    forced => forced
+  );
+}
 
 export function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -231,6 +276,19 @@ export async function encryptPayload<T>(
   payload: T,
   context: string = 'default'
 ): Promise<Result<EncryptedEnvelope, string>> {
+  matchBool(isDevMode(), {
+    true: () => {
+      logger.info(
+        `[DEV STORAGE ENCRYPT] Plaintext storage payload before AES-GCM-256 encryption (${context}):`,
+        {
+          context,
+          payload
+        }
+      );
+    },
+    false: () => {}
+  });
+
   const keyResult = await getStorageCryptoKey();
   return keyResult.flatMapAsync(key =>
     tryCatchAsync(
