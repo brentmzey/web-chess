@@ -8,6 +8,7 @@ import {
   fromNullable,
   fromResult,
   none,
+  success,
   toResult,
   tryCatch,
   tryCatchAsync,
@@ -283,6 +284,8 @@ export async function clearSessionState(): Promise<Result<void, string>> {
 
 /**
  * Retrieves and decrypts the user's preference for whether session persistence is enabled.
+ * Defaults to `true` when IndexedDB is available and no preference record has been written yet
+ * (so session state survives tab/browser refreshes out-of-the-box), or `false` if IndexedDB is unavailable.
  */
 export async function getPersistencePreference(): Promise<boolean> {
   const dbResult = await openSessionDatabase();
@@ -290,15 +293,17 @@ export async function getPersistencePreference(): Promise<boolean> {
     .flatMapAsync(db => readEncryptedRecord(db, PREFERENCE_KEY))
     .then(recResult =>
       recResult.flatMapAsync(recordOpt =>
-        recordOpt.fold(
-          async () => toResult(none<PreferencePayload>(), () => 'No preference stored'),
-          record => decryptPayload<PreferencePayload>(record.envelope)
-        )
+        recordOpt.match({
+          None: async () => success<PreferencePayload, string>({ enabled: true, updatedAt: 0 }),
+          Some: record => decryptPayload<PreferencePayload>(record.envelope)
+        })
       )
     );
 
   return prefResult.map(pref => Boolean(pref.enabled)).getOrElse(false);
 }
+
+
 
 /**
  * Encrypts and saves the user's checkbox preference for session persistence to IndexedDB.

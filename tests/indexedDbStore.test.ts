@@ -178,23 +178,24 @@ describe('Encrypted IndexedDB Session Persistence (AES-GCM-256, Functional Monad
     (crypto.subtle as any).importKey = origImportKey;
   });
 
-  it('encrypts persistence preference in IndexedDB and decrypts when fetching', async () => {
+  it('encrypts persistence preference in IndexedDB and decrypts when fetching (defaulting to true)', async () => {
     let pref = await getPersistencePreference();
-    expect(pref).toBe(false);
+    expect(pref).toBe(true);
 
-    await setPersistencePreference(true);
+    await setPersistencePreference(false);
     const rawPrefRecord = activeMockDb.getRawRecord('sanctuary_sessions', PREFERENCE_KEY);
     expect(rawPrefRecord).toBeDefined();
     expect(rawPrefRecord.enabled).toBeUndefined(); // Never stored in plaintext!
     expect(rawPrefRecord.envelope?.alg).toBe('AES-GCM-256');
 
     pref = await getPersistencePreference();
-    expect(pref).toBe(true);
-
-    await setPersistencePreference(false);
-    pref = await getPersistencePreference();
     expect(pref).toBe(false);
+
+    await setPersistencePreference(true);
+    pref = await getPersistencePreference();
+    expect(pref).toBe(true);
   });
+
 
   it('encrypts active chess session state on write and decrypts on load', async () => {
     const mockSession: StoredSessionState = {
