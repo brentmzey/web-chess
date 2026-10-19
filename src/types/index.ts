@@ -214,7 +214,12 @@ export interface EncryptedStorageAuditReport {
   algorithm: 'AES-GCM-256';
   keyLengthBits: 256;
   ivLengthBytes: 12;
+  authTagBits: 128;
   cipherMode: 'Galois/Counter Mode (AEAD, 128-bit Auth Tag)';
+  keyManagement: 'Web Crypto CSPRNG Non-Extractable CryptoKey (extractable: false)';
+  keyExtractable: false;
+  hardcodedBundleKey: false;
+  aadContextBound: true;
   localStorageUsed: false;
   plaintextExposed: false;
   auditedAt: string;

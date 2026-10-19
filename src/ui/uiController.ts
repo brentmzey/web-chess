@@ -17,6 +17,22 @@ import {
 } from '../types';
 import { fromNullable, match, type Result } from '../utils/fp';
 
+const HTML_ESCAPE_MAP: Readonly<Record<string, string>> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
+};
+
+/**
+ * Escapes HTML metacharacters so untrusted strings (e.g. SAN move text restored from storage)
+ * can never inject markup into `innerHTML` templates.
+ */
+export function escapeHtml(raw: string): string {
+  return raw.replace(/[&<>"']/g, ch => fromNullable(HTML_ESCAPE_MAP[ch]).getOrElse(ch));
+}
+
 export interface UIControllerElements {
   turnDot: HTMLElement | null;
   turnText: HTMLElement | null;
@@ -218,13 +234,17 @@ export class UIController {
 
     if (this.el.shatteredBlackList) {
       this.el.shatteredBlackList.innerHTML = shatteredBlack.length
-        ? shatteredBlack.map(icon => `<span class="text-lg leading-none">${icon}</span>`).join('')
+        ? shatteredBlack
+            .map(icon => `<span class="text-lg leading-none">${escapeHtml(icon)}</span>`)
+            .join('')
         : '<span class="text-xs text-stone-600 italic">None yet</span>';
     }
 
     if (this.el.shatteredWhiteList) {
       this.el.shatteredWhiteList.innerHTML = shatteredWhite.length
-        ? shatteredWhite.map(icon => `<span class="text-lg leading-none">${icon}</span>`).join('')
+        ? shatteredWhite
+            .map(icon => `<span class="text-lg leading-none">${escapeHtml(icon)}</span>`)
+            .join('')
         : '<span class="text-xs text-stone-600 italic">None yet</span>';
     }
 
@@ -244,11 +264,13 @@ export class UIController {
           const bMove = history[i + 1];
           const wCap = wMove.captured ? '⚔️' : '';
           const bCap = bMove && bMove.captured ? '⚔️' : '';
+          const safeWSan = escapeHtml(wMove.san);
+          const safeBSan = bMove ? `${escapeHtml(bMove.san)} ${bCap}` : '';
           html += `
             <div class="grid grid-cols-7 items-center py-1 px-2 rounded-lg ${moveNum % 2 === 0 ? 'bg-white/5' : ''}">
                 <span class="col-span-1 text-stone-500">${moveNum}.</span>
-                <span class="col-span-3 text-amber-100 font-medium">${wMove.san} ${wCap}</span>
-                <span class="col-span-3 text-purple-300 font-medium">${bMove ? bMove.san + ' ' + bCap : ''}</span>
+                <span class="col-span-3 text-amber-100 font-medium">${safeWSan} ${wCap}</span>
+                <span class="col-span-3 text-purple-300 font-medium">${safeBSan}</span>
             </div>
           `;
         }
@@ -320,7 +342,8 @@ export class UIController {
     auditResult.fold(
       errMsg => {
         fromNullable(this.el.storageAuditAlgo).map(el => {
-          el.textContent = 'AES-GCM-256 (Web Crypto API • 256-Bit Key • 12-Byte Random IV)';
+          el.textContent =
+            'AES-GCM-256 (Web Crypto CSPRNG Non-Extractable Key • 12-Byte Random IV • 128-Bit Auth Tag)';
         });
         fromNullable(this.el.storageAuditSummary).map(el => {
           el.textContent = `Storage Audit Notice: ${errMsg}`;
@@ -329,6 +352,8 @@ export class UIController {
           el.textContent = JSON.stringify(
             {
               algorithm: 'AES-GCM-256',
+              keyExtractable: false,
+              hardcodedBundleKey: false,
               plaintextExposed: false,
               error: errMsg
             },
@@ -339,10 +364,10 @@ export class UIController {
       },
       report => {
         fromNullable(this.el.storageAuditAlgo).map(el => {
-          el.textContent = `${report.algorithm} • ${report.keyLengthBits}-Bit Key • ${report.ivLengthBytes}-Byte IV • ${report.cipherMode}`;
+          el.textContent = `${report.algorithm} • ${report.keyLengthBits}-Bit Non-Extractable Key • ${report.ivLengthBytes}-Byte IV • ${report.cipherMode}`;
         });
         fromNullable(this.el.storageAuditSummary).map(el => {
-          el.textContent = `DB: ${report.database}/${report.objectStore} • Encrypted Records: ${report.recordCount} • Plaintext Exposed: ${String(report.plaintextExposed)} • localStorage: ${String(report.localStorageUsed)}`;
+          el.textContent = `DB: ${report.database}/${report.objectStore} • Encrypted Records: ${report.recordCount} • Key Extractable: ${String(report.keyExtractable)} • Hardcoded Key: ${String(report.hardcodedBundleKey)} • Plaintext Exposed: ${String(report.plaintextExposed)} • localStorage: ${String(report.localStorageUsed)}`;
         });
         fromNullable(this.el.storageAuditJson).map(el => {
           el.textContent = JSON.stringify(report, null, 2);

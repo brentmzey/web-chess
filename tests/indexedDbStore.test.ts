@@ -2,20 +2,28 @@ import { beforeEach, describe, expect, it } from 'bun:test';
 import {
   auditEncryptedStorage,
   base64ToBytes,
+  buildAdditionalAuthenticatedData,
   bytesToBase64,
+  clearCachedCryptoKey,
   clearSessionState,
+  CRYPTO_KEY_RECORD_ID,
   DB_NAME,
   decryptPayload,
   ENCRYPTION_ALGORITHM,
+  ENCRYPTION_AUTH_TAG_BITS,
   ENCRYPTION_CIPHER_MODE,
   ENCRYPTION_IV_BYTES,
   ENCRYPTION_KEY_BITS,
+  ENCRYPTION_KEY_MANAGEMENT,
   encryptPayload,
   getPersistencePreference,
+  getStorageCryptoKey,
   isEncryptedEnvelope,
   loadSavedSession,
   openSessionDatabase,
   PREFERENCE_KEY,
+  rotateMasterCryptoKey,
+  safeJsonParse,
   saveSessionState,
   SESSION_KEY,
   setPersistencePreference,
@@ -161,9 +169,8 @@ describe('Encrypted IndexedDB Session Persistence (AES-GCM-256, Functional Monad
     expect((await decryptPayload(null)).isFailure()).toBe(true);
     expect((await decryptPayload({ v: 2, alg: 'NONE' })).isFailure()).toBe(true);
 
-    // Simulate Web Crypto encrypt failure and importKey failure
+    // Simulate Web Crypto encrypt failure and key generation failure (fresh DB => no stored key)
     const origEncrypt = crypto.subtle.encrypt.bind(crypto.subtle);
-    const origImportKey = crypto.subtle.importKey.bind(crypto.subtle);
 
     (crypto.subtle as any).encrypt = async () => {
       throw new Error('Crypto hardware error');
@@ -171,11 +178,13 @@ describe('Encrypted IndexedDB Session Persistence (AES-GCM-256, Functional Monad
     expect((await encryptPayload({ a: 1 })).isFailure()).toBe(true);
     (crypto.subtle as any).encrypt = origEncrypt;
 
-    (crypto.subtle as any).importKey = async () => {
-      throw new Error('Key import blocked');
+    setupMockIndexedDB();
+    const origGenerateKey = crypto.subtle.generateKey.bind(crypto.subtle);
+    (crypto.subtle as any).generateKey = async () => {
+      throw new Error('Key generation blocked');
     };
     expect((await encryptPayload({ a: 1 })).isFailure()).toBe(true);
-    (crypto.subtle as any).importKey = origImportKey;
+    (crypto.subtle as any).generateKey = origGenerateKey;
   });
 
   it('encrypts persistence preference in IndexedDB and decrypts when fetching (defaulting to true)', async () => {
@@ -412,3 +421,202 @@ describe('Encrypted IndexedDB Session Persistence (AES-GCM-256, Functional Monad
 });
 
 
+
+function installIndexedDbWithRequestBehavior(behavior: {
+  getResult?: unknown;
+  getFails?: boolean;
+  putFails?: boolean;
+  onPut?: () => void;
+}) {
+  const fakeDb = {
+    objectStoreNames: { contains: () => true },
+    transaction: () => ({
+      objectStore: () => ({
+        get: () => {
+          const req: any = {};
+          queueMicrotask(() => {
+            if (behavior.getFails) {
+              req.onerror?.();
+            } else {
+              req.result = behavior.getResult;
+              req.onsuccess?.({ target: req });
+            }
+          });
+          return req;
+        },
+        put: () => {
+          behavior.onPut?.();
+          const req: any = {};
+          queueMicrotask(() => (behavior.putFails ? req.onerror?.() : req.onsuccess?.()));
+          return req;
+        }
+      })
+    })
+  };
+  (globalThis as any).indexedDB = {
+    open: () => {
+      const req: any = { result: fakeDb };
+      queueMicrotask(() => req.onsuccess?.({ target: req }));
+      return req;
+    }
+  };
+}
+
+describe('Hardened key management, AEAD context binding & fail-closed behaviour', () => {
+  beforeEach(() => {
+    setupMockIndexedDB();
+    clearCachedCryptoKey();
+  });
+
+  it('uses a CSPRNG-generated NON-extractable AES-GCM-256 key that is persisted once and reused', async () => {
+    const first = (await getStorageCryptoKey()).getOrThrow('expected key');
+    expect(first.extractable).toBe(false);
+    expect(first.algorithm as AesKeyAlgorithm).toEqual({
+      name: 'AES-GCM',
+      length: ENCRYPTION_KEY_BITS
+    });
+    expect([...first.usages].sort()).toEqual(['decrypt', 'encrypt']);
+
+    // Raw key bytes can never be exported, even by code running in the page
+    let exportRejected = false;
+    try {
+      await crypto.subtle.exportKey('raw', first);
+    } catch {
+      exportRejected = true;
+    }
+    expect(exportRejected).toBe(true);
+
+    // Only the opaque CryptoKey handle is stored; a fresh cache reuses the same persisted key
+    const rawKeyRecord = activeMockDb.getRawRecord(STORE_NAME, CRYPTO_KEY_RECORD_ID);
+    expect(rawKeyRecord.cryptoKey).toBe(first);
+    clearCachedCryptoKey();
+    const second = (await getStorageCryptoKey()).getOrThrow('expected key');
+    expect(second).toBe(first);
+  });
+
+  it('contains no hardcoded key material or raw key import anywhere in the storage module source', async () => {
+    const source = await Bun.file(
+      new URL('../src/storage/indexedDbStore.ts', import.meta.url)
+    ).text();
+    expect(source).not.toContain('SanctaBasilicaWizardChessAES256');
+    expect(source).not.toContain('importKey(');
+    expect(source).toContain('extractable: FALSE');
+  });
+
+  it('never exposes the key record or plaintext in the audit report and reports hardened metadata', async () => {
+    await saveSessionState({
+      id: SESSION_KEY,
+      enabled: true,
+      fen: 'start-fen-secret',
+      history: ['e4'],
+      mode: GameModeEnum.Minimax,
+      difficulty: OpponentDifficultyEnum.Balanced,
+      allowUndo: true,
+      contrast: 100,
+      brightness: 100,
+      deviceTier: DeviceTierEnum.Desktop,
+      timestamp: Date.now()
+    });
+    const report = (await auditEncryptedStorage()).getOrThrow('expected audit');
+    expect(report.recordCount).toBe(1);
+    expect(report.records.map(r => r.id)).toEqual([SESSION_KEY]);
+    expect(JSON.stringify(report)).not.toContain(CRYPTO_KEY_RECORD_ID);
+    expect(JSON.stringify(report)).not.toContain('start-fen-secret');
+    expect(report.authTagBits).toBe(ENCRYPTION_AUTH_TAG_BITS);
+    expect(report.keyManagement).toBe(ENCRYPTION_KEY_MANAGEMENT);
+    expect(report.keyExtractable).toBe(false);
+    expect(report.hardcodedBundleKey).toBe(false);
+    expect(report.aadContextBound).toBe(true);
+  });
+
+  it('binds ciphertext to its record context via AAD (wrong or missing context fails authentication)', async () => {
+    const env = (await encryptPayload({ s: 1 }, 'ctx-a')).getOrThrow('expected envelope');
+    expect((await decryptPayload<{ s: number }>(env, 'ctx-a')).getOrThrow('dec')).toEqual({ s: 1 });
+    expect((await decryptPayload(env, 'ctx-b')).isFailure()).toBe(true);
+    expect((await decryptPayload(env)).isFailure()).toBe(true);
+
+    const aad = new TextDecoder().decode(buildAdditionalAuthenticatedData());
+    expect(aad).toContain('ctx=default');
+    expect(aad).toContain(`tag=${ENCRYPTION_AUTH_TAG_BITS}`);
+  });
+
+  it('rejects cross-record envelope transplant attacks (session envelope swapped into preference slot)', async () => {
+    await setPersistencePreference(true);
+    await saveSessionState({
+      id: SESSION_KEY,
+      enabled: true,
+      fen: 'f',
+      history: [],
+      mode: GameModeEnum.Minimax,
+      difficulty: OpponentDifficultyEnum.Balanced,
+      allowUndo: true,
+      contrast: 100,
+      brightness: 100,
+      deviceTier: DeviceTierEnum.Desktop,
+      timestamp: Date.now()
+    });
+    const sessionRec = activeMockDb.getRawRecord(STORE_NAME, SESSION_KEY);
+    const prefRec = activeMockDb.getRawRecord(STORE_NAME, PREFERENCE_KEY);
+    activeMockDb.stores[STORE_NAME]!.set(SESSION_KEY, { ...sessionRec, envelope: prefRec.envelope });
+    activeMockDb.stores[STORE_NAME]!.set(PREFERENCE_KEY, { ...prefRec, envelope: sessionRec.envelope });
+
+    expect((await loadSavedSession()).isNone()).toBe(true);
+    expect(await getPersistencePreference()).toBe(false);
+  });
+
+  it('strips prototype-pollution keys when parsing decrypted JSON', () => {
+    const parsed = safeJsonParse<Record<string, unknown>>(
+      '{"a":1,"__proto__":{"polluted":true},"constructor":2,"prototype":3}'
+    );
+    expect(Object.keys(parsed)).toEqual(['a']);
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
+  it('key rotation cryptographically invalidates previously written ciphertext', async () => {
+    const oldKey = (await getStorageCryptoKey()).getOrThrow('old key');
+    const oldEnv = (await encryptPayload({ v: 'old' }, 'rot')).getOrThrow('old env');
+
+    const newKey = (await rotateMasterCryptoKey()).getOrThrow('new key');
+    expect(newKey).not.toBe(oldKey);
+    expect(newKey.extractable).toBe(false);
+
+    expect((await decryptPayload(oldEnv, 'rot')).isFailure()).toBe(true);
+    const newEnv = (await encryptPayload({ v: 'new' }, 'rot')).getOrThrow('new env');
+    expect((await decryptPayload<{ v: string }>(newEnv, 'rot')).getOrThrow('dec')).toEqual({
+      v: 'new'
+    });
+  });
+
+  it('FAILS CLOSED on key read errors and never overwrites the stored key', async () => {
+    let putCalls = 0;
+    installIndexedDbWithRequestBehavior({ getFails: true, onPut: () => putCalls++ });
+    expect((await getStorageCryptoKey()).isFailure()).toBe(true);
+    expect((await encryptPayload({ a: 1 })).isFailure()).toBe(true);
+    expect(putCalls).toBe(0);
+  });
+
+  it('surfaces data-record write failures when the key is available', async () => {
+    const key = (await getStorageCryptoKey()).getOrThrow('key');
+    installIndexedDbWithRequestBehavior({ getResult: { cryptoKey: key }, putFails: true });
+    const res = await saveSessionState({} as any);
+    expect(res.isFailure()).toBe(true);
+    expect((await setPersistencePreference(true)).isFailure()).toBe(true);
+  });
+
+  it('refuses to hand out a key it could not persist (so no undecryptable data is written)', async () => {
+    installIndexedDbWithRequestBehavior({ getResult: undefined, putFails: true });
+    expect((await getStorageCryptoKey()).isFailure()).toBe(true);
+    expect((await rotateMasterCryptoKey()).isFailure()).toBe(true);
+
+    (globalThis as any).indexedDB = undefined;
+    expect((await rotateMasterCryptoKey()).isFailure()).toBe(true);
+  });
+
+  it('falls back to a session-only in-memory non-extractable key when IndexedDB is unavailable', async () => {
+    (globalThis as any).indexedDB = undefined;
+    const first = (await getStorageCryptoKey()).getOrThrow('fallback key');
+    const second = (await getStorageCryptoKey()).getOrThrow('cached fallback key');
+    expect(first.extractable).toBe(false);
+    expect(second).toBe(first);
+  });
+});
