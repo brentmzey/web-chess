@@ -36,12 +36,14 @@ import {
   SESSION_KEY,
   setPersistencePreference
 } from '../src/storage/indexedDbStore';
+import { ChessStore } from '../src/store/chessStore';
 import {
   ChessThemeEnum,
   DeviceTierEnum,
   GameModeEnum,
   OpponentDifficultyEnum,
   SettingsApplyActionEnum,
+  StorageLoadStatusEnum,
   type StoredSessionState
 } from '../src/types';
 import { UIController } from '../src/ui/uiController';
@@ -588,6 +590,83 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     expect(loaded.theme).toBe(ChessThemeEnum.AstralObservatory);
     expect(loaded.fen).toBe(midGameFen);
     expect(loaded.history).toEqual(midGameHistory);
+
+    await clearSessionState();
+  });
+
+  it('Integration Flow 6: Centralized ChessStore: Seamless Tab-Refresh State Persistence & Rehydration Across Browser Unload & Reopen', async () => {
+    // 1. Initialize store and setup simulated DOM/lifecycle
+    const store = new ChessStore({
+      theme: ChessThemeEnum.AstralObservatory,
+      mode: GameModeEnum.MicroNeural,
+      difficulty: OpponentDifficultyEnum.Cautious,
+      allowUndo: false,
+      useActionCam: false,
+      contrast: 110,
+      brightness: 120
+    });
+
+    const mockWindow: any = {
+      pagehide: null as (() => void) | null,
+      addEventListener: (_e: string, fn: () => void) => {
+        mockWindow.pagehide = fn;
+      },
+      removeEventListener: () => {}
+    };
+    const mockDoc: any = {
+      visibility: null as (() => void) | null,
+      visibilityState: 'visible',
+      addEventListener: (_e: string, fn: () => void) => {
+        mockDoc.visibility = fn;
+      },
+      removeEventListener: () => {}
+    };
+
+    store.setupLifecycleListeners(mockWindow, mockDoc);
+
+    // 2. Play moves and update store
+    const chess = new Chess();
+    chess.move('d4');
+    chess.move('d5');
+    chess.move('c4');
+
+    store.setState({
+      fen: chess.fen(),
+      history: chess.history(),
+      gameStarted: true
+    });
+
+    // 3. User refreshes tab (triggering window.pagehide / beforeunload)
+    mockWindow.pagehide!();
+    await new Promise(r => setTimeout(r, 20));
+
+    // 4. Simulate brand-new browser tab loading and hydrating from encrypted IndexedDB
+    const rehydratedStore = new ChessStore();
+    expect(rehydratedStore.getIsHydrated()).toBe(false);
+
+    const outcome = await rehydratedStore.hydrate();
+    expect(outcome.status).toBe(StorageLoadStatusEnum.Restored);
+    expect(rehydratedStore.getIsHydrated()).toBe(true);
+
+    const restoredState = rehydratedStore.getState();
+    expect(restoredState.fen).toBe(chess.fen());
+    expect(restoredState.history).toEqual(['d4', 'd5', 'c4']);
+    expect(restoredState.theme).toBe(ChessThemeEnum.AstralObservatory);
+    expect(restoredState.mode).toBe(GameModeEnum.MicroNeural);
+    expect(restoredState.difficulty).toBe(OpponentDifficultyEnum.Cautious);
+    expect(restoredState.allowUndo).toBe(false);
+    expect(restoredState.useActionCam).toBe(false);
+    expect(restoredState.contrast).toBe(110);
+    expect(restoredState.brightness).toBe(120);
+    expect(restoredState.gameStarted).toBe(true);
+
+    // Verify UI can replay the restored state seamlessly
+    const replayedChess = new Chess();
+    for (const move of restoredState.history) {
+      replayedChess.move(move);
+    }
+    expect(replayedChess.fen()).toBe(chess.fen());
+    expect(replayedChess.turn()).toBe('b');
 
     await clearSessionState();
   });
