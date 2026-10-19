@@ -122,7 +122,7 @@ function main(): void {
     difficulty: currentDifficulty,
     allowUndo
   };
-  let persistenceEnabled = false;
+  let persistenceEnabled = true;
   let useActionCam = true;
   let pendingPromotionMove: { from: string; to: string } | null = null;
 
@@ -600,6 +600,7 @@ function main(): void {
             selectedSquare = null;
             legalMovesForSelected = [];
             updateHighlights();
+            void persistCurrentSession();
             animateChessMove(executed!, () => {
               if (chess.in_check()) soundFX.playCathedralOrganAndBell();
               if (chess.game_over()) {
@@ -624,6 +625,7 @@ function main(): void {
     selectedSquare = null;
     legalMovesForSelected = [];
     updateHighlights();
+    void persistCurrentSession();
 
     animateChessMove(executed, () => {
       if (chess.in_check()) soundFX.playCathedralOrganAndBell();
@@ -1337,6 +1339,7 @@ function main(): void {
           if (typeof saved.contrast === 'number' && typeof saved.brightness === 'number') {
             displaySettings.contrast = saved.contrast;
             displaySettings.brightness = saved.brightness;
+            setDisplaySettings(displaySettings);
             applyDisplaySettings(displaySettings, renderer, hemiLight, boardKeyLight, container);
             syncDisplayInputs();
           }
@@ -1369,6 +1372,18 @@ function main(): void {
     }
   }
 
+  // Flush encrypted session state on tab/browser refresh, close, or visibility backgrounding
+  window.addEventListener('pagehide', () => {
+    void persistCurrentSession();
+  });
+  document.addEventListener('visibilitychange', () => {
+    matchBool(document.visibilityState === 'hidden', {
+      true: () => {
+        void persistCurrentSession();
+      },
+      false: () => {}
+    });
+  });
 
   // Initial Sync & IndexedDB Restore
   syncBoardPiecesWithChessState();

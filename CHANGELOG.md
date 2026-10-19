@@ -21,8 +21,11 @@ Every general feature change or application behavior update is consolidated unde
 ### Fixed
 - **Non-Destructive Mid-Game Settings Modal (`src/constants/board.ts`, `src/main.ts`, `index.html`)**:
   - Opening **Game Settings** (`#btn-setup`) while a match is already in progress (`chess.history().length > 0`) snapshots `{ mode, difficulty, allowUndo }` and resolves `SettingsApplyActionEnum.KeepActiveGame` when no match settings changed, preserving the active chessboard and move history intact unless settings were modified (`ApplyAndReset`) or **New Game** (`#btn-reset` / `#modal-new-game`) was explicitly triggered (`StartNewGame`).
+- **Automatic Encrypted Session Persistence Across Tab & Browser Refreshes (`src/storage/indexedDbStore.ts`, `src/main.ts`, `index.html`)**:
+  - Enabled encrypted `IndexedDB` session persistence (`AES-GCM-256`) by default (`getPersistencePreference()` defaults to `true`, `#persist-session-checkbox` and `#drawer-persist-checkbox` checked out-of-the-box) with immediate move persistence and `pagehide` / `visibilitychange` flush listeners so refreshing the browser/tab always preserves the exact board FEN, algebraic move history, opponent style, difficulty, undo rule, and display contrast/brightness.
 
 ## [1.1.0-rc.1] - 2026-10-18
+
 
 ### Added
 - **AES-GCM-256 Encrypted Client Storage & Ciphertext Audit Inspector (`src/storage/indexedDbStore.ts`, `src/ui/uiController.ts`)**:
