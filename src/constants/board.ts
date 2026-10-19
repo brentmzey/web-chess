@@ -1,13 +1,16 @@
 import {
+  ChessThemeEnum,
   GameModeEnum,
   OpponentDifficultyEnum,
   SettingsApplyActionEnum,
+  type ChessTheme,
   type DifficultyLevelProfile,
   type GameMode,
   type GameModeConfig,
   type OpponentDifficulty,
   type PieceColor,
-  type PieceType
+  type PieceType,
+  type ThemeConfig
 } from '../types';
 import { fromNullable, match, matchBool } from '../utils/fp';
 
@@ -105,6 +108,117 @@ export const DIFFICULTY_PROFILES: readonly DifficultyLevelProfile[] = [
   }
 ] as const;
 
+export const CHESS_THEMES: readonly ThemeConfig[] = [
+  {
+    id: ChessThemeEnum.GothicBasilica,
+    label: 'High Gothic Basilica',
+    badge: 'BASILICA',
+    icon: 'church',
+    description:
+      'Carrara marble & volcanic obsidian with gilded brass and amethyst runes under stained glass.',
+    whitePieceColor: 0xf7f4ee,
+    blackPieceColor: 0x1c1726,
+    goldAccentColor: 0xe5c158,
+    goldAccentEmissive: 0x3b2a08,
+    arcaneAccentColor: 0xa855f7,
+    arcaneAccentEmissive: 0x6b21a8,
+    flameColor: 0xffd54f,
+    darkStoneColor: 0x221f29,
+    trimStoneColor: 0x353040,
+    crimsonCarpetColor: 0x69141e,
+    lightSquareColor: 0xeae4d7,
+    lightSquareEmissive: 0x1a1712,
+    darkSquareColor: 0x181a22,
+    sceneBackground: 0x09070e,
+    sceneFog: 0x0b0914,
+    hemiSkyColor: 0xd8c8ff,
+    hemiGroundColor: 0x261d16,
+    altarLightColor: 0xffb74d,
+    strikeFlashColor: 0xfef08a
+  },
+  {
+    id: ChessThemeEnum.EmeraldCitadel,
+    label: 'Emerald Citadel',
+    badge: 'EMERALD',
+    icon: 'diamond',
+    description:
+      'Polished jade & malachite slate with aged bronze filigree and emerald elder-runes.',
+    whitePieceColor: 0xeaf7f0,
+    blackPieceColor: 0x0f241d,
+    goldAccentColor: 0xd4a359,
+    goldAccentEmissive: 0x362407,
+    arcaneAccentColor: 0x10b981,
+    arcaneAccentEmissive: 0x047857,
+    flameColor: 0x6ee7b7,
+    darkStoneColor: 0x14241e,
+    trimStoneColor: 0x233830,
+    crimsonCarpetColor: 0x0d4a38,
+    lightSquareColor: 0xdcebe2,
+    lightSquareEmissive: 0x0d1f18,
+    darkSquareColor: 0x11261f,
+    sceneBackground: 0x050e0b,
+    sceneFog: 0x071410,
+    hemiSkyColor: 0xb8f2d8,
+    hemiGroundColor: 0x0e241b,
+    altarLightColor: 0x34d399,
+    strikeFlashColor: 0x6ee7b7
+  },
+  {
+    id: ChessThemeEnum.AstralObservatory,
+    label: 'Astral Observatory',
+    badge: 'ASTRAL',
+    icon: 'auto_awesome',
+    description:
+      'Starlight silver-ivory & midnight void stone with celestial platinum and cyan-sapphire runes.',
+    whitePieceColor: 0xf0f6ff,
+    blackPieceColor: 0x0f172a,
+    goldAccentColor: 0x93c5fd,
+    goldAccentEmissive: 0x1e3a8a,
+    arcaneAccentColor: 0x38bdf8,
+    arcaneAccentEmissive: 0x0284c7,
+    flameColor: 0x7dd3fc,
+    darkStoneColor: 0x131c2e,
+    trimStoneColor: 0x1e293b,
+    crimsonCarpetColor: 0x1e1b4b,
+    lightSquareColor: 0xdbeafe,
+    lightSquareEmissive: 0x0f172a,
+    darkSquareColor: 0x0f1b33,
+    sceneBackground: 0x040814,
+    sceneFog: 0x060c1f,
+    hemiSkyColor: 0xbae6fd,
+    hemiGroundColor: 0x0f172a,
+    altarLightColor: 0x38bdf8,
+    strikeFlashColor: 0xbae6fd
+  },
+  {
+    id: ChessThemeEnum.CrimsonInquisition,
+    label: 'Crimson Crucible',
+    badge: 'CRIMSON',
+    icon: 'local_fire_department',
+    description:
+      'Warm bone-ivory & charred basalt with burnished copper and blood-ruby embers.',
+    whitePieceColor: 0xfaf0e4,
+    blackPieceColor: 0x1f1214,
+    goldAccentColor: 0xf59e0b,
+    goldAccentEmissive: 0x451a03,
+    arcaneAccentColor: 0xf43f5e,
+    arcaneAccentEmissive: 0xbe123c,
+    flameColor: 0xfb923c,
+    darkStoneColor: 0x29181b,
+    trimStoneColor: 0x3d2428,
+    crimsonCarpetColor: 0x7f1d1d,
+    lightSquareColor: 0xefe2d0,
+    lightSquareEmissive: 0x241410,
+    darkSquareColor: 0x241215,
+    sceneBackground: 0x120608,
+    sceneFog: 0x17080b,
+    hemiSkyColor: 0xfecdd3,
+    hemiGroundColor: 0x2b1215,
+    altarLightColor: 0xf97316,
+    strikeFlashColor: 0xfda4af
+  }
+] as const;
+
 export function getGameModeConfig(mode: GameMode): GameModeConfig {
   const defaultMode = fromNullable(GAME_MODES[0]).getOrThrow('GAME_MODES registry cannot be empty');
   return fromNullable(GAME_MODES.find(m => m.id === mode)).getOrElse(defaultMode);
@@ -116,6 +230,14 @@ export function getDifficultyProfile(difficulty: OpponentDifficulty): Difficulty
   );
   return fromNullable(DIFFICULTY_PROFILES.find(d => d.id === difficulty)).getOrElse(defaultProfile);
 }
+
+export function getThemeConfig(theme: ChessTheme): ThemeConfig {
+  const defaultTheme = fromNullable(CHESS_THEMES[0]).getOrThrow(
+    'CHESS_THEMES registry cannot be empty'
+  );
+  return fromNullable(CHESS_THEMES.find(t => t.id === theme)).getOrElse(defaultTheme);
+}
+
 
 export interface MatchSettingsSnapshot {
   mode: GameMode;

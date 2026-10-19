@@ -8,6 +8,10 @@ Every general feature change or application behavior update is consolidated unde
 
 ## [1.2.0-rc.1] - 2026-10-18
 ### Added
+- **Live-Swappable 3D Sanctuary & Board Theme System (`src/types/index.ts`, `src/constants/board.ts`, `src/graphics/materials.ts`, `src/main.ts`, `index.html`)**:
+  - Added `ChessThemeEnum` and `CHESS_THEMES` with four distinct 3D PBR Sanctuary & Board themes: **High Gothic Basilica** (`gothic-basilica`), **Emerald Citadel** (`emerald-citadel`), **Astral Observatory** (`astral-observatory`), and **Crimson Crucible** (`crimson-inquisition`).
+  - Added `applyThemePalette(theme, materials, squareMeshes, sceneTargets)` to mutate shared 3D piece materials, architectural stone/carpet/accent materials, all 64 board square tiles, and scene/hemisphere/altar/strike lighting in-place at runtime.
+  - Players can switch themes **at any time — both before a game starts AND in the middle of an active match (`chess.history().length > 0`) — without resetting the board or move history**, via either the 1-tap `#btn-theme` bottom navigation chip or the **Sanctuary & Board Theme** selector grid in **Game Settings** (`#pregame-modal`), with the active theme automatically persisted in encrypted `IndexedDB` (`StoredSessionState.theme`).
 - **Rust / Scala-Style Exhaustive Pattern Matching & Unwrap Combinators (`src/utils/fp.ts`, `src/constants/board.ts`, `src/types/index.ts`)**:
   - Extended `Optional<T>` (`Some<T>` | `None<T>`) with `.match({ Some, None })` and `.getOrThrow(errorOrMessage?)` for explicit fallback mapping vs. fail-fast invariant enforcement.
   - Extended `Result<T, E>` (`Success<T, E>` | `Failure<T, E>`) with `.match({ Ok, Err })` and `.getOrThrow(errorOrMessage?)`.
@@ -22,7 +26,7 @@ Every general feature change or application behavior update is consolidated unde
 - **Non-Destructive Mid-Game Settings Modal (`src/constants/board.ts`, `src/main.ts`, `index.html`)**:
   - Opening **Game Settings** (`#btn-setup`) while a match is already in progress (`chess.history().length > 0`) snapshots `{ mode, difficulty, allowUndo }` and resolves `SettingsApplyActionEnum.KeepActiveGame` when no match settings changed, preserving the active chessboard and move history intact unless settings were modified (`ApplyAndReset`) or **New Game** (`#btn-reset` / `#modal-new-game`) was explicitly triggered (`StartNewGame`).
 - **Automatic Encrypted Session Persistence Across Tab & Browser Refreshes (`src/storage/indexedDbStore.ts`, `src/main.ts`, `index.html`)**:
-  - Enabled encrypted `IndexedDB` session persistence (`AES-GCM-256`) by default (`getPersistencePreference()` defaults to `true`, `#persist-session-checkbox` and `#drawer-persist-checkbox` checked out-of-the-box) with immediate move persistence and `pagehide` / `visibilitychange` flush listeners so refreshing the browser/tab always preserves the exact board FEN, algebraic move history, opponent style, difficulty, undo rule, and display contrast/brightness.
+  - Enabled encrypted `IndexedDB` session persistence (`AES-GCM-256`) by default (`getPersistencePreference()` defaults to `true`, `#persist-session-checkbox` and `#drawer-persist-checkbox` checked out-of-the-box) with immediate move persistence and `pagehide` / `visibilitychange` flush listeners so refreshing the browser/tab always preserves the exact board FEN, algebraic move history, opponent style, difficulty, undo rule, active 3D theme, and display contrast/brightness.
 
 ## [1.1.0-rc.1] - 2026-10-18
 

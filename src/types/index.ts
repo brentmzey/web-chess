@@ -116,9 +116,50 @@ export enum SettingsApplyActionEnum {
   StartNewGame = 'start_new_game'
 }
 
+export enum ChessThemeEnum {
+  GothicBasilica = 'gothic-basilica',
+  EmeraldCitadel = 'emerald-citadel',
+  AstralObservatory = 'astral-observatory',
+  CrimsonInquisition = 'crimson-inquisition'
+}
+
 export type GameMode = GameModeEnum | 'pass-and-play' | 'minimax' | 'micro-neural' | 'gemini-nano';
 
 export type OpponentDifficulty = OpponentDifficultyEnum | 'cautious' | 'balanced' | 'aggressive';
+
+export type ChessTheme =
+  | ChessThemeEnum
+  | 'gothic-basilica'
+  | 'emerald-citadel'
+  | 'astral-observatory'
+  | 'crimson-inquisition';
+
+export interface ThemeConfig {
+  id: ChessThemeEnum;
+  label: string;
+  badge: string;
+  icon: string;
+  description: string;
+  whitePieceColor: number;
+  blackPieceColor: number;
+  goldAccentColor: number;
+  goldAccentEmissive: number;
+  arcaneAccentColor: number;
+  arcaneAccentEmissive: number;
+  flameColor: number;
+  darkStoneColor: number;
+  trimStoneColor: number;
+  crimsonCarpetColor: number;
+  lightSquareColor: number;
+  lightSquareEmissive: number;
+  darkSquareColor: number;
+  sceneBackground: number;
+  sceneFog: number;
+  hemiSkyColor: number;
+  hemiGroundColor: number;
+  altarLightColor: number;
+  strikeFlashColor: number;
+}
 
 export interface DifficultyLevelProfile {
   id: OpponentDifficultyEnum;
@@ -146,11 +187,13 @@ export interface StoredSessionState {
   mode: GameMode;
   difficulty: OpponentDifficulty;
   allowUndo: boolean;
+  theme?: ChessTheme;
   contrast: number;
   brightness: number;
   deviceTier: DeviceTierEnum;
   timestamp: number;
 }
+
 
 export interface EncryptedEnvelope {
   v: 1;
