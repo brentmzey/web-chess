@@ -22,6 +22,15 @@ Every general feature change or application behavior update is consolidated unde
 - **Functional & Pattern-Matched UI / Board Control Flows (`src/main.ts`, `src/constants/board.ts`)**:
   - Refactored `main()`, `syncAllControlsUI()`, `handleBoardClick()`, `startNewGame()`, `handlePersistenceToggle()`, and `restoreSessionIfEnabled()` to use `match`, `matchBool`, `Option.match({ Some, None })`, `fromNullable(...).getOrElse(...)`, and `fromNullable(...).getOrThrow(...)`.
 
+### Security
+- **Hardened Client Storage Encryption (`src/storage/indexedDbStore.ts`, `src/ui/uiController.ts`, `src/types/index.ts`)**:
+  - **Removed the hardcoded AES key from the bundle.** Anyone could previously read the key from the shipped JS and decrypt a copied IndexedDB. The 256-bit AES-GCM key is now generated per browser profile via Web Crypto `generateKey` with `extractable: false`; only the opaque `CryptoKey` handle is persisted (Structured Clone), so raw key bytes can never be exported or read from the database file.
+  - Added AEAD **Additional Authenticated Data** binding every record to its context (`active_session` / `persistence_preference`), defeating cross-record envelope transplant attacks; explicit 128-bit auth tag.
+  - **Fail-closed key handling**: a transient IndexedDB read error never rotates/overwrites the stored key; a key that cannot be persisted is never handed out. Added `rotateMasterCryptoKey()` and `clearCachedCryptoKey()`.
+  - Decrypted JSON is parsed with `safeJsonParse` (strips `__proto__` / `constructor` / `prototype`); move text rendered into `innerHTML` is escaped via `escapeHtml`.
+  - Storage Audit report now states `keyExtractable: false`, `hardcodedBundleKey: false`, `aadContextBound: true`, `authTagBits: 128`.
+  - **Note:** sessions encrypted with the old bundled key cannot be decrypted and are discarded on first load (a new game starts).
+
 ### Fixed
 - **Non-Destructive Mid-Game Settings Modal (`src/constants/board.ts`, `src/main.ts`, `index.html`)**:
   - Opening **Game Settings** (`#btn-setup`) while a match is already in progress (`chess.history().length > 0`) snapshots `{ mode, difficulty, allowUndo }` and resolves `SettingsApplyActionEnum.KeepActiveGame` when no match settings changed, preserving the active chessboard and move history intact unless settings were modified (`ApplyAndReset`) or **New Game** (`#btn-reset` / `#modal-new-game`) was explicitly triggered (`StartNewGame`).

@@ -5,9 +5,12 @@ import type {
   StoredSessionState
 } from '../types';
 import {
+  failure,
   fromNullable,
   fromResult,
+  matchBool,
   none,
+  some,
   success,
   toResult,
   tryCatch,
@@ -21,19 +24,32 @@ export const DB_VERSION = 1;
 export const STORE_NAME = 'sanctuary_sessions';
 export const SESSION_KEY = 'active_session';
 export const PREFERENCE_KEY = 'persistence_preference';
+export const CRYPTO_KEY_RECORD_ID = '__origin_bound_non_extractable_key__' as const;
 export const ENCRYPTION_ALGORITHM = 'AES-GCM-256' as const;
 export const ENCRYPTION_KEY_BITS = 256 as const;
 export const ENCRYPTION_IV_BYTES = 12 as const;
+export const ENCRYPTION_AUTH_TAG_BITS = 128 as const;
 export const ENCRYPTION_CIPHER_MODE =
   'Galois/Counter Mode (AEAD, 128-bit Auth Tag)' as const;
+export const ENCRYPTION_KEY_MANAGEMENT =
+  'Web Crypto CSPRNG Non-Extractable CryptoKey (extractable: false)' as const;
 
 interface PreferencePayload {
   enabled: boolean;
   updatedAt: number;
 }
 
-// 256-bit (32-byte) key material for Web Crypto AES-GCM authenticated storage encryption
-const STORAGE_KEY_MATERIAL = new TextEncoder().encode('SanctaBasilicaWizardChessAES256!');
+interface StoredCryptoKeyRecord {
+  id: typeof CRYPTO_KEY_RECORD_ID;
+  cryptoKey: CryptoKey;
+  createdAt: number;
+}
+
+/**
+ * Private closure reference to the origin-bound, non-extractable 256-bit Web Crypto key.
+ * ZERO hardcoded key material exists anywhere in the source code or bundle.
+ */
+let fallbackMasterKeyOpt: Option<CryptoKey> = none();
 
 export function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -57,18 +73,137 @@ export function base64ToBytes(b64: string): Result<Uint8Array, string> {
   );
 }
 
-async function getStorageCryptoKey(): Promise<Result<CryptoKey, string>> {
+/**
+ * Builds canonical Additional Authenticated Data (AAD) binding each AES-GCM-256
+ * 128-bit authentication tag to the specific record context (`active_session` vs `persistence_preference`).
+ * Prevents cross-record transplant attacks or envelope metadata tampering.
+ */
+export function buildAdditionalAuthenticatedData(
+  context: string = 'default'
+): Uint8Array<ArrayBuffer> {
+  return new TextEncoder().encode(
+    `SanctaBasilica:v1:${ENCRYPTION_ALGORITHM}:tag=${ENCRYPTION_AUTH_TAG_BITS}:ctx=${context}`
+  ) as Uint8Array<ArrayBuffer>;
+}
+
+/**
+ * Parses decrypted JSON while stripping prototype pollution keys (`__proto__`, `constructor`, `prototype`).
+ */
+export function safeJsonParse<T>(jsonText: string): T {
+  return JSON.parse(jsonText, (key, value) =>
+    matchBool(key === '__proto__' || key === 'constructor' || key === 'prototype', {
+      true: () => undefined,
+      false: () => value
+    })
+  ) as T;
+}
+
+async function generateNonExtractableCryptoKey(): Promise<Result<CryptoKey, string>> {
+  return tryCatchAsync(
+    async () => {
+      const key = await crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: ENCRYPTION_KEY_BITS },
+        false, // extractable: FALSE — raw key bytes can NEVER be exported by JS or external tools
+        ['encrypt', 'decrypt']
+      );
+      fallbackMasterKeyOpt = some(key);
+      return key;
+    },
+    () => 'Web Crypto API unavailable for non-extractable key generation'
+  );
+}
+
+/**
+ * Drops the in-memory reference to the master key (e.g. on explicit lock/wipe).
+ * The persisted non-extractable key record in IndexedDB is untouched.
+ */
+export function clearCachedCryptoKey(): void {
+  fallbackMasterKeyOpt = none();
+}
+
+function readStoredCryptoKey(db: IDBDatabase): Promise<Result<Option<CryptoKey>, string>> {
   return tryCatchAsync(
     async () =>
-      crypto.subtle.importKey(
-        'raw',
-        STORAGE_KEY_MATERIAL,
-        { name: 'AES-GCM', length: ENCRYPTION_KEY_BITS },
-        false,
-        ['encrypt', 'decrypt']
-      ),
-    () => 'Web Crypto API unavailable for storage encryption'
+      new Promise<Option<CryptoKey>>((resolve, reject) => {
+        const request = db
+          .transaction([STORE_NAME], 'readonly')
+          .objectStore(STORE_NAME)
+          .get(CRYPTO_KEY_RECORD_ID);
+        request.onsuccess = () =>
+          resolve(fromNullable((request.result as StoredCryptoKeyRecord | undefined)?.cryptoKey));
+        request.onerror = () => reject(new Error('IndexedDB crypto key read error'));
+      }),
+    err => (err as Error).message
   );
+}
+
+function persistStoredCryptoKey(
+  db: IDBDatabase,
+  cryptoKey: CryptoKey
+): Promise<Result<void, string>> {
+  return tryCatchAsync(
+    async () =>
+      new Promise<void>((resolve, reject) => {
+        const record: StoredCryptoKeyRecord = {
+          id: CRYPTO_KEY_RECORD_ID,
+          cryptoKey,
+          createdAt: Date.now()
+        };
+        const request = db
+          .transaction([STORE_NAME], 'readwrite')
+          .objectStore(STORE_NAME)
+          .put(record);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(new Error('IndexedDB crypto key write error'));
+      }),
+    err => (err as Error).message
+  );
+}
+
+/**
+ * Rotates the non-extractable 256-bit AES-GCM master key in Web Crypto and IndexedDB,
+ * cryptographically invalidating any previously exported or copied ciphertexts.
+ * Fails (rather than silently continuing) if the new key cannot be persisted, so we never
+ * write ciphertext that could not be decrypted after a refresh.
+ */
+export async function rotateMasterCryptoKey(): Promise<Result<CryptoKey, string>> {
+  const dbRes = await openSessionDatabase();
+  return dbRes.flatMapAsync(async db => {
+    const generatedRes = await generateNonExtractableCryptoKey();
+    return generatedRes.flatMapAsync(async newKey =>
+      (await persistStoredCryptoKey(db, newKey)).map(() => newKey)
+    );
+  });
+}
+
+/**
+ * Resolves the origin-bound, non-extractable (`extractable: false`) 256-bit `CryptoKey`.
+ * Persists only the opaque `CryptoKey` handle via IndexedDB Structured Clone so legitimate
+ * tab/browser refreshes in the same browser profile can decrypt session state, while offline
+ * attackers who copy the IndexedDB JSON or inspect the bundle have zero access to key bytes.
+ * A read error FAILS CLOSED — the stored key is never overwritten by a transient failure.
+ */
+export async function getStorageCryptoKey(): Promise<Result<CryptoKey, string>> {
+  const dbRes = await openSessionDatabase();
+  return dbRes.match({
+    Err: () =>
+      fallbackMasterKeyOpt.match({
+        Some: async key => success<CryptoKey, string>(key),
+        None: () => generateNonExtractableCryptoKey()
+      }),
+    Ok: async db =>
+      (await readStoredCryptoKey(db)).match({
+        Err: async message => failure<CryptoKey, string>(message),
+        Ok: storedOpt =>
+          storedOpt.match({
+            Some: async storedKey => {
+              fallbackMasterKeyOpt = some(storedKey);
+              return success<CryptoKey, string>(storedKey);
+            },
+            None: () => rotateMasterCryptoKey()
+          })
+      })
+  });
 }
 
 export function isEncryptedEnvelope(candidate: unknown): candidate is EncryptedEnvelope {
@@ -88,17 +223,26 @@ export function isEncryptedEnvelope(candidate: unknown): candidate is EncryptedE
 
 /**
  * Encrypts any serializable payload into an authenticated AES-GCM-256 envelope
- * with a fresh 12-byte random IV before writing to IndexedDB.
+ * with a fresh 12-byte random IV, 128-bit auth tag, and context-bound AAD before writing to IndexedDB.
  */
-export async function encryptPayload<T>(payload: T): Promise<Result<EncryptedEnvelope, string>> {
+export async function encryptPayload<T>(
+  payload: T,
+  context: string = 'default'
+): Promise<Result<EncryptedEnvelope, string>> {
   const keyResult = await getStorageCryptoKey();
   return keyResult.flatMapAsync(key =>
     tryCatchAsync(
       async () => {
         const iv = crypto.getRandomValues(new Uint8Array(ENCRYPTION_IV_BYTES));
+        const additionalData = buildAdditionalAuthenticatedData(context);
         const plaintextBytes = new TextEncoder().encode(JSON.stringify(payload));
         const cipherBuffer = await crypto.subtle.encrypt(
-          { name: 'AES-GCM', iv },
+          {
+            name: 'AES-GCM',
+            iv,
+            additionalData,
+            tagLength: ENCRYPTION_AUTH_TAG_BITS
+          },
           key,
           plaintextBytes
         );
@@ -115,9 +259,13 @@ export async function encryptPayload<T>(payload: T): Promise<Result<EncryptedEnv
 }
 
 /**
- * Validates and decrypts an AES-GCM-256 envelope fetched from IndexedDB.
+ * Validates and decrypts an AES-GCM-256 envelope fetched from IndexedDB,
+ * enforcing 128-bit AEAD tag authentication and context-bound AAD verification.
  */
-export async function decryptPayload<T>(candidate: unknown): Promise<Result<T, string>> {
+export async function decryptPayload<T>(
+  candidate: unknown,
+  context: string = 'default'
+): Promise<Result<T, string>> {
   const envelopeOpt: Option<EncryptedEnvelope> = fromNullable(
     candidate as EncryptedEnvelope | null | undefined
   ).filter(isEncryptedEnvelope);
@@ -134,13 +282,19 @@ export async function decryptPayload<T>(candidate: unknown): Promise<Result<T, s
       keyResult.flatMapAsync(key =>
         tryCatchAsync(
           async () => {
+            const additionalData = buildAdditionalAuthenticatedData(context);
             const plainBuffer = await crypto.subtle.decrypt(
-              { name: 'AES-GCM', iv: iv as Uint8Array<ArrayBuffer> },
+              {
+                name: 'AES-GCM',
+                iv: iv as Uint8Array<ArrayBuffer>,
+                additionalData,
+                tagLength: ENCRYPTION_AUTH_TAG_BITS
+              },
               key,
               ciphertext as Uint8Array<ArrayBuffer>
             );
             const jsonText = new TextDecoder().decode(plainBuffer);
-            return JSON.parse(jsonText) as T;
+            return safeJsonParse<T>(jsonText);
           },
           () => 'Failed to decrypt or authenticate storage payload'
         )
@@ -232,7 +386,7 @@ export async function loadSavedSession(): Promise<Option<StoredSessionState>> {
       recResult.flatMapAsync(recordOpt =>
         recordOpt.fold(
           async () => toResult(none<StoredSessionState>(), () => 'No saved session found'),
-          record => decryptPayload<StoredSessionState>(record.envelope)
+          record => decryptPayload<StoredSessionState>(record.envelope, SESSION_KEY)
         )
       )
     );
@@ -248,7 +402,7 @@ export async function saveSessionState(
 ): Promise<Result<void, string>> {
   const dbResult = await openSessionDatabase();
   return dbResult.flatMapAsync(db =>
-    encryptPayload({ ...session, id: SESSION_KEY }).then(envResult =>
+    encryptPayload({ ...session, id: SESSION_KEY }, SESSION_KEY).then(envResult =>
       envResult.flatMapAsync(envelope =>
         writeEncryptedRecord(db, {
           id: SESSION_KEY,
@@ -295,15 +449,13 @@ export async function getPersistencePreference(): Promise<boolean> {
       recResult.flatMapAsync(recordOpt =>
         recordOpt.match({
           None: async () => success<PreferencePayload, string>({ enabled: true, updatedAt: 0 }),
-          Some: record => decryptPayload<PreferencePayload>(record.envelope)
+          Some: record => decryptPayload<PreferencePayload>(record.envelope, PREFERENCE_KEY)
         })
       )
     );
 
   return prefResult.map(pref => Boolean(pref.enabled)).getOrElse(false);
 }
-
-
 
 /**
  * Encrypts and saves the user's checkbox preference for session persistence to IndexedDB.
@@ -313,22 +465,24 @@ export async function setPersistencePreference(
 ): Promise<Result<void, string>> {
   const dbResult = await openSessionDatabase();
   return dbResult.flatMapAsync(db =>
-    encryptPayload<PreferencePayload>({ enabled, updatedAt: Date.now() }).then(envResult =>
-      envResult.flatMapAsync(envelope =>
-        writeEncryptedRecord(db, {
-          id: PREFERENCE_KEY,
-          envelope,
-          updatedAt: Date.now()
-        })
-      )
+    encryptPayload<PreferencePayload>({ enabled, updatedAt: Date.now() }, PREFERENCE_KEY).then(
+      envResult =>
+        envResult.flatMapAsync(envelope =>
+          writeEncryptedRecord(db, {
+            id: PREFERENCE_KEY,
+            envelope,
+            updatedAt: Date.now()
+          })
+        )
     )
   );
 }
 
 /**
  * Generates an encrypted-only audit report of all records stored in IndexedDB.
- * Never decrypts or exposes plaintext; returns only the raw AES-GCM-256 envelopes
- * (v, alg, iv, ciphertext) alongside algorithm and cipher specification metadata.
+ * Never decrypts or exposes plaintext, and never exposes the non-extractable CryptoKey handle;
+ * returns only the raw AES-GCM-256 envelopes (v, alg, iv, ciphertext) alongside algorithm and
+ * non-extractable key management metadata.
  */
 export async function auditEncryptedStorage(): Promise<
   Result<EncryptedStorageAuditReport, string>
@@ -375,7 +529,12 @@ export async function auditEncryptedStorage(): Promise<
               algorithm: ENCRYPTION_ALGORITHM,
               keyLengthBits: ENCRYPTION_KEY_BITS,
               ivLengthBytes: ENCRYPTION_IV_BYTES,
+              authTagBits: ENCRYPTION_AUTH_TAG_BITS,
               cipherMode: ENCRYPTION_CIPHER_MODE,
+              keyManagement: ENCRYPTION_KEY_MANAGEMENT,
+              keyExtractable: false as const,
+              hardcodedBundleKey: false as const,
+              aadContextBound: true as const,
               localStorageUsed: false as const,
               plaintextExposed: false as const,
               auditedAt: new Date().toISOString(),
