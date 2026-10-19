@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { Chess, type Move } from 'chess.js';
 import { CathedralSoundEngine } from './audio/CathedralSoundEngine';
 import {
+  CHESS_THEMES,
   DIFFICULTY_PROFILES,
   GAME_MODES,
   getDifficultyProfile,
   getGameModeConfig,
   getSettingsActionButtonLabel,
+  getThemeConfig,
   resolveSettingsApplyAction,
   shouldResetBoardOnSettingsApply,
   type MatchSettingsSnapshot
@@ -25,7 +27,7 @@ import {
   setDisplaySettings
 } from './graphics/displaySettings';
 import { buildDustParticles } from './graphics/dust';
-import { createMaterials } from './graphics/materials';
+import { applyThemePalette, createMaterials } from './graphics/materials';
 import { buildWizardPieceMesh } from './graphics/pieces';
 import { initScene } from './graphics/scene';
 import { ShatterSystem } from './graphics/shatter';
@@ -40,11 +42,13 @@ import {
   setPersistencePreference
 } from './storage/indexedDbStore';
 import {
+  ChessThemeEnum,
   DeviceTierEnum,
   GameModeEnum,
   OpponentDifficultyEnum,
   PieceColorEnum,
   SettingsApplyActionEnum,
+  type ChessTheme,
   type GameMode,
   type OpponentDifficulty,
   type PieceColor,
@@ -114,6 +118,7 @@ function main(): void {
   let isAnimating = false;
   let currentMode: GameMode = GameModeEnum.Minimax;
   let currentDifficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced;
+  let currentTheme: ChessTheme = ChessThemeEnum.GothicBasilica;
   let allowUndo = true;
   let pendingAllowUndo = true;
   let modalOpenedFromReset = false;
@@ -140,6 +145,7 @@ function main(): void {
       mode: currentMode,
       difficulty: currentDifficulty,
       allowUndo,
+      theme: currentTheme,
       contrast: displaySettings.contrast,
       brightness: displaySettings.brightness,
       deviceTier: deviceProfile.tier,
@@ -190,6 +196,7 @@ function main(): void {
   function syncAllControlsUI(): void {
     const modeCfg = getGameModeConfig(currentMode);
     const diffCfg = getDifficultyProfile(currentDifficulty);
+    const themeCfg = getThemeConfig(currentTheme);
     const inProgress = chess.history().length > 0;
     const currentSnapshot: MatchSettingsSnapshot = {
       mode: currentMode,
@@ -209,7 +216,7 @@ function main(): void {
       modalOpenedFromReset
     );
 
-    // Bottom bar mode & difficulty chips
+    // Bottom bar mode, difficulty & theme chips
     fromNullable(document.getElementById('mode-label')).map(el => {
       el.textContent = modeCfg.label;
     });
@@ -218,6 +225,16 @@ function main(): void {
     });
     fromNullable(document.getElementById('btn-mode')).map(btn => {
       btn.title = `${modeCfg.label}: ${modeCfg.description} (Click to cycle)`;
+    });
+
+    fromNullable(document.getElementById('theme-label')).map(el => {
+      el.textContent = themeCfg.badge;
+    });
+    fromNullable(document.getElementById('theme-icon')).map(el => {
+      el.textContent = themeCfg.icon;
+    });
+    fromNullable(document.getElementById('btn-theme')).map(btn => {
+      btn.title = `Sanctuary & Board Theme: ${themeCfg.label} (Click to cycle live mid-game)`;
     });
 
     fromNullable(document.getElementById('difficulty-label')).map(el => {
@@ -312,6 +329,19 @@ function main(): void {
 
     fromNullable(document.getElementById('pregame-difficulty-desc')).map(descEl => {
       descEl.textContent = diffCfg.styleDescriptions[currentMode as GameModeEnum];
+    });
+
+    // Pre-game theme selection buttons highlight & description
+    document.querySelectorAll('.theme-select-btn').forEach(btn => {
+      const btnTheme = btn.getAttribute('data-theme-select');
+      const isSelected = btnTheme === currentTheme;
+      btn.classList.toggle('border-amber-400/70', isSelected);
+      btn.classList.toggle('bg-amber-400/15', isSelected);
+      btn.classList.toggle('border-white/10', !isSelected);
+    });
+
+    fromNullable(document.getElementById('pregame-theme-desc')).map(descEl => {
+      descEl.textContent = themeCfg.description;
     });
 
     // Pre-game Allow Undo checkbox & badge
@@ -871,6 +901,28 @@ function main(): void {
     }
   }
 
+  // Live-Swappable 3D Sanctuary & Board Theme Selection Logic (works before AND mid-game without resetting)
+  function selectTheme(nextTheme: ChessThemeEnum): void {
+    currentTheme = nextTheme;
+    const themeCfg = applyThemePalette(currentTheme, materials, squareMeshes, {
+      scene,
+      hemiLight,
+      altarWarmLight,
+      strikeFlashLight
+    });
+    applyDisplaySettings(displaySettings, renderer, hemiLight, boardKeyLight, container);
+    updateHighlights();
+    logger.info('Sanctuary & Board Theme updated live', {
+      theme: currentTheme,
+      label: themeCfg.label,
+      inProgress: chess.history().length > 0
+    });
+    soundFX.playSelect();
+    syncAllControlsUI();
+    void persistCurrentSession();
+    ui.showTemporaryBanner(`Theme: ${themeCfg.label} (${themeCfg.badge})`, 2200);
+  }
+
   // Bottom Bar Event Listeners
   fromNullable(document.getElementById('btn-setup')).map(btn =>
     btn.addEventListener('click', () => {
@@ -990,6 +1042,17 @@ function main(): void {
     });
   });
 
+  // Pre-Game Modal Theme Buttons (apply live even if a game is already in progress!)
+  document.querySelectorAll('.theme-select-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      fromNullable(btn.getAttribute('data-theme-select') as ChessThemeEnum | null).map(
+        themeAttr => {
+          selectTheme(themeAttr);
+        }
+      );
+    });
+  });
+
   // Pre-Game Allow Undo Checkbox
   fromNullable(document.getElementById('allow-undo-checkbox') as HTMLInputElement | null).map(
     allowUndoCheckbox =>
@@ -1100,6 +1163,17 @@ function main(): void {
           selectDifficulty(nextDiff.id);
         }
       });
+    })
+  );
+
+  // Cycle Sanctuary & Board Theme from Bottom Bar (works live mid-game!)
+  fromNullable(document.getElementById('btn-theme')).map(btn =>
+    btn.addEventListener('click', () => {
+      const idx = CHESS_THEMES.findIndex(t => t.id === currentTheme);
+      const nextTheme = fromNullable(
+        CHESS_THEMES[(idx + 1) % CHESS_THEMES.length]
+      ).getOrThrow('No chess themes configured');
+      selectTheme(nextTheme.id);
     })
   );
 
@@ -1327,6 +1401,14 @@ function main(): void {
           currentDifficulty = fromNullable(saved.difficulty).getOrElse(
             OpponentDifficultyEnum.Balanced
           );
+          currentTheme = fromNullable(saved.theme).getOrElse(ChessThemeEnum.GothicBasilica);
+          applyThemePalette(currentTheme, materials, squareMeshes, {
+            scene,
+            hemiLight,
+            altarWarmLight,
+            strikeFlashLight
+          });
+
           allowUndo = fromNullable(saved.allowUndo).getOrElse(true);
           pendingAllowUndo = allowUndo;
           settingsSnapshotOnOpen = {

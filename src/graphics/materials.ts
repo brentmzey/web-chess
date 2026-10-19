@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { getThemeConfig } from '../constants/board';
+import type { ChessTheme, SquareTileMesh, ThemeConfig } from '../types';
+import { fromNullable, matchBool } from '../utils/fp';
 import {
   createCarraraMarbleTexture,
   createCosmatiPavementTexture,
@@ -19,6 +22,13 @@ export interface AppMaterials {
   trimStoneMat: THREE.MeshStandardMaterial;
   darkOakMat: THREE.MeshStandardMaterial;
   crimsonCarpetMat: THREE.MeshStandardMaterial;
+}
+
+export interface ThemeSceneTargets {
+  scene?: THREE.Scene;
+  hemiLight?: THREE.HemisphereLight;
+  altarWarmLight?: THREE.PointLight;
+  strikeFlashLight?: THREE.PointLight;
 }
 
 export function createMaterials(): AppMaterials {
@@ -106,3 +116,65 @@ export function createMaterials(): AppMaterials {
     crimsonCarpetMat
   };
 }
+
+/**
+ * Applies a `ChessTheme` palette in-place to shared piece/architecture materials,
+ * 64 chessboard square meshes, and scene lighting without resetting or rebuilding the active match.
+ */
+export function applyThemePalette(
+  theme: ChessTheme,
+  materials: AppMaterials,
+  squareMeshes?: Record<string, SquareTileMesh>,
+  sceneTargets?: ThemeSceneTargets
+): ThemeConfig {
+  const cfg = getThemeConfig(theme);
+
+  materials.whitePieceMaterial.color.setHex(cfg.whitePieceColor);
+  materials.blackPieceMaterial.color.setHex(cfg.blackPieceColor);
+  materials.goldAccentMaterial.color.setHex(cfg.goldAccentColor);
+  materials.goldAccentMaterial.emissive.setHex(cfg.goldAccentEmissive);
+  materials.arcaneAccentMaterial.color.setHex(cfg.arcaneAccentColor);
+  materials.arcaneAccentMaterial.emissive.setHex(cfg.arcaneAccentEmissive);
+  materials.flameMat.color.setHex(cfg.flameColor);
+  materials.darkStoneMat.color.setHex(cfg.darkStoneColor);
+  materials.trimStoneMat.color.setHex(cfg.trimStoneColor);
+  materials.crimsonCarpetMat.color.setHex(cfg.crimsonCarpetColor);
+
+  fromNullable(squareMeshes).map(meshes => {
+    Object.values(meshes).forEach(tile => {
+      const mat = tile.material as THREE.MeshStandardMaterial;
+      const isLight = Boolean(tile.userData?.isLight);
+      const nextColor = matchBool(isLight, {
+        true: () => cfg.lightSquareColor,
+        false: () => cfg.darkSquareColor
+      });
+      const nextEmissive = matchBool(isLight, {
+        true: () => cfg.lightSquareEmissive,
+        false: () => 0x000000
+      });
+      mat.color.setHex(nextColor);
+      mat.emissive.setHex(nextEmissive);
+      tile.userData.defaultEmissive = nextEmissive;
+    });
+  });
+
+  fromNullable(sceneTargets).map(targets => {
+    fromNullable(targets.scene).map(sc => {
+      sc.background = new THREE.Color(cfg.sceneBackground);
+      sc.fog = new THREE.FogExp2(cfg.sceneFog, 0.0135);
+    });
+    fromNullable(targets.hemiLight).map(hemi => {
+      hemi.color.setHex(cfg.hemiSkyColor);
+      hemi.groundColor.setHex(cfg.hemiGroundColor);
+    });
+    fromNullable(targets.altarWarmLight).map(altar => {
+      altar.color.setHex(cfg.altarLightColor);
+    });
+    fromNullable(targets.strikeFlashLight).map(flash => {
+      flash.color.setHex(cfg.strikeFlashColor);
+    });
+  });
+
+  return cfg;
+}
+

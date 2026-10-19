@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
 import { Chess } from 'chess.js';
+import * as THREE from 'three';
 import {
+  CHESS_THEMES,
   DIFFICULTY_PROFILES,
   GAME_MODES,
   getDifficultyProfile,
   getGameModeConfig,
   getSettingsActionButtonLabel,
+  getThemeConfig,
   haveMatchSettingsChanged,
   resolveSettingsApplyAction,
   shouldResetBoardOnSettingsApply,
@@ -17,11 +20,13 @@ import {
   computeGeminiNanoAIMove
 } from '../src/engine/geminiNanoAI';
 import { computeMicroNeuralAIMove, evaluateBoardNeural } from '../src/engine/neuralAI';
+import { buildChessboardGrid } from '../src/graphics/board';
 import {
   detectDeviceTier,
   getDeviceProfileConfig,
   setActiveDeviceTier
 } from '../src/graphics/deviceTier';
+import { applyThemePalette, createMaterials } from '../src/graphics/materials';
 import {
   auditEncryptedStorage,
   clearSessionState,
@@ -32,6 +37,7 @@ import {
   setPersistencePreference
 } from '../src/storage/indexedDbStore';
 import {
+  ChessThemeEnum,
   DeviceTierEnum,
   GameModeEnum,
   OpponentDifficultyEnum,
@@ -155,7 +161,12 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     };
 
     (globalThis as any).document = {
-      getElementById: (id: string) => domElements[id] || null
+      getElementById: (id: string) => domElements[id] || null,
+      createElement: () => ({
+        width: 256,
+        height: 256,
+        getContext: () => null
+      })
     };
   });
 
@@ -481,6 +492,102 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     // Headless window === undefined fallback for detectDeviceTier
     (globalThis as any).window = undefined;
     expect(detectDeviceTier()).toBe(DeviceTierEnum.Desktop);
+
+    await clearSessionState();
+  });
+
+  it('Integration Flow 5: Live-Swappable 3D Sanctuary & Board Themes Mid-Game Without Resetting + Encrypted IndexedDB Persistence', async () => {
+    const chess = new Chess();
+    const scene = new THREE.Scene();
+    const materials = createMaterials();
+    const { squareMeshes } = buildChessboardGrid(scene, materials);
+    const hemiLight = new THREE.HemisphereLight(0xd8c8ff, 0x261d16, 0.58);
+    const altarWarmLight = new THREE.PointLight(0xffb74d, 1.45, 38, 1.6);
+    const strikeFlashLight = new THREE.PointLight(0xfef08a, 0, 18, 2);
+
+    // 1. Verify all 4 themes exist and unknown theme falls back to GothicBasilica
+    expect(CHESS_THEMES.length).toBe(4);
+    expect(getThemeConfig('unknown-theme' as any).id).toBe(ChessThemeEnum.GothicBasilica);
+
+    // 2. Start an active game (1. e4 e5 2. Nf3 Nc6)
+    chess.move('e4');
+    chess.move('e5');
+    chess.move('Nf3');
+    chess.move('Nc6');
+    const midGameFen = chess.fen();
+    const midGameHistory = chess.history();
+    expect(midGameHistory.length).toBe(4);
+
+    const activeSnapshot: MatchSettingsSnapshot = {
+      mode: GameModeEnum.Minimax,
+      difficulty: OpponentDifficultyEnum.Balanced,
+      allowUndo: true
+    };
+
+    // 3. Cycle through every theme MID-GAME and verify materials, 64 board tiles, and lights update in-place
+    //    while the active game state (FEN, move history) and KeepActiveGame settings action remain untouched!
+    for (const themeCfg of CHESS_THEMES) {
+      const applied = applyThemePalette(themeCfg.id, materials, squareMeshes, {
+        scene,
+        hemiLight,
+        altarWarmLight,
+        strikeFlashLight
+      });
+      expect(applied.id).toBe(themeCfg.id);
+      expect(materials.whitePieceMaterial.color.getHex()).toBe(themeCfg.whitePieceColor);
+      expect(materials.blackPieceMaterial.color.getHex()).toBe(themeCfg.blackPieceColor);
+      expect(materials.goldAccentMaterial.color.getHex()).toBe(themeCfg.goldAccentColor);
+      expect(materials.arcaneAccentMaterial.color.getHex()).toBe(themeCfg.arcaneAccentColor);
+      expect(materials.crimsonCarpetMat.color.getHex()).toBe(themeCfg.crimsonCarpetColor);
+
+      // Verify light square (h1) and dark square (a1) updated in-place
+      const lightTileMat = squareMeshes['h1']!.material as THREE.MeshStandardMaterial;
+      const darkTileMat = squareMeshes['a1']!.material as THREE.MeshStandardMaterial;
+      expect(lightTileMat.color.getHex()).toBe(themeCfg.lightSquareColor);
+      expect(darkTileMat.color.getHex()).toBe(themeCfg.darkSquareColor);
+      expect(hemiLight.color.getHex()).toBe(themeCfg.hemiSkyColor);
+      expect(altarWarmLight.color.getHex()).toBe(themeCfg.altarLightColor);
+      expect(strikeFlashLight.color.getHex()).toBe(themeCfg.strikeFlashColor);
+
+      // Game state is 100% intact and opening/closing Game Settings with a new theme does NOT reset the board
+      expect(chess.fen()).toBe(midGameFen);
+      expect(chess.history()).toEqual(midGameHistory);
+      expect(
+        resolveSettingsApplyAction(
+          chess.history().length > 0,
+          activeSnapshot,
+          { ...activeSnapshot },
+          false
+        )
+      ).toBe(SettingsApplyActionEnum.KeepActiveGame);
+    }
+
+    // Also verify applyThemePalette works cleanly when optional squareMeshes / sceneTargets are omitted
+    const standaloneCfg = applyThemePalette(ChessThemeEnum.AstralObservatory, materials);
+    expect(standaloneCfg.id).toBe(ChessThemeEnum.AstralObservatory);
+
+    // 4. Persist mid-game state with selected theme (AstralObservatory) to Encrypted IndexedDB and restore on refresh
+    await saveSessionState({
+      id: SESSION_KEY,
+      enabled: true,
+      fen: chess.fen(),
+      history: chess.history(),
+      mode: GameModeEnum.Minimax,
+      difficulty: OpponentDifficultyEnum.Balanced,
+      allowUndo: true,
+      theme: ChessThemeEnum.AstralObservatory,
+      contrast: 100,
+      brightness: 100,
+      deviceTier: DeviceTierEnum.Desktop,
+      timestamp: Date.now()
+    });
+
+    const loadedOpt = await loadSavedSession();
+    expect(loadedOpt.isSome()).toBe(true);
+    const loaded = loadedOpt.getOrThrow('Expected saved session');
+    expect(loaded.theme).toBe(ChessThemeEnum.AstralObservatory);
+    expect(loaded.fen).toBe(midGameFen);
+    expect(loaded.history).toEqual(midGameHistory);
 
     await clearSessionState();
   });
