@@ -36,10 +36,11 @@ import {
   auditEncryptedStorage,
   clearSessionState,
   getPersistencePreference,
-  loadSavedSession,
+  loadSessionOutcome,
   saveSessionState,
   SESSION_KEY,
-  setPersistencePreference
+  setPersistencePreference,
+  wipeAllStorage
 } from './storage/indexedDbStore';
 import {
   ChessThemeEnum,
@@ -48,6 +49,7 @@ import {
   OpponentDifficultyEnum,
   PieceColorEnum,
   SettingsApplyActionEnum,
+  StorageLoadStatusEnum,
   type ChessTheme,
   type GameMode,
   type OpponentDifficulty,
@@ -1134,6 +1136,56 @@ function main(): void {
     })
   );
 
+  // Wipe & Start Over: erase every encrypted record + the key, reset all in-memory state
+  async function wipeAndStartOver(): Promise<void> {
+    const result = await wipeAllStorage();
+    result.match({
+      Ok: () => {
+        chess.reset();
+        selectedSquare = null;
+        legalMovesForSelected = [];
+        currentMode = GameModeEnum.Minimax;
+        currentDifficulty = OpponentDifficultyEnum.Balanced;
+        currentTheme = ChessThemeEnum.GothicBasilica;
+        applyThemePalette(currentTheme, materials, squareMeshes, {
+          scene,
+          hemiLight,
+          altarWarmLight,
+          strikeFlashLight
+        });
+        allowUndo = true;
+        pendingAllowUndo = true;
+        persistenceEnabled = true;
+        modalOpenedFromReset = false;
+        settingsSnapshotOnOpen = {
+          mode: currentMode,
+          difficulty: currentDifficulty,
+          allowUndo
+        };
+        syncBoardPiecesWithChessState();
+        updateHighlights();
+        syncAllControlsUI();
+        ui.hideGameOver();
+        ui.hideStorageAuditModal();
+        void persistCurrentSession();
+        ui.showTemporaryBanner('All saved data wiped. Started over with a brand-new encryption key.', 4200);
+      },
+      Err: message => ui.showTemporaryBanner(`Wipe failed: ${message}`, 4500)
+    });
+  }
+
+  fromNullable(document.getElementById('wipe-storage-btn')).map(btn =>
+    btn.addEventListener('click', () => ui.showWipeConfirm())
+  );
+  fromNullable(document.getElementById('wipe-cancel-btn')).map(btn =>
+    btn.addEventListener('click', () => ui.hideWipeConfirm())
+  );
+  fromNullable(document.getElementById('wipe-confirm-btn')).map(btn =>
+    btn.addEventListener('click', () => {
+      void wipeAndStartOver();
+    })
+  );
+
   // Cycle Game Mode from Bottom Bar
   fromNullable(document.getElementById('btn-mode')).map(btn =>
     btn.addEventListener('click', async () => {
@@ -1383,7 +1435,22 @@ function main(): void {
     persistenceEnabled = pref;
 
     if (pref) {
-      const savedOpt = await loadSavedSession();
+      const outcome = await loadSessionOutcome();
+      match(outcome.status, {
+        [StorageLoadStatusEnum.Restored]: () => {},
+        [StorageLoadStatusEnum.Empty]: () => {},
+        [StorageLoadStatusEnum.Unreadable]: () =>
+          ui.showTemporaryBanner(
+            'Saved data could not be unlocked (older version or different browser profile). Open Storage Audit → Wipe & Start Over to reset.',
+            6500
+          ),
+        [StorageLoadStatusEnum.Unavailable]: () =>
+          ui.showTemporaryBanner(
+            'Encrypted storage is unavailable in this browser — progress will not persist.',
+            4500
+          )
+      });
+      const savedOpt = fromNullable(outcome.session);
       savedOpt.match({
         None: () => {},
         Some: saved => {

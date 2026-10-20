@@ -547,6 +547,26 @@
                 <pre id="storage-audit-json" class="bg-black/60 border border-white/10 rounded-2xl p-3 text-[11px] font-mono text-teal-200 overflow-auto max-h-64 select-all whitespace-pre-wrap break-all">{}</pre>
             </div>
 
+            <div class="rounded-2xl border border-red-400/30 bg-red-950/30 p-3 space-y-2">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-[10px] uppercase tracking-wider text-red-300 font-bold">Danger Zone</div>
+                        <p class="text-[11px] text-stone-300">Erase all saved data, destroy the encryption key, and start over.</p>
+                    </div>
+                    <button type="button" id="wipe-storage-btn" class="md3-chip px-3 py-2 text-xs shrink-0 text-red-200 border-red-400/40">
+                        <span class="material-symbols-rounded">delete_forever</span>
+                        <span>Wipe &amp; Start Over</span>
+                    </button>
+                </div>
+                <div id="wipe-confirm-row" class="hidden items-center justify-between gap-2 pt-2 border-t border-red-400/20" role="alertdialog" aria-labelledby="wipe-confirm-text">
+                    <span id="wipe-confirm-text" class="text-[11px] text-red-200">This cannot be undone. Your current game will be lost.</span>
+                    <div class="flex gap-2 shrink-0">
+                        <button type="button" id="wipe-cancel-btn" class="md3-chip px-3 py-1.5 text-xs">Cancel</button>
+                        <button type="button" id="wipe-confirm-btn" class="md3-chip active-chip px-3 py-1.5 text-xs font-semibold">Yes, wipe everything</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
                 <button type="button" id="refresh-audit-btn" class="md3-chip px-4 py-2 text-xs">
                     <span class="material-symbols-rounded">refresh</span>

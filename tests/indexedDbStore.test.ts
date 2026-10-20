@@ -20,6 +20,7 @@ import {
   getStorageCryptoKey,
   isEncryptedEnvelope,
   loadSavedSession,
+  loadSessionOutcome,
   openSessionDatabase,
   PREFERENCE_KEY,
   rotateMasterCryptoKey,
@@ -27,12 +28,14 @@ import {
   saveSessionState,
   SESSION_KEY,
   setPersistencePreference,
-  STORE_NAME
+  STORE_NAME,
+  wipeAllStorage
 } from '../src/storage/indexedDbStore';
 import {
   DeviceTierEnum,
   GameModeEnum,
   OpponentDifficultyEnum,
+  StorageLoadStatusEnum,
   type StoredSessionState
 } from '../src/types';
 
@@ -77,6 +80,14 @@ class MockIDBDatabase {
           const req: any = {};
           queueMicrotask(() => {
             store.delete(key);
+            req.onsuccess?.({ target: req });
+          });
+          return req;
+        },
+        clear: () => {
+          const req: any = {};
+          queueMicrotask(() => {
+            store.clear();
             req.onsuccess?.({ target: req });
           });
           return req;
@@ -426,6 +437,7 @@ function installIndexedDbWithRequestBehavior(behavior: {
   getResult?: unknown;
   getFails?: boolean;
   putFails?: boolean;
+  clearFails?: boolean;
   onPut?: () => void;
 }) {
   const fakeDb = {
@@ -448,6 +460,11 @@ function installIndexedDbWithRequestBehavior(behavior: {
           behavior.onPut?.();
           const req: any = {};
           queueMicrotask(() => (behavior.putFails ? req.onerror?.() : req.onsuccess?.()));
+          return req;
+        },
+        clear: () => {
+          const req: any = {};
+          queueMicrotask(() => (behavior.clearFails ? req.onerror?.() : req.onsuccess?.()));
           return req;
         }
       })
@@ -561,7 +578,9 @@ describe('Hardened key management, AEAD context binding & fail-closed behaviour'
     activeMockDb.stores[STORE_NAME]!.set(PREFERENCE_KEY, { ...prefRec, envelope: sessionRec.envelope });
 
     expect((await loadSavedSession()).isNone()).toBe(true);
-    expect(await getPersistencePreference()).toBe(false);
+    expect((await loadSessionOutcome()).status).toBe(StorageLoadStatusEnum.Unreadable);
+    // Unreadable preference falls back to the default (on); the user can opt out or wipe.
+    expect(await getPersistencePreference()).toBe(true);
   });
 
   it('strips prototype-pollution keys when parsing decrypted JSON', () => {
@@ -618,5 +637,89 @@ describe('Hardened key management, AEAD context binding & fail-closed behaviour'
     const second = (await getStorageCryptoKey()).getOrThrow('cached fallback key');
     expect(first.extractable).toBe(false);
     expect(second).toBe(first);
+  });
+});
+
+describe('Storage load outcomes (exhaustive sum type) & Wipe & Start Over', () => {
+  const sampleSession: StoredSessionState = {
+    id: SESSION_KEY,
+    enabled: true,
+    fen: 'start',
+    history: ['e4'],
+    mode: GameModeEnum.Minimax,
+    difficulty: OpponentDifficultyEnum.Balanced,
+    allowUndo: true,
+    contrast: 100,
+    brightness: 100,
+    deviceTier: DeviceTierEnum.Desktop,
+    timestamp: 1
+  };
+
+  beforeEach(() => {
+    setupMockIndexedDB();
+    clearCachedCryptoKey();
+  });
+
+  it('reports Empty, Restored, Unreadable and Unavailable explicitly', async () => {
+    expect((await loadSessionOutcome()).status).toBe(StorageLoadStatusEnum.Empty);
+
+    await saveSessionState(sampleSession);
+    const restored = await loadSessionOutcome();
+    expect(restored.status).toBe(StorageLoadStatusEnum.Restored);
+    expect(restored.session?.history).toEqual(['e4']);
+
+    // Key wiped out from under an existing record (e.g. different profile / legacy key) => Unreadable
+    activeMockDb.stores[STORE_NAME]!.delete(CRYPTO_KEY_RECORD_ID);
+    clearCachedCryptoKey();
+    const unreadable = await loadSessionOutcome();
+    expect(unreadable.status).toBe(StorageLoadStatusEnum.Unreadable);
+    expect(unreadable.session).toBeUndefined();
+
+    installIndexedDbWithRequestBehavior({ getFails: true });
+    expect((await loadSessionOutcome()).status).toBe(StorageLoadStatusEnum.Unavailable);
+
+    (globalThis as any).indexedDB = undefined;
+    expect((await loadSessionOutcome()).status).toBe(StorageLoadStatusEnum.Unavailable);
+  });
+
+  it('persistence preference: unreadable resets to default (on); read error / no IndexedDB => off', async () => {
+    await setPersistencePreference(false);
+    expect(await getPersistencePreference()).toBe(false);
+
+    activeMockDb.stores[STORE_NAME]!.delete(CRYPTO_KEY_RECORD_ID);
+    clearCachedCryptoKey();
+    expect(await getPersistencePreference()).toBe(true);
+
+    installIndexedDbWithRequestBehavior({ getFails: true });
+    expect(await getPersistencePreference()).toBe(false);
+
+    (globalThis as any).indexedDB = undefined;
+    expect(await getPersistencePreference()).toBe(false);
+  });
+
+  it('Wipe & Start Over erases every record AND the key, and the next write uses a brand-new key', async () => {
+    await setPersistencePreference(true);
+    await saveSessionState(sampleSession);
+    const oldKey = (await getStorageCryptoKey()).getOrThrow('old key');
+    const oldEnv = (await encryptPayload({ s: 'old' }, SESSION_KEY)).getOrThrow('old env');
+    expect(activeMockDb.stores[STORE_NAME]!.size).toBe(3); // session + preference + key
+
+    expect((await wipeAllStorage()).isSuccess()).toBe(true);
+    expect(activeMockDb.stores[STORE_NAME]!.size).toBe(0);
+    expect((await loadSessionOutcome()).status).toBe(StorageLoadStatusEnum.Empty);
+    expect(await getPersistencePreference()).toBe(true); // back to default
+
+    const newKey = (await getStorageCryptoKey()).getOrThrow('new key');
+    expect(newKey).not.toBe(oldKey);
+    // Ciphertext copied before the wipe is now permanently undecryptable
+    expect((await decryptPayload(oldEnv, SESSION_KEY)).isFailure()).toBe(true);
+  });
+
+  it('wipe surfaces failures (clear error, IndexedDB unavailable)', async () => {
+    installIndexedDbWithRequestBehavior({ clearFails: true });
+    expect((await wipeAllStorage()).isFailure()).toBe(true);
+
+    (globalThis as any).indexedDB = undefined;
+    expect((await wipeAllStorage()).isFailure()).toBe(true);
   });
 });

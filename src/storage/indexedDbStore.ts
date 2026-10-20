@@ -1,8 +1,10 @@
-import type {
-  EncryptedEnvelope,
-  EncryptedStorageAuditReport,
-  EncryptedStorageRecord,
-  StoredSessionState
+import {
+  StorageLoadStatusEnum,
+  type EncryptedEnvelope,
+  type EncryptedStorageAuditReport,
+  type EncryptedStorageRecord,
+  type StorageLoadOutcome,
+  type StoredSessionState
 } from '../types';
 import {
   failure,
@@ -443,18 +445,76 @@ export async function clearSessionState(): Promise<Result<void, string>> {
  */
 export async function getPersistencePreference(): Promise<boolean> {
   const dbResult = await openSessionDatabase();
-  const prefResult = await dbResult
-    .flatMapAsync(db => readEncryptedRecord(db, PREFERENCE_KEY))
-    .then(recResult =>
-      recResult.flatMapAsync(recordOpt =>
-        recordOpt.match({
-          None: async () => success<PreferencePayload, string>({ enabled: true, updatedAt: 0 }),
-          Some: record => decryptPayload<PreferencePayload>(record.envelope, PREFERENCE_KEY)
-        })
-      )
-    );
+  return dbResult.match({
+    Err: async () => false,
+    Ok: async db =>
+      (await readEncryptedRecord(db, PREFERENCE_KEY)).match({
+        Err: async () => false,
+        Ok: recordOpt =>
+          recordOpt.match({
+            None: async () => true,
+            Some: async record =>
+              (await decryptPayload<PreferencePayload>(record.envelope, PREFERENCE_KEY)).match({
+                Ok: pref => Boolean(pref.enabled),
+                // Unreadable (e.g. written under a previous key): fall back to the default (on);
+                // the user can opt out or wipe from the Storage Audit panel.
+                Err: () => true
+              })
+          })
+      })
+  });
+}
 
-  return prefResult.map(pref => Boolean(pref.enabled)).getOrElse(false);
+const outcomeOf = (
+  status: StorageLoadStatusEnum,
+  session?: StoredSessionState
+): StorageLoadOutcome => ({ status, session });
+
+/**
+ * Restores the saved session as an exhaustive outcome (restored / empty / unreadable / unavailable)
+ * so callers can `match` on it and tell the user exactly what happened.
+ */
+export async function loadSessionOutcome(): Promise<StorageLoadOutcome> {
+  const dbResult = await openSessionDatabase();
+  return dbResult.match({
+    Err: async () => outcomeOf(StorageLoadStatusEnum.Unavailable),
+    Ok: async db =>
+      (await readEncryptedRecord(db, SESSION_KEY)).match({
+        Err: async () => outcomeOf(StorageLoadStatusEnum.Unavailable),
+        Ok: recordOpt =>
+          recordOpt.match({
+            None: async () => outcomeOf(StorageLoadStatusEnum.Empty),
+            Some: async record =>
+              (await decryptPayload<StoredSessionState>(record.envelope, SESSION_KEY)).match({
+                Ok: session => outcomeOf(StorageLoadStatusEnum.Restored, session),
+                Err: () => outcomeOf(StorageLoadStatusEnum.Unreadable)
+              })
+          })
+      })
+  });
+}
+
+/**
+ * Irreversibly wipes EVERY record (session, preference, and the encryption key itself)
+ * and drops the in-memory key, so the next write starts from a brand-new key.
+ */
+export async function wipeAllStorage(): Promise<Result<void, string>> {
+  clearCachedCryptoKey();
+  const dbResult = await openSessionDatabase();
+  return dbResult.flatMapAsync(db =>
+    tryCatchAsync(
+      async () =>
+        new Promise<void>((resolve, reject) => {
+          const request = db
+            .transaction([STORE_NAME], 'readwrite')
+            .objectStore(STORE_NAME)
+            .clear();
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(new Error('IndexedDB wipe error'));
+        }),
+      err => (err as Error).message
+    )
+  );
 }
 
 /**

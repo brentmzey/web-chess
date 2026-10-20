@@ -195,6 +195,22 @@ export interface StoredSessionState {
 }
 
 
+/**
+ * Exhaustive sum type describing what happened when we tried to restore a saved session.
+ * Consumed with `match(outcome.status, { ... })` so every case must be handled.
+ */
+export enum StorageLoadStatusEnum {
+  Restored = 'restored',
+  Empty = 'empty',
+  Unreadable = 'unreadable',
+  Unavailable = 'unavailable'
+}
+
+export interface StorageLoadOutcome {
+  status: StorageLoadStatusEnum;
+  session?: StoredSessionState;
+}
+
 export interface EncryptedEnvelope {
   v: 1;
   alg: 'AES-GCM-256';
