@@ -17,6 +17,11 @@ Every general feature change or application behavior update is consolidated unde
   - Extended `Result<T, E>` (`Success<T, E>` | `Failure<T, E>`) with `.match({ Ok, Err })` and `.getOrThrow(errorOrMessage?)`.
   - Added `matchBool(condition, { true: () => ..., false: () => ... })` for exhaustive boolean pattern matching alongside enum/union `match(target, branches)`.
   - Added `SettingsApplyActionEnum` (`KeepActiveGame`, `ApplyAndReset`, `StartNewGame`), `resolveSettingsApplyAction()`, and `getSettingsActionButtonLabel()` to model mid-game vs. pre-game settings transitions as an algebraic sum type.
+- **Development Mode Plaintext Payload Encryption Logging (`src/storage/indexedDbStore.ts`, `src/vite-env.d.ts`)**:
+  - When running in local development mode (`import.meta.env.DEV` or `isDevMode()`), `encryptPayload()` automatically prints the complete unencrypted plaintext payload and context to the console using `logger.info` (`[DEV STORAGE ENCRYPT]`), providing complete developer visibility into session data before AES-GCM-256 encryption.
+  - In production builds (`import.meta.env.PROD`), plaintext payload logging is strictly disabled to prevent sensitive state leakage. Added `DevModeEnvProbe`, `detectDevMode`, and `setDevModeOverride` for pure, deterministic testing.
+- **Storage Architecture & Engine Benchmark Suite (`scripts/benchmark-storage.ts`, `package.json`)**:
+  - Added comprehensive storage performance benchmark comparing client-side Web Crypto `AES-GCM-256` encryption against embedded relational SQLite (`bun:sqlite`), PocketBase document schemas, TrailBase binary architecture, and IndexedDB structured cloning. Run via `bun run benchmark:storage`.
 
 ### Changed
 - **Functional & Pattern-Matched UI / Board Control Flows (`src/main.ts`, `src/constants/board.ts`)**:

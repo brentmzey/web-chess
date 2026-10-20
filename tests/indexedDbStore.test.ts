@@ -18,6 +18,8 @@ import {
   encryptPayload,
   getPersistencePreference,
   getStorageCryptoKey,
+  detectDevMode,
+  isDevMode,
   isEncryptedEnvelope,
   loadSavedSession,
   loadSessionOutcome,
@@ -27,10 +29,13 @@ import {
   safeJsonParse,
   saveSessionState,
   SESSION_KEY,
+  setDevModeOverride,
   setPersistencePreference,
   STORE_NAME,
   wipeAllStorage
 } from '../src/storage/indexedDbStore';
+import { none, some } from '../src/utils/fp';
+import { logger } from '../src/utils/logger';
 import {
   DeviceTierEnum,
   GameModeEnum,
@@ -721,5 +726,81 @@ describe('Storage load outcomes (exhaustive sum type) & Wipe & Start Over', () =
 
     (globalThis as any).indexedDB = undefined;
     expect((await wipeAllStorage()).isFailure()).toBe(true);
+  });
+
+  describe('Development Mode Plaintext Payload Encryption Logging', () => {
+    it('detects dev mode via explicit override and automated environment probes', () => {
+      setDevModeOverride(some(true));
+      expect(isDevMode()).toBe(true);
+
+      setDevModeOverride(some(false));
+      expect(isDevMode()).toBe(false);
+
+      setDevModeOverride(none());
+
+      // Test environment probe variations deterministically
+      expect(detectDevMode({ viteDev: true })).toBe(true);
+      expect(detectDevMode({ viteDev: false, nodeEnv: 'development' })).toBe(true);
+      expect(detectDevMode({ viteDev: false, nodeEnv: 'production' })).toBe(false);
+      expect(detectDevMode({ viteDev: false, nodeEnv: 'test' })).toBe(false);
+
+      expect(isDevMode({ viteDev: true })).toBe(true);
+      expect(isDevMode({ viteDev: false, nodeEnv: 'development' })).toBe(true);
+      expect(isDevMode({ viteDev: false, nodeEnv: 'production' })).toBe(false);
+
+      // Verify unprobed default fallback works without throwing
+      expect(typeof detectDevMode()).toBe('boolean');
+      expect(typeof isDevMode()).toBe('boolean');
+
+      setDevModeOverride(none());
+    });
+
+    it('prints full plaintext payload on encryption when running in dev mode', async () => {
+      const loggedMessages: Array<{ message: string; args: any[] }> = [];
+      const origInfo = logger.info.bind(logger);
+      logger.info = ((msg: string, ...args: any[]) => {
+        loggedMessages.push({ message: String(msg), args });
+        return origInfo(msg, ...args);
+      }) as any;
+
+      try {
+        setDevModeOverride(some(true));
+        const testPayload = { fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1', moveCount: 1 };
+        const encResult = await encryptPayload(testPayload, 'active_session');
+        expect(encResult.isSuccess()).toBe(true);
+
+        const devLog = loggedMessages.find(entry => entry.message.includes('[DEV STORAGE ENCRYPT]'));
+        expect(devLog).toBeDefined();
+        expect(devLog!.message).toContain('active_session');
+        expect(devLog!.args[0]).toBeDefined();
+        expect(devLog!.args[0].context).toBe('active_session');
+        expect(devLog!.args[0].payload).toEqual(testPayload);
+      } finally {
+        logger.info = origInfo;
+        setDevModeOverride(none());
+      }
+    });
+
+    it('suppresses plaintext payload logging on encryption when running in production mode', async () => {
+      const loggedMessages: Array<{ message: string; args: any[] }> = [];
+      const origInfo = logger.info.bind(logger);
+      logger.info = ((msg: string, ...args: any[]) => {
+        loggedMessages.push({ message: String(msg), args });
+        return origInfo(msg, ...args);
+      }) as any;
+
+      try {
+        setDevModeOverride(some(false));
+        const secretPayload = { secretMove: 'e2e4', authSecret: 'top-secret-nonce' };
+        const encResult = await encryptPayload(secretPayload, 'active_session');
+        expect(encResult.isSuccess()).toBe(true);
+
+        const devLog = loggedMessages.find(entry => entry.message.includes('[DEV STORAGE ENCRYPT]'));
+        expect(devLog).toBeUndefined();
+      } finally {
+        logger.info = origInfo;
+        setDevModeOverride(none());
+      }
+    });
   });
 });

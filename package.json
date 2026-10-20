@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "bun test",
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov && bun run scripts/coverageReport.ts",
+    "benchmark:storage": "bun run scripts/benchmark-storage.ts",
     "typecheck": "tsc --noEmit",
     "deploy": "bunx netlify deploy --build",
     "deploy:prod": "bunx netlify deploy --build --prod"
