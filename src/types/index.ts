@@ -192,6 +192,8 @@ export interface StoredSessionState {
   brightness: number;
   deviceTier: DeviceTierEnum;
   timestamp: number;
+  gameStarted?: boolean;
+  useActionCam?: boolean;
 }
 
 

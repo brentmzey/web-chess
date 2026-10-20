@@ -33,15 +33,9 @@ import { initScene } from './graphics/scene';
 import { ShatterSystem } from './graphics/shatter';
 import { CameraController } from './interaction/camera';
 import {
-  auditEncryptedStorage,
-  clearSessionState,
-  getPersistencePreference,
-  loadSessionOutcome,
-  saveSessionState,
-  SESSION_KEY,
-  setPersistencePreference,
-  wipeAllStorage
+  auditEncryptedStorage
 } from './storage/indexedDbStore';
+import { chessStore, INITIAL_BOARD_FEN } from './store/chessStore';
 import {
   ChessThemeEnum,
   DeviceTierEnum,
@@ -124,6 +118,7 @@ function main(): void {
   let allowUndo = true;
   let pendingAllowUndo = true;
   let modalOpenedFromReset = false;
+  let matchStarted = false;
   let settingsSnapshotOnOpen: MatchSettingsSnapshot = {
     mode: currentMode,
     difficulty: currentDifficulty,
@@ -139,20 +134,21 @@ function main(): void {
 
   async function persistCurrentSession(): Promise<void> {
     if (!persistenceEnabled) return;
-    await saveSessionState({
-      id: SESSION_KEY,
-      enabled: true,
+    chessStore.setState({
       fen: chess.fen(),
-      history: chess.history(),
-      mode: currentMode,
-      difficulty: currentDifficulty,
+      history: [...chess.history()],
+      mode: currentMode as GameModeEnum,
+      difficulty: currentDifficulty as OpponentDifficultyEnum,
       allowUndo,
-      theme: currentTheme,
+      theme: currentTheme as ChessThemeEnum,
       contrast: displaySettings.contrast,
       brightness: displaySettings.brightness,
       deviceTier: deviceProfile.tier,
-      timestamp: Date.now()
+      persistenceEnabled,
+      useActionCam,
+      gameStarted: matchStarted || chess.history().length > 0
     });
+    await chessStore.saveToStorage();
   }
 
   function syncBoardPiecesWithChessState(): void {
@@ -983,6 +979,7 @@ function main(): void {
     const resetAndStartMatch = (): void => {
       chess.reset();
       allowUndo = pendingAllowUndo;
+      matchStarted = true;
       settingsSnapshotOnOpen = {
         mode: currentMode,
         difficulty: currentDifficulty,
@@ -1009,6 +1006,7 @@ function main(): void {
     match(settingsAction, {
       [SettingsApplyActionEnum.KeepActiveGame]: () => {
         // Nothing changed from active match settings -> keep current game intact!
+        matchStarted = true;
         syncAllControlsUI();
         void persistCurrentSession();
         ui.hidePreGameModal();
@@ -1072,14 +1070,12 @@ function main(): void {
   // Encrypted IndexedDB Session Persistence Toggle Handler
   async function handlePersistenceToggle(enabled: boolean): Promise<void> {
     persistenceEnabled = enabled;
-    await setPersistencePreference(enabled);
-    await matchBool(enabled, {
-      true: async () => {
-        await persistCurrentSession();
+    await chessStore.setPersistence(enabled);
+    matchBool(enabled, {
+      true: () => {
         ui.showTemporaryBanner('Encrypted session persistence active in IndexedDB', 2400);
       },
-      false: async () => {
-        await clearSessionState();
+      false: () => {
         ui.showTemporaryBanner('IndexedDB encrypted session state cleared', 2400);
       }
     });
@@ -1138,12 +1134,13 @@ function main(): void {
 
   // Wipe & Start Over: erase every encrypted record + the key, reset all in-memory state
   async function wipeAndStartOver(): Promise<void> {
-    const result = await wipeAllStorage();
+    const result = await chessStore.wipeAll();
     result.match({
       Ok: () => {
         chess.reset();
         selectedSquare = null;
         legalMovesForSelected = [];
+        matchStarted = false;
         currentMode = GameModeEnum.Minimax;
         currentDifficulty = OpponentDifficultyEnum.Balanced;
         currentTheme = ChessThemeEnum.GothicBasilica;
@@ -1431,86 +1428,74 @@ function main(): void {
 
   // Restore Saved Session from IndexedDB if Persistence Preference is Enabled
   async function restoreSessionIfEnabled(): Promise<void> {
-    const pref = await getPersistencePreference();
-    persistenceEnabled = pref;
+    const outcome = await chessStore.hydrate();
+    match(outcome.status, {
+      [StorageLoadStatusEnum.Restored]: () => {},
+      [StorageLoadStatusEnum.Empty]: () => {},
+      [StorageLoadStatusEnum.Unreadable]: () =>
+        ui.showTemporaryBanner(
+          'Saved data could not be unlocked (older version or different browser profile). Open Storage Audit → Wipe & Start Over to reset.',
+          6500
+        ),
+      [StorageLoadStatusEnum.Unavailable]: () =>
+        ui.showTemporaryBanner(
+          'Encrypted storage is unavailable in this browser — progress will not persist.',
+          4500
+        )
+    });
 
-    if (pref) {
-      const outcome = await loadSessionOutcome();
-      match(outcome.status, {
-        [StorageLoadStatusEnum.Restored]: () => {},
-        [StorageLoadStatusEnum.Empty]: () => {},
-        [StorageLoadStatusEnum.Unreadable]: () =>
-          ui.showTemporaryBanner(
-            'Saved data could not be unlocked (older version or different browser profile). Open Storage Audit → Wipe & Start Over to reset.',
-            6500
-          ),
-        [StorageLoadStatusEnum.Unavailable]: () =>
-          ui.showTemporaryBanner(
-            'Encrypted storage is unavailable in this browser — progress will not persist.',
-            4500
-          )
+    const storeState = chessStore.getState();
+    persistenceEnabled = storeState.persistenceEnabled;
+
+    if (outcome.status === StorageLoadStatusEnum.Restored && outcome.session) {
+      currentMode = storeState.mode;
+      currentDifficulty = storeState.difficulty;
+      currentTheme = storeState.theme;
+      applyThemePalette(currentTheme, materials, squareMeshes, {
+        scene,
+        hemiLight,
+        altarWarmLight,
+        strikeFlashLight
       });
-      const savedOpt = fromNullable(outcome.session);
-      savedOpt.match({
-        None: () => {},
-        Some: saved => {
-          // Restore Mode (strip desktop-only GeminiNano if on MobileLite)
-          const savedMode = fromNullable(saved.mode).getOrElse(GameModeEnum.Minimax);
-          currentMode = matchBool(
-            savedMode === GameModeEnum.GeminiNano &&
-              deviceProfile.tier === DeviceTierEnum.MobileLite,
-            {
-              true: () => GameModeEnum.MicroNeural,
-              false: () => savedMode
-            }
-          );
 
-          currentDifficulty = fromNullable(saved.difficulty).getOrElse(
-            OpponentDifficultyEnum.Balanced
-          );
-          currentTheme = fromNullable(saved.theme).getOrElse(ChessThemeEnum.GothicBasilica);
-          applyThemePalette(currentTheme, materials, squareMeshes, {
-            scene,
-            hemiLight,
-            altarWarmLight,
-            strikeFlashLight
-          });
+      allowUndo = storeState.allowUndo;
+      pendingAllowUndo = allowUndo;
+      useActionCam = storeState.useActionCam;
+      matchStarted = storeState.gameStarted;
+      settingsSnapshotOnOpen = {
+        mode: currentMode,
+        difficulty: currentDifficulty,
+        allowUndo
+      };
 
-          allowUndo = fromNullable(saved.allowUndo).getOrElse(true);
-          pendingAllowUndo = allowUndo;
-          settingsSnapshotOnOpen = {
-            mode: currentMode,
-            difficulty: currentDifficulty,
-            allowUndo
-          };
+      // Restore Display Contrast & Brightness
+      displaySettings.contrast = storeState.contrast;
+      displaySettings.brightness = storeState.brightness;
+      setDisplaySettings(displaySettings);
+      applyDisplaySettings(displaySettings, renderer, hemiLight, boardKeyLight, container);
+      syncDisplayInputs();
 
-          // Restore Display Contrast & Brightness
-          if (typeof saved.contrast === 'number' && typeof saved.brightness === 'number') {
-            displaySettings.contrast = saved.contrast;
-            displaySettings.brightness = saved.brightness;
-            setDisplaySettings(displaySettings);
-            applyDisplaySettings(displaySettings, renderer, hemiLight, boardKeyLight, container);
-            syncDisplayInputs();
-          }
-
-          // Replay move history so full algebraic chronicle & captured pieces restore
-          chess.reset();
-          if (Array.isArray(saved.history) && saved.history.length > 0) {
-            for (const san of saved.history) {
-              const moved = chess.move(san);
-              if (!moved) {
-                chess.load(saved.fen);
-                break;
-              }
-            }
-            // Hide Pre-Game setup modal automatically when resuming an active match
-            ui.hidePreGameModal();
-            ui.showTemporaryBanner('Sanctuary Session Restored from IndexedDB', 2800);
-          } else if (saved.fen) {
-            chess.load(saved.fen);
+      // Replay move history so full algebraic chronicle & captured pieces restore
+      chess.reset();
+      if (storeState.history.length > 0) {
+        for (const san of storeState.history) {
+          const moved = chess.move(san);
+          if (!moved) {
+            chess.load(storeState.fen);
+            break;
           }
         }
-      });
+        ui.hidePreGameModal();
+        ui.showTemporaryBanner('Sanctuary Session Restored from IndexedDB', 2800);
+      } else {
+        if (storeState.fen && storeState.fen !== INITIAL_BOARD_FEN) {
+          chess.load(storeState.fen);
+        }
+        if (matchStarted) {
+          ui.hidePreGameModal();
+          ui.showTemporaryBanner('Sanctuary Session Restored from IndexedDB', 2800);
+        }
+      }
     }
 
     syncBoardPiecesWithChessState();
@@ -1521,18 +1506,8 @@ function main(): void {
     }
   }
 
-  // Flush encrypted session state on tab/browser refresh, close, or visibility backgrounding
-  window.addEventListener('pagehide', () => {
-    void persistCurrentSession();
-  });
-  document.addEventListener('visibilitychange', () => {
-    matchBool(document.visibilityState === 'hidden', {
-      true: () => {
-        void persistCurrentSession();
-      },
-      false: () => {}
-    });
-  });
+  // Setup store lifecycle listeners for pagehide, beforeunload, and visibilitychange
+  chessStore.setupLifecycleListeners();
 
   // Initial Sync & IndexedDB Restore
   syncBoardPiecesWithChessState();
