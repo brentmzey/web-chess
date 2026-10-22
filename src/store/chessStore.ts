@@ -213,13 +213,8 @@ export class ChessStore {
       }
     );
 
-    const hasStarted = matchBool(
-      Boolean(saved.gameStarted) || (Array.isArray(saved.history) && saved.history.length > 0),
-      {
-        true: () => true,
-        false: () => false
-      }
-    );
+    const hasStarted =
+      Boolean(saved.gameStarted) || (Array.isArray(saved.history) && saved.history.length > 0);
 
     this.setState({
       fen: fromNullable(saved.fen).getOrElse(INITIAL_BOARD_FEN),

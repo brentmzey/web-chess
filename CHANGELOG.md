@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.2] - 2026-10-24
+### Added
+- **Server-Sent Events (SSE) & Real-Time Multiplayer Chess Engine (`src/server/server.ts`, `src/server/services/realtimeChessService.ts`, `src/server/sse/sseManager.ts`, `src/server/sse/sseTypes.ts`, `src/realtime/realtimeClient.ts`)**:
+  - Implemented high-throughput real-time Server-Sent Events fan-out broadcasting engine adhering to the W3C EventSource standard (`SSEManager`), complete with connection keepalive pings (`:keepalive\n\n`), client heartbeat monitors, and monotonic sequence event numbers (`id: <eventSeq>`).
+  - Added support for typed event streaming (`session_created`, `player_joined`, `player_left`, `move_made`, `theme_changed`, `draw_offered`, `draw_accepted`, `draw_declined`, `resigned`, `game_over`) and reliable reconnection with automatic catch-up replay via `Last-Event-ID`.
+  - Implemented `RealtimeChessClient` for client-side event consumption with typed listeners, automatic reconnection handling, and REST mutation APIs for moves, theme synchronization, and resignations.
+  - Implemented `SanctuaryRealtimeServer` HTTP and SSE API router with Bun HTTP runtime (`Bun.serve`), CORS headers, Bearer token extraction, and comprehensive REST endpoints (`/api/sessions`, `/api/sessions/join`, `/api/sessions/:id`, `/api/sessions/:id/events`, `/api/sessions/:id/moves`, `/api/sessions/:id/resign`, `/api/sessions/:id/theme`).
+- **Canonical Relational Database Schemas with Strict Referential Integrity, Foreign Keys & Indices (`src/server/db/schema.sql`, `src/server/db/schema.postgres.sql`, `src/server/db/database.ts`, `src/server/db/sessionRepository.ts`)**:
+  - Authored canonical DDL schemas for both SQLite (`bun:sqlite`) and PostgreSQL, enforcing strict `FOREIGN KEY (...) REFERENCES ... ON DELETE CASCADE` across `game_sessions`, `session_participants`, `session_tokens`, `game_moves`, and `session_events`.
+  - Configured comprehensive unique constraints and high-performance B-tree indices (`idx_sessions_code`, `idx_participants_session`, `idx_participants_active_white`, `idx_participants_active_black`, `idx_tokens_hash`, `idx_moves_session_ply`, `idx_events_session_seq`) guaranteeing monotonic ordering, partial unique constraints on active player slots, and cascade deletion integrity.
+  - Engineered cryptographically secure session authorization with SHA-256 hashed bearer tokens generated via 256-bit CSPRNG entropy (`generateSecureToken`) and readable 6-character sanctuary session codes (`SANCT-XXXX`).
+  - Implemented `SessionRepository` utilizing functional paradigms, monadic `Option` and `Result` types, and transactional execution wrappers (`db.transaction`).
+
 ## [1.2.0-rc.1] - 2026-10-18
 ### Added
 - **Live-Swappable 3D Sanctuary & Board Theme System (`src/types/index.ts`, `src/constants/board.ts`, `src/graphics/materials.ts`, `src/main.ts`, `index.html`)**:
