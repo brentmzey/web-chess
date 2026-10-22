@@ -32,6 +32,7 @@ import { buildWizardPieceMesh } from './graphics/pieces';
 import { initScene } from './graphics/scene';
 import { ShatterSystem } from './graphics/shatter';
 import { CameraController } from './interaction/camera';
+import { RealtimeChessClient } from './realtime/realtimeClient';
 import {
   auditEncryptedStorage
 } from './storage/indexedDbStore';
@@ -127,6 +128,8 @@ function main(): void {
   let persistenceEnabled = true;
   let useActionCam = true;
   let pendingPromotionMove: { from: string; to: string } | null = null;
+  let activeRealtimeClient: RealtimeChessClient | null = null;
+  let liveUserRole: 'white' | 'black' | 'spectator' = 'white';
 
   // Display settings (in-memory + persisted in IndexedDB when session persistence is enabled)
   const displaySettings = getDisplaySettings();
@@ -240,7 +243,8 @@ function main(): void {
         [GameModeEnum.PassAndPlay]: () => '2P Human',
         [GameModeEnum.Minimax]: () => diffCfg.badge,
         [GameModeEnum.MicroNeural]: () => diffCfg.badge,
-        [GameModeEnum.GeminiNano]: () => diffCfg.badge
+        [GameModeEnum.GeminiNano]: () => diffCfg.badge,
+        [GameModeEnum.Live]: () => 'Live Peer'
       });
     });
     fromNullable(document.getElementById('difficulty-icon')).map(el => {
@@ -248,14 +252,15 @@ function main(): void {
         [GameModeEnum.PassAndPlay]: () => 'group',
         [GameModeEnum.Minimax]: () => diffCfg.icon,
         [GameModeEnum.MicroNeural]: () => diffCfg.icon,
-        [GameModeEnum.GeminiNano]: () => diffCfg.icon
+        [GameModeEnum.GeminiNano]: () => diffCfg.icon,
+        [GameModeEnum.Live]: () => 'sensors'
       });
     });
     fromNullable(document.getElementById('btn-difficulty')).map(btn => {
-      matchBool(currentMode === GameModeEnum.PassAndPlay, {
+      matchBool(currentMode === GameModeEnum.PassAndPlay || currentMode === GameModeEnum.Live, {
         true: () => {
           btn.classList.add('opacity-50');
-          btn.title = 'Pass & Play mode: Both sides controlled by humans';
+          btn.title = currentMode === GameModeEnum.Live ? 'Live match: Opponent is remote human' : 'Pass & Play mode: Both sides controlled by humans';
         },
         false: () => {
           btn.classList.remove('opacity-50');
@@ -322,7 +327,7 @@ function main(): void {
     });
 
     fromNullable(document.getElementById('pregame-difficulty-section')).map(sec => {
-      sec.classList.toggle('opacity-55', currentMode === GameModeEnum.PassAndPlay);
+      sec.classList.toggle('opacity-55', currentMode === GameModeEnum.PassAndPlay || currentMode === GameModeEnum.Live);
     });
 
     fromNullable(document.getElementById('pregame-difficulty-desc')).map(descEl => {
@@ -593,12 +598,14 @@ function main(): void {
 
     if (
       currentMode !== GameModeEnum.PassAndPlay &&
+      currentMode !== GameModeEnum.Live &&
       chess.turn() === PieceColorEnum.Black &&
       !isAnimating
     ) {
       setTimeout(async () => {
         const aiMove = await match(currentMode as GameModeEnum, {
           [GameModeEnum.PassAndPlay]: async () => null,
+          [GameModeEnum.Live]: async () => null,
           [GameModeEnum.Minimax]: async () => computeMinimaxMove(chess, currentDifficulty),
           [GameModeEnum.MicroNeural]: async () =>
             computeMicroNeuralAIMove(chess, currentDifficulty),
@@ -642,11 +649,14 @@ function main(): void {
     }
   }
 
-  function executeMoveOnBoard(moveAttempt: {
-    from: string;
-    to: string;
-    promotion?: string;
-  }): void {
+  function executeMoveOnBoard(
+    moveAttempt: {
+      from: string;
+      to: string;
+      promotion?: string;
+    },
+    isRemote: boolean = false
+  ): void {
     const executed = chess.move(moveAttempt);
     if (!executed) return;
 
@@ -654,6 +664,10 @@ function main(): void {
     legalMovesForSelected = [];
     updateHighlights();
     void persistCurrentSession();
+
+    if (!isRemote && currentMode === GameModeEnum.Live && activeRealtimeClient) {
+      void activeRealtimeClient.submitMove(executed.san);
+    }
 
     animateChessMove(executed, () => {
       if (chess.in_check()) soundFX.playCathedralOrganAndBell();
@@ -723,7 +737,14 @@ function main(): void {
 
   function handleBoardClick(clientX: number, clientY: number): void {
     if (isAnimating || chess.game_over()) return;
-    if (currentMode !== GameModeEnum.PassAndPlay && chess.turn() === PieceColorEnum.Black) return;
+    if (currentMode === GameModeEnum.Live) {
+      const myTurn = liveUserRole === 'white' ? PieceColorEnum.White : PieceColorEnum.Black;
+      if (liveUserRole === 'spectator' || chess.turn() !== myTurn) {
+        return;
+      }
+    } else if (currentMode !== GameModeEnum.PassAndPlay && chess.turn() === PieceColorEnum.Black) {
+      return;
+    }
 
     const rectOpt = fromNullable(canvasEl.getBoundingClientRect?.());
     const width = rectOpt
@@ -844,6 +865,11 @@ function main(): void {
 
   // Mode Selection Logic
   async function selectGameMode(nextMode: GameModeEnum): Promise<void> {
+    if (nextMode === GameModeEnum.Live) {
+      ui.showLiveSessionModal();
+      return;
+    }
+
     if (
       nextMode === GameModeEnum.GeminiNano &&
       deviceProfile.tier === DeviceTierEnum.MobileLite
@@ -900,7 +926,7 @@ function main(): void {
   }
 
   // Live-Swappable 3D Sanctuary & Board Theme Selection Logic (works before AND mid-game without resetting)
-  function selectTheme(nextTheme: ChessThemeEnum): void {
+  function selectTheme(nextTheme: ChessThemeEnum, isRemote: boolean = false): void {
     currentTheme = nextTheme;
     const themeCfg = applyThemePalette(currentTheme, materials, squareMeshes, {
       scene,
@@ -918,6 +944,11 @@ function main(): void {
     soundFX.playSelect();
     syncAllControlsUI();
     void persistCurrentSession();
+
+    if (!isRemote && currentMode === GameModeEnum.Live && activeRealtimeClient) {
+      void activeRealtimeClient.changeTheme(currentTheme);
+    }
+
     ui.showTemporaryBanner(`Theme: ${themeCfg.label} (${themeCfg.badge})`, 2200);
   }
 
@@ -977,6 +1008,10 @@ function main(): void {
     modalOpenedFromReset = false;
 
     const resetAndStartMatch = (): void => {
+      if (currentMode !== GameModeEnum.Live && activeRealtimeClient) {
+        activeRealtimeClient.disconnect();
+        activeRealtimeClient = null;
+      }
       chess.reset();
       allowUndo = pendingAllowUndo;
       matchStarted = true;
@@ -1200,9 +1235,14 @@ function main(): void {
   // Cycle Difficulty from Bottom Bar
   fromNullable(document.getElementById('btn-difficulty')).map(btn =>
     btn.addEventListener('click', () => {
-      matchBool(currentMode === GameModeEnum.PassAndPlay, {
+      matchBool(currentMode === GameModeEnum.PassAndPlay || currentMode === GameModeEnum.Live, {
         true: () => {
-          ui.showTemporaryBanner('Pass & Play: Two human players duel directly', 2200);
+          ui.showTemporaryBanner(
+            currentMode === GameModeEnum.Live
+              ? 'Live Match: Opponent is a remote human'
+              : 'Pass & Play: Two human players duel directly',
+            2200
+          );
         },
         false: () => {
           const idx = DIFFICULTY_PROFILES.findIndex(d => d.id === currentDifficulty);
@@ -1246,6 +1286,10 @@ function main(): void {
   // Undo Last Move (respects Pre-Game allowUndo rule)
   fromNullable(document.getElementById('btn-undo')).map(btnUndo =>
     btnUndo.addEventListener('click', () => {
+      if (currentMode === GameModeEnum.Live) {
+        ui.showTemporaryBanner('Undo is disabled in Live Multiplayer matches.', 2500);
+        return;
+      }
       if (!allowUndo) {
         ui.showTemporaryBanner(
           'Strict Mode: Undo was disabled in Game Settings before this match began!',
@@ -1307,6 +1351,210 @@ function main(): void {
       ui.hideGameOver();
     })
   );
+
+  function initRealtimeClient(sessionId: string, participantId: string, token: string): void {
+    if (activeRealtimeClient) {
+      activeRealtimeClient.disconnect();
+    }
+
+    activeRealtimeClient = new RealtimeChessClient({
+      sessionId,
+      participantId,
+      token,
+      onOpen: () => {
+        logger.info('[LIVE] Connected to Live Session SSE stream', { sessionId });
+        ui.showTemporaryBanner('🟢 Connected to Live Session SSE stream', 2500);
+      },
+      onPlayerJoined: data => {
+        ui.showTemporaryBanner(
+          `Opponent ${data.displayName} entered match as ${data.role.toUpperCase()}!`,
+          3500
+        );
+        soundFX.playCathedralOrganAndBell();
+      },
+      onMove: data => {
+        const myColor = liveUserRole === 'white' ? 'w' : 'b';
+        if (data.color !== myColor) {
+          executeMoveOnBoard(
+            {
+              from: data.uci.slice(0, 2),
+              to: data.uci.slice(2, 4),
+              promotion: data.uci[4]
+            },
+            true
+          );
+        }
+      },
+      onThemeChanged: data => {
+        const theme = data.theme as ChessThemeEnum;
+        if (theme && theme !== currentTheme) {
+          selectTheme(theme, true);
+          ui.showTemporaryBanner(`Live Theme Synchronized: ${theme}`, 2500);
+        }
+      },
+      onGameOver: data => {
+        ui.showGameOver(chess);
+        ui.showTemporaryBanner(`Match Concluded: ${data.reason}`, 4000);
+      }
+    });
+
+    activeRealtimeClient.connect();
+  }
+
+  // Live Multiplayer Modal & Controls
+  fromNullable(document.getElementById('btn-live')).map(btn =>
+    btn.addEventListener('click', () => ui.showLiveSessionModal())
+  );
+  fromNullable(document.getElementById('close-live-session-btn')).map(btn =>
+    btn.addEventListener('click', () => ui.hideLiveSessionModal())
+  );
+  fromNullable(document.getElementById('tab-create-live')).map(btn =>
+    btn.addEventListener('click', () => ui.switchLiveSessionTab('create'))
+  );
+  fromNullable(document.getElementById('tab-join-live')).map(btn =>
+    btn.addEventListener('click', () => ui.switchLiveSessionTab('join'))
+  );
+
+  fromNullable(document.getElementById('btn-create-live-session')).map(btn =>
+    btn.addEventListener('click', async () => {
+      const hostNameInput = document.getElementById('live-host-name') as HTMLInputElement | null;
+      const hostRoleSelect = document.getElementById('live-host-role') as HTMLSelectElement | null;
+      const hostUndoSelect = document.getElementById('live-host-undo') as HTMLSelectElement | null;
+      const createBtn = btn as HTMLButtonElement;
+      createBtn.disabled = true;
+      createBtn.textContent = 'Generating Secure Session...';
+
+      const res = await RealtimeChessClient.createSession({
+        creatorDisplayName: hostNameInput?.value || 'White Marble Host',
+        creatorRole: (hostRoleSelect?.value as 'white' | 'black') || 'white',
+        theme: currentTheme,
+        allowUndo: hostUndoSelect?.value === 'true'
+      });
+
+      createBtn.disabled = false;
+      createBtn.innerHTML =
+        '<span class="material-symbols-rounded text-sm">rocket_launch</span><span>Generate Secure Live Session</span>';
+
+      res.match({
+        Ok: auth => {
+          liveUserRole = auth.participant.role;
+          ui.showLiveCreatedSession(auth.session.session_code);
+          ui.showTemporaryBanner(
+            `Session ${auth.session.session_code} created! Waiting for opponent.`,
+            3000
+          );
+          initRealtimeClient(auth.session.id, auth.participant.id, auth.token);
+        },
+        Err: err => {
+          ui.showTemporaryBanner(`Failed to create live session: ${err}`, 4000);
+        }
+      });
+    })
+  );
+
+  fromNullable(document.getElementById('btn-join-live-session')).map(btn =>
+    btn.addEventListener('click', async () => {
+      const joinCodeInput = document.getElementById('live-join-code') as HTMLInputElement | null;
+      const joinNameInput = document.getElementById('live-join-name') as HTMLInputElement | null;
+      const joinRoleSelect = document.getElementById('live-join-role') as HTMLSelectElement | null;
+      const code = (joinCodeInput?.value || '').trim().toUpperCase();
+      const name = (joinNameInput?.value || '').trim() || 'Visiting Challenger';
+      const role = (joinRoleSelect?.value as 'white' | 'black' | 'spectator') || undefined;
+
+      if (!code) {
+        ui.showLiveJoinError('Please enter a valid session code (e.g. SANCT-XXXX).');
+        return;
+      }
+
+      const joinBtn = btn as HTMLButtonElement;
+      joinBtn.disabled = true;
+      joinBtn.textContent = 'Connecting to Session...';
+      ui.clearLiveJoinError();
+
+      const res = await RealtimeChessClient.joinSession({
+        sessionCode: code,
+        displayName: name,
+        role
+      });
+
+      joinBtn.disabled = false;
+      joinBtn.innerHTML =
+        '<span class="material-symbols-rounded text-sm">login</span><span>Connect & Join Sanctuary Match</span>';
+
+      res.match({
+        Ok: auth => {
+          liveUserRole = auth.participant.role;
+          currentMode = GameModeEnum.Live;
+          allowUndo = Boolean(auth.session.allow_undo);
+          pendingAllowUndo = allowUndo;
+          currentTheme = (auth.session.theme as ChessThemeEnum) || currentTheme;
+          applyThemePalette(currentTheme, materials, squareMeshes, {
+            scene,
+            hemiLight,
+            altarWarmLight,
+            strikeFlashLight
+          });
+
+          chess.load(auth.session.current_fen);
+          syncBoardPiecesWithChessState();
+          updateHighlights();
+          syncAllControlsUI();
+          ui.hideLiveSessionModal();
+          ui.showTemporaryBanner(
+            `Joined Live Match ${code} as ${auth.participant.role.toUpperCase()}!`,
+            3500
+          );
+
+          initRealtimeClient(auth.session.id, auth.participant.id, auth.token);
+        },
+        Err: err => {
+          ui.showLiveJoinError(`Could not join session: ${err}`);
+        }
+      });
+    })
+  );
+
+  fromNullable(document.getElementById('btn-enter-live-match')).map(btn =>
+    btn.addEventListener('click', () => {
+      currentMode = GameModeEnum.Live;
+      syncAllControlsUI();
+      ui.hideLiveSessionModal();
+      ui.showTemporaryBanner('Entered Live Sanctuary. Awaiting opponent move/connection.', 3000);
+    })
+  );
+
+  fromNullable(document.getElementById('btn-copy-code')).map(btn =>
+    btn.addEventListener('click', async () => {
+      const codeEl = document.getElementById('live-created-code');
+      if (codeEl?.textContent) {
+        await navigator.clipboard.writeText(codeEl.textContent.trim());
+        ui.showTemporaryBanner('Session Code copied to clipboard!', 2000);
+      }
+    })
+  );
+
+  fromNullable(document.getElementById('btn-copy-link')).map(btn =>
+    btn.addEventListener('click', async () => {
+      const codeEl = document.getElementById('live-created-code');
+      if (codeEl?.textContent) {
+        const url = `${window.location.origin}${window.location.pathname}?session=${codeEl.textContent.trim()}`;
+        await navigator.clipboard.writeText(url);
+        ui.showTemporaryBanner('Invite Link copied to clipboard!', 2000);
+      }
+    })
+  );
+
+  // URL search parameter auto-join
+  const urlParams = new URLSearchParams(window.location.search);
+  const sessionParam = urlParams.get('session');
+  if (sessionParam) {
+    ui.showLiveSessionModal();
+    ui.switchLiveSessionTab('join');
+    const joinCodeInput = document.getElementById('live-join-code') as HTMLInputElement | null;
+    if (joinCodeInput) {
+      joinCodeInput.value = sessionParam.toUpperCase();
+    }
+  }
 
   const audioIcon = document.getElementById('audio-icon');
   fromNullable(document.getElementById('btn-audio')).map(btnAudio =>

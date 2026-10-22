@@ -77,7 +77,8 @@ export enum GameModeEnum {
   PassAndPlay = 'pass-and-play',
   Minimax = 'minimax',
   MicroNeural = 'micro-neural',
-  GeminiNano = 'gemini-nano'
+  GeminiNano = 'gemini-nano',
+  Live = 'live'
 }
 
 export enum OpponentDifficultyEnum {
@@ -123,7 +124,7 @@ export enum ChessThemeEnum {
   CrimsonInquisition = 'crimson-inquisition'
 }
 
-export type GameMode = GameModeEnum | 'pass-and-play' | 'minimax' | 'micro-neural' | 'gemini-nano';
+export type GameMode = GameModeEnum | 'pass-and-play' | 'minimax' | 'micro-neural' | 'gemini-nano' | 'live';
 
 export type OpponentDifficulty = OpponentDifficultyEnum | 'cautious' | 'balanced' | 'aggressive';
 

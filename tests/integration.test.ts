@@ -466,7 +466,8 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
       m => !(profile.tier === DeviceTierEnum.MobileLite && m.desktopOnly)
     );
     expect(mobileModes.some(m => m.id === GameModeEnum.GeminiNano)).toBe(false);
-    expect(mobileModes.length).toBe(3);
+    expect(mobileModes.some(m => m.id === GameModeEnum.Live)).toBe(true);
+    expect(mobileModes.length).toBe(4);
 
     expect(getGameModeConfig('unknown' as any).id).toBe(GameModeEnum.Minimax);
     expect(getDifficultyProfile('unknown' as any).id).toBe(

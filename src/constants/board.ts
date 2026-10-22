@@ -63,6 +63,13 @@ export const GAME_MODES: readonly GameModeConfig[] = [
     badge: '2P DUEL',
     icon: 'group',
     description: 'Two human players alternating turns on this device'
+  },
+  {
+    id: GameModeEnum.Live,
+    label: 'Live Multiplayer',
+    badge: 'LIVE SSE',
+    icon: 'sensors',
+    description: 'Real-time peer match via Server-Sent Events with cryptographically secure sessions'
   }
 ] as const;
 
@@ -77,7 +84,8 @@ export const DIFFICULTY_PROFILES: readonly DifficultyLevelProfile[] = [
       [GameModeEnum.Minimax]: '1-Ply Initiate: Evaluates immediate moves with higher variance (±35 cp) and defensive safety bias.',
       [GameModeEnum.MicroNeural]: 'Initiate Network: Softened neural activation weights with exploratory temperature noise (±28 cp).',
       [GameModeEnum.GeminiNano]: 'Contemplative Monk: Instructs Gemini Nano to prioritize king safety, solid pawn structure, and defensive restraint.',
-      [GameModeEnum.PassAndPlay]: 'Human 2-Player Duel: Both White Marble and Black Obsidian are commanded directly by human players.'
+      [GameModeEnum.PassAndPlay]: 'Human 2-Player Duel: Both White Marble and Black Obsidian are commanded directly by human players.',
+      [GameModeEnum.Live]: 'Real-Time Multiplayer: Live peer matched via Server-Sent Events with cryptographically secure session tokens.'
     }
   },
   {
@@ -90,7 +98,8 @@ export const DIFFICULTY_PROFILES: readonly DifficultyLevelProfile[] = [
       [GameModeEnum.Minimax]: '2-Ply Tactician: Full 2-ply Minimax lookahead balancing material value and Crossing Altar center control.',
       [GameModeEnum.MicroNeural]: 'Sanctuary MLP: Calibrated 791→32→16→1 neural evaluation with balanced piece-square positional tables.',
       [GameModeEnum.GeminiNano]: 'Cathedral Scholar: Instructs Gemini Nano to play principled, balanced positional and tactical chess.',
-      [GameModeEnum.PassAndPlay]: 'Human 2-Player Duel: Both White Marble and Black Obsidian are commanded directly by human players.'
+      [GameModeEnum.PassAndPlay]: 'Human 2-Player Duel: Both White Marble and Black Obsidian are commanded directly by human players.',
+      [GameModeEnum.Live]: 'Real-Time Multiplayer: Live peer matched via Server-Sent Events with cryptographically secure session tokens.'
     }
   },
   {
@@ -103,7 +112,8 @@ export const DIFFICULTY_PROFILES: readonly DifficultyLevelProfile[] = [
       [GameModeEnum.Minimax]: '2-Ply Warlord: Deterministic 2-ply search with +45 cp capture/check aggression bonus and forward-rank pressure.',
       [GameModeEnum.MicroNeural]: 'Zealot Vanguard: Amplifies neural attack weights, capture/promotion greed, check threats, and enemy territory invasion.',
       [GameModeEnum.GeminiNano]: 'Arcane Warmonger: Commands Gemini Nano to seek relentless attacks, checks, sacrifices, and piece shatters.',
-      [GameModeEnum.PassAndPlay]: 'Human 2-Player Duel: Both White Marble and Black Obsidian are commanded directly by human players.'
+      [GameModeEnum.PassAndPlay]: 'Human 2-Player Duel: Both White Marble and Black Obsidian are commanded directly by human players.',
+      [GameModeEnum.Live]: 'Real-Time Multiplayer: Live peer matched via Server-Sent Events with cryptographically secure session tokens.'
     }
   }
 ] as const;

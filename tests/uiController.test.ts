@@ -22,7 +22,12 @@ class MockElement {
     classes: new Set<string>(),
     add: (...cls: string[]) => cls.forEach(c => this.classList.classes.add(c)),
     remove: (...cls: string[]) => cls.forEach(c => this.classList.classes.delete(c)),
-    contains: (c: string) => this.classList.classes.has(c)
+    contains: (c: string) => this.classList.classes.has(c),
+    toggle: (c: string, force?: boolean) => {
+      const shouldAdd = force !== undefined ? force : !this.classList.classes.has(c);
+      if (shouldAdd) this.classList.classes.add(c);
+      else this.classList.classes.delete(c);
+    }
   };
   setAttribute(k: string, v: string) {
     this.attrs[k] = v;
@@ -65,7 +70,15 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'btn-undo': new MockElement(),
       'undo-icon': new MockElement(),
       'undo-label': new MockElement(),
-      'undo-rule-status-pill': new MockElement()
+      'undo-rule-status-pill': new MockElement(),
+      'live-session-modal': new MockElement(),
+      'tab-create-live': new MockElement(),
+      'tab-join-live': new MockElement(),
+      'panel-create-live': new MockElement(),
+      'panel-join-live': new MockElement(),
+      'live-created-info': new MockElement(),
+      'live-created-code': new MockElement(),
+      'live-join-error': new MockElement()
     };
 
     (globalThis as any).document = {
@@ -82,7 +95,7 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['turn-dot']?.className).toContain('bg-stone-100');
   });
 
-  it('exhaustively pattern matches all 4 game modes with difficulty badge on Black turn', () => {
+  it('exhaustively pattern matches all game modes with difficulty badge on Black turn', () => {
     const ui = new UIController();
     const chess = new Chess();
     chess.move('e4'); // White moves, now Black's turn
@@ -91,7 +104,8 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'pass-and-play': "Black Obsidian's Turn",
       minimax: 'Minimax (BALANCED) Thinking...',
       'micro-neural': 'Neural AI (BALANCED) Evaluating...',
-      'gemini-nano': 'Gemini Nano (BALANCED) Thinking...'
+      'gemini-nano': 'Gemini Nano (BALANCED) Thinking...',
+      live: "Remote Opponent's Turn"
     };
 
     (Object.keys(modeExpectations) as GameMode[]).forEach(mode => {
@@ -278,6 +292,43 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['status-banner']?.classList.contains('hidden')).toBe(false);
     await new Promise(resolve => setTimeout(resolve, 15));
     expect(domElements['status-banner']?.classList.contains('hidden')).toBe(true);
+  });
+
+  it('controls Live Multiplayer Session modal, tab switching, and error displays', () => {
+    const ui = new UIController();
+
+    // Show & hide modal
+    ui.showLiveSessionModal();
+    expect(domElements['live-session-modal']?.classList.contains('flex')).toBe(true);
+    expect(domElements['live-session-modal']?.classList.contains('hidden')).toBe(false);
+
+    ui.hideLiveSessionModal();
+    expect(domElements['live-session-modal']?.classList.contains('hidden')).toBe(true);
+
+    // Switch tabs
+    ui.switchLiveSessionTab('join');
+    expect(domElements['tab-join-live']?.classList.contains('active-chip')).toBe(true);
+    expect(domElements['panel-join-live']?.classList.contains('hidden')).toBe(false);
+    expect(domElements['panel-create-live']?.classList.contains('hidden')).toBe(true);
+
+    ui.switchLiveSessionTab('create');
+    expect(domElements['tab-create-live']?.classList.contains('active-chip')).toBe(true);
+    expect(domElements['panel-create-live']?.classList.contains('hidden')).toBe(false);
+    expect(domElements['panel-join-live']?.classList.contains('hidden')).toBe(true);
+
+    // Created session feedback
+    ui.showLiveCreatedSession('SANCT-TEST123');
+    expect(domElements['live-created-info']?.classList.contains('hidden')).toBe(false);
+    expect(domElements['live-created-code']?.textContent).toBe('SANCT-TEST123');
+
+    // Join errors
+    ui.showLiveJoinError('Invalid session code');
+    expect(domElements['live-join-error']?.textContent).toBe('Invalid session code');
+    expect(domElements['live-join-error']?.classList.contains('hidden')).toBe(false);
+
+    ui.clearLiveJoinError();
+    expect(domElements['live-join-error']?.textContent).toBe('');
+    expect(domElements['live-join-error']?.classList.contains('hidden')).toBe(true);
   });
 });
 

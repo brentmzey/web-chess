@@ -64,6 +64,14 @@ export interface UIControllerElements {
   undoIcon: HTMLElement | null;
   undoLabel: HTMLElement | null;
   undoRuleStatusPill: HTMLElement | null;
+  liveSessionModal: HTMLElement | null;
+  tabCreateLive: HTMLElement | null;
+  tabJoinLive: HTMLElement | null;
+  panelCreateLive: HTMLElement | null;
+  panelJoinLive: HTMLElement | null;
+  liveCreatedInfo: HTMLElement | null;
+  liveCreatedCode: HTMLElement | null;
+  liveJoinError: HTMLElement | null;
 }
 
 export class UIController {
@@ -101,7 +109,15 @@ export class UIController {
       btnUndo: document.getElementById('btn-undo') as HTMLButtonElement | null,
       undoIcon: document.getElementById('undo-icon'),
       undoLabel: document.getElementById('undo-label'),
-      undoRuleStatusPill: document.getElementById('undo-rule-status-pill')
+      undoRuleStatusPill: document.getElementById('undo-rule-status-pill'),
+      liveSessionModal: document.getElementById('live-session-modal'),
+      tabCreateLive: document.getElementById('tab-create-live'),
+      tabJoinLive: document.getElementById('tab-join-live'),
+      panelCreateLive: document.getElementById('panel-create-live'),
+      panelJoinLive: document.getElementById('panel-join-live'),
+      liveCreatedInfo: document.getElementById('live-created-info'),
+      liveCreatedCode: document.getElementById('live-created-code'),
+      liveJoinError: document.getElementById('live-join-error')
     };
   }
 
@@ -145,7 +161,7 @@ export class UIController {
     });
 
     fromNullable(this.el.difficultyBadge).map(badge => {
-      if (mode === GameModeEnum.PassAndPlay) {
+      if (mode === GameModeEnum.PassAndPlay || mode === GameModeEnum.Live) {
         badge.classList.add('hidden');
       } else {
         badge.classList.remove('hidden');
@@ -166,7 +182,8 @@ export class UIController {
             [GameModeEnum.PassAndPlay]: () => "Black Obsidian's Turn",
             [GameModeEnum.Minimax]: () => `Minimax (${diffProfile.badge}) Thinking...`,
             [GameModeEnum.MicroNeural]: () => `Neural AI (${diffProfile.badge}) Evaluating...`,
-            [GameModeEnum.GeminiNano]: () => `Gemini Nano (${diffProfile.badge}) Thinking...`
+            [GameModeEnum.GeminiNano]: () => `Gemini Nano (${diffProfile.badge}) Thinking...`,
+            [GameModeEnum.Live]: () => "Remote Opponent's Turn"
           })
         );
       }
@@ -414,6 +431,58 @@ export class UIController {
         this.el.statusBanner.classList.add('hidden');
       }
     }, durationMs);
+  }
+
+  public showLiveSessionModal(): void {
+    if (!this.el.liveSessionModal) return;
+    this.el.liveSessionModal.classList.remove('hidden');
+    this.el.liveSessionModal.classList.add('flex');
+  }
+
+  public hideLiveSessionModal(): void {
+    if (!this.el.liveSessionModal) return;
+    this.el.liveSessionModal.classList.add('hidden');
+    this.el.liveSessionModal.classList.remove('flex');
+    this.clearLiveJoinError();
+  }
+
+  public switchLiveSessionTab(tab: 'create' | 'join'): void {
+    const isCreate = tab === 'create';
+    fromNullable(this.el.tabCreateLive).map(btn => {
+      btn.classList.toggle('active-chip', isCreate);
+    });
+    fromNullable(this.el.tabJoinLive).map(btn => {
+      btn.classList.toggle('active-chip', !isCreate);
+    });
+    fromNullable(this.el.panelCreateLive).map(panel => {
+      panel.classList.toggle('hidden', !isCreate);
+    });
+    fromNullable(this.el.panelJoinLive).map(panel => {
+      panel.classList.toggle('hidden', isCreate);
+    });
+  }
+
+  public showLiveCreatedSession(sessionCode: string): void {
+    fromNullable(this.el.liveCreatedInfo).map(container => {
+      container.classList.remove('hidden');
+    });
+    fromNullable(this.el.liveCreatedCode).map(codeEl => {
+      codeEl.textContent = sessionCode;
+    });
+  }
+
+  public showLiveJoinError(message: string): void {
+    fromNullable(this.el.liveJoinError).map(errEl => {
+      errEl.textContent = message;
+      errEl.classList.remove('hidden');
+    });
+  }
+
+  public clearLiveJoinError(): void {
+    fromNullable(this.el.liveJoinError).map(errEl => {
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+    });
   }
 }
 
