@@ -32,7 +32,7 @@ import { buildWizardPieceMesh } from './graphics/pieces';
 import { initScene } from './graphics/scene';
 import { ShatterSystem } from './graphics/shatter';
 import { CameraController } from './interaction/camera';
-import { RealtimeChessClient } from './realtime/realtimeClient';
+import { PocketBaseChessClient } from './realtime/pocketbaseClient';
 import {
   auditEncryptedStorage
 } from './storage/indexedDbStore';
@@ -128,7 +128,7 @@ function main(): void {
   let persistenceEnabled = true;
   let useActionCam = true;
   let pendingPromotionMove: { from: string; to: string } | null = null;
-  let activeRealtimeClient: RealtimeChessClient | null = null;
+  let activeRealtimeClient: PocketBaseChessClient | null = null;
   let liveUserRole: 'white' | 'black' | 'spectator' = 'white';
 
   // Display settings (in-memory + persisted in IndexedDB when session persistence is enabled)
@@ -666,7 +666,16 @@ function main(): void {
     void persistCurrentSession();
 
     if (!isRemote && currentMode === GameModeEnum.Live && activeRealtimeClient) {
-      void activeRealtimeClient.submitMove(executed.san);
+      void activeRealtimeClient.submitMove(executed.san, {
+        ply: chess.history().length,
+        color: executed.color,
+        from: executed.from,
+        to: executed.to,
+        fenAfter: chess.fen(),
+        capturedPiece: executed.captured,
+        isCheck: chess.in_check(),
+        isCheckmate: chess.in_checkmate()
+      });
     }
 
     animateChessMove(executed, () => {
@@ -1357,48 +1366,55 @@ function main(): void {
       activeRealtimeClient.disconnect();
     }
 
-    activeRealtimeClient = new RealtimeChessClient({
+    activeRealtimeClient = new PocketBaseChessClient({
       sessionId,
       participantId,
       token,
       onOpen: () => {
-        logger.info('[LIVE] Connected to Live Session SSE stream', { sessionId });
+        logger.info('[LIVE] Connected to PocketHost Live Session SSE stream', { sessionId });
         ui.showTemporaryBanner('🟢 Connected to Live Session SSE stream', 2500);
       },
       onPlayerJoined: data => {
+        const p = data as { displayName: string; role: string };
         ui.showTemporaryBanner(
-          `Opponent ${data.displayName} entered match as ${data.role.toUpperCase()}!`,
+          `Opponent ${p.displayName} entered match as ${String(p.role).toUpperCase()}!`,
           3500
         );
         soundFX.playCathedralOrganAndBell();
       },
       onMove: data => {
         const myColor = liveUserRole === 'white' ? 'w' : 'b';
-        if (data.color !== myColor) {
+        const m = data as { color: 'w' | 'b'; uci?: string; san?: string };
+        if (m.color !== myColor) {
+          const moveFrom = m.uci ? m.uci.slice(0, 2) : (m.san ? m.san.slice(0, 2) : '');
+          const moveTo = m.uci ? m.uci.slice(2, 4) : (m.san ? m.san.slice(-2) : '');
+          const promotion = m.uci ? m.uci[4] : undefined;
           executeMoveOnBoard(
             {
-              from: data.uci.slice(0, 2),
-              to: data.uci.slice(2, 4),
-              promotion: data.uci[4]
+              from: moveFrom,
+              to: moveTo,
+              promotion
             },
             true
           );
         }
       },
       onThemeChanged: data => {
-        const theme = data.theme as ChessThemeEnum;
+        const t = data as { theme: string };
+        const theme = t.theme as ChessThemeEnum;
         if (theme && theme !== currentTheme) {
           selectTheme(theme, true);
           ui.showTemporaryBanner(`Live Theme Synchronized: ${theme}`, 2500);
         }
       },
       onGameOver: data => {
+        const g = data as { reason?: string };
         ui.showGameOver(chess);
-        ui.showTemporaryBanner(`Match Concluded: ${data.reason}`, 4000);
+        ui.showTemporaryBanner(`Match Concluded: ${g.reason || 'Game Over'}`, 4000);
       }
     });
 
-    activeRealtimeClient.connect();
+    void activeRealtimeClient.connect();
   }
 
   // Live Multiplayer Modal & Controls
@@ -1424,11 +1440,14 @@ function main(): void {
       createBtn.disabled = true;
       createBtn.textContent = 'Generating Secure Session...';
 
-      const res = await RealtimeChessClient.createSession({
-        creatorDisplayName: hostNameInput?.value || 'White Marble Host',
-        creatorRole: (hostRoleSelect?.value as 'white' | 'black') || 'white',
+      const roleChoice = (hostRoleSelect?.value as 'white' | 'black') || 'white';
+      const res = await PocketBaseChessClient.createSession('', {
+        playerName: hostNameInput?.value || 'White Marble Host',
+        role: roleChoice === 'white' ? 'w' : 'b',
         theme: currentTheme,
-        allowUndo: hostUndoSelect?.value === 'true'
+        timerRule: 'none',
+        strictMode: hostUndoSelect?.value !== 'true',
+        mode: 'live'
       });
 
       createBtn.disabled = false;
@@ -1436,17 +1455,17 @@ function main(): void {
         '<span class="material-symbols-rounded text-sm">rocket_launch</span><span>Generate Secure Live Session</span>';
 
       res.match({
-        Ok: auth => {
-          liveUserRole = auth.participant.role;
-          ui.showLiveCreatedSession(auth.session.session_code);
+        Ok: session => {
+          liveUserRole = session.assignedRole === 'w' ? 'white' : 'black';
+          ui.showLiveCreatedSession(session.sessionCode);
           ui.showTemporaryBanner(
-            `Session ${auth.session.session_code} created! Waiting for opponent.`,
+            `Session ${session.sessionCode} created! Waiting for opponent.`,
             3000
           );
-          initRealtimeClient(auth.session.id, auth.participant.id, auth.token);
+          initRealtimeClient(session.sessionId, session.participantId, session.token);
         },
         Err: err => {
-          ui.showTemporaryBanner(`Failed to create live session: ${err}`, 4000);
+          ui.showTemporaryBanner(`Failed to create live session: ${err.message}`, 4000);
         }
       });
     })
@@ -1471,10 +1490,10 @@ function main(): void {
       joinBtn.textContent = 'Connecting to Session...';
       ui.clearLiveJoinError();
 
-      const res = await RealtimeChessClient.joinSession({
+      const res = await PocketBaseChessClient.joinSession('', {
         sessionCode: code,
         displayName: name,
-        role
+        preferredRole: role === 'spectator' ? 'spectator' : (role === 'white' ? 'w' : (role === 'black' ? 'b' : undefined))
       });
 
       joinBtn.disabled = false;
@@ -1482,12 +1501,10 @@ function main(): void {
         '<span class="material-symbols-rounded text-sm">login</span><span>Connect & Join Sanctuary Match</span>';
 
       res.match({
-        Ok: auth => {
-          liveUserRole = auth.participant.role;
+        Ok: session => {
+          liveUserRole = session.assignedRole as 'white' | 'black' | 'spectator';
           currentMode = GameModeEnum.Live;
-          allowUndo = Boolean(auth.session.allow_undo);
-          pendingAllowUndo = allowUndo;
-          currentTheme = (auth.session.theme as ChessThemeEnum) || currentTheme;
+          currentTheme = (session.theme as ChessThemeEnum) || currentTheme;
           applyThemePalette(currentTheme, materials, squareMeshes, {
             scene,
             hemiLight,
@@ -1495,20 +1512,22 @@ function main(): void {
             strikeFlashLight
           });
 
-          chess.load(auth.session.current_fen);
+          if (session.fen && session.fen.trim()) {
+            chess.load(session.fen);
+          }
           syncBoardPiecesWithChessState();
           updateHighlights();
           syncAllControlsUI();
           ui.hideLiveSessionModal();
           ui.showTemporaryBanner(
-            `Joined Live Match ${code} as ${auth.participant.role.toUpperCase()}!`,
+            `Joined Live Match ${code} as ${session.assignedRole.toUpperCase()}!`,
             3500
           );
 
-          initRealtimeClient(auth.session.id, auth.participant.id, auth.token);
+          initRealtimeClient(session.sessionId, session.participantId, session.token);
         },
         Err: err => {
-          ui.showLiveJoinError(`Could not join session: ${err}`);
+          ui.showLiveJoinError(`Could not join session: ${err.message}`);
         }
       });
     })

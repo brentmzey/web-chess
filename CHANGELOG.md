@@ -8,6 +8,13 @@ Every general feature change or application behavior update is consolidated unde
 
 ## [1.2.0-rc.2] - 2026-10-24
 ### Added
+- **PocketHost / PocketBase BaaS Cloud Migration & Realtime SSE Adapter (`scripts/pb-migrate.ts`, `src/server/pocketbase/schema.json`, `src/server/pocketbase/migrator.ts`, `src/realtime/pocketbaseClient.ts`, `src/main.ts`, `netlify.toml`, `package.json`)**:
+  - Successfully executed schema migration against PocketHost instance (`https://web-chess.pockethost.io`), establishing canonical collections (`game_sessions`, `session_participants`, `game_moves`, `session_events`) with cascading delete foreign key relations and unique indices (`idx_game_sessions_code`, `idx_moves_session_ply`, `idx_events_session_seq`).
+  - Configured granular PocketBase API security rules: public creation and viewing for match coordination, public progression updates, immutable event/move log enforcement (`updateRule: null`, `deleteRule: null`), and hidden token hashes.
+  - Implemented `PocketBaseChessClient`, a zero-dependency client-side adapter utilizing native browser `fetch` and `EventSource` to subscribe directly to PocketHost's `/api/realtime` SSE feed (`PB_CONNECT` handshake, collection multiplexing) and execute match mutations without intermediate server requirements, enabling serverless multiplayer deployment on Netlify.
+  - Connected `PocketBaseChessClient` directly into the live UI match lifecycle in `src/main.ts`, resolving 404 errors on static hosts by routing session creation, joining, moves, and theme synchronization directly to PocketHost.
+  - Updated Netlify Content Security Policy (`connect-src 'self' https://web-chess.pockethost.io wss://web-chess.pockethost.io`) and added SPA fallback redirects in `netlify.toml`.
+  - Added automated migration runner `bun run pb:migrate` (`scripts/pb-migrate.ts`) and canonical declarative schema specification (`src/server/pocketbase/schema.json`).
 - **Server-Sent Events (SSE) & Real-Time Multiplayer Chess Engine (`src/server/server.ts`, `src/server/services/realtimeChessService.ts`, `src/server/sse/sseManager.ts`, `src/server/sse/sseTypes.ts`, `src/realtime/realtimeClient.ts`)**:
   - Implemented high-throughput real-time Server-Sent Events fan-out broadcasting engine adhering to the W3C EventSource standard (`SSEManager`), complete with connection keepalive pings (`:keepalive\n\n`), client heartbeat monitors, and monotonic sequence event numbers (`id: <eventSeq>`).
   - Added support for typed event streaming (`session_created`, `player_joined`, `player_left`, `move_made`, `theme_changed`, `draw_offered`, `draw_accepted`, `draw_declined`, `resigned`, `game_over`) and reliable reconnection with automatic catch-up replay via `Last-Event-ID`.

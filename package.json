@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "server": "bun run src/server/index.ts",
+    "pb:migrate": "bun run scripts/pb-migrate.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "bun test",

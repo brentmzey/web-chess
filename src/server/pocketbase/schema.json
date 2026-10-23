@@ -1,0 +1,244 @@
+[
+  {
+    "name": "game_sessions",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": null,
+    "fields": [
+      {
+        "name": "session_code",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "mode",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "theme",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "timer_rule",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "strict_mode",
+        "type": "bool",
+        "required": false
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "current_turn",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "fen",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "ply",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "white_player_name",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "black_player_name",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "winner",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "termination_reason",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "last_move_san",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "host_token_hash",
+        "type": "text",
+        "hidden": true,
+        "required": false
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_game_sessions_code` ON `game_sessions` (`session_code`)"
+    ]
+  },
+  {
+    "name": "session_participants",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": null,
+    "fields": [
+      {
+        "name": "session",
+        "type": "relation",
+        "collectionId": "game_sessions",
+        "cascadeDelete": true,
+        "maxSelect": 1,
+        "required": true
+      },
+      {
+        "name": "player_name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "role",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "token_hash",
+        "type": "text",
+        "hidden": true,
+        "required": false
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX `idx_participants_session` ON `session_participants` (`session`)"
+    ]
+  },
+  {
+    "name": "game_moves",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": null,
+    "deleteRule": null,
+    "fields": [
+      {
+        "name": "session",
+        "type": "relation",
+        "collectionId": "game_sessions",
+        "cascadeDelete": true,
+        "maxSelect": 1,
+        "required": true
+      },
+      {
+        "name": "ply",
+        "type": "number",
+        "required": true
+      },
+      {
+        "name": "color",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "from_sq",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "to_sq",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "san",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "fen_after",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "captured_piece",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "is_check",
+        "type": "bool",
+        "required": false
+      },
+      {
+        "name": "is_checkmate",
+        "type": "bool",
+        "required": false
+      },
+      {
+        "name": "time_spent_ms",
+        "type": "number",
+        "required": false
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_moves_session_ply` ON `game_moves` (`session`, `ply`)"
+    ]
+  },
+  {
+    "name": "session_events",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": null,
+    "deleteRule": null,
+    "fields": [
+      {
+        "name": "session",
+        "type": "relation",
+        "collectionId": "game_sessions",
+        "cascadeDelete": true,
+        "maxSelect": 1,
+        "required": true
+      },
+      {
+        "name": "event_type",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "event_seq",
+        "type": "number",
+        "required": true
+      },
+      {
+        "name": "payload",
+        "type": "json",
+        "required": true
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_events_session_seq` ON `session_events` (`session`, `event_seq`)"
+    ]
+  }
+]

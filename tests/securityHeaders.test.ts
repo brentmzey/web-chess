@@ -19,7 +19,8 @@ describe('Deployed client security headers (netlify.toml)', async () => {
     expect(directive('base-uri')).toBe("base-uri 'self'");
     expect(directive('form-action')).toBe("form-action 'self'");
     expect(directive('frame-ancestors')).toBe("frame-ancestors 'none'");
-    expect(directive('connect-src')).toBe("connect-src 'self'");
+    expect(directive('connect-src')).toContain("connect-src 'self'");
+    expect(directive('connect-src')).toContain('https://web-chess.pockethost.io');
     expect(csp).toContain('upgrade-insecure-requests');
     expect(directive('img-src')).not.toContain('https:');
   });
