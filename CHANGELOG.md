@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.4] - 2026-10-25
+### Fixed
+- **Host SSE Event Reception & Unique Record ID Deduplication (`src/realtime/pocketbaseClient.ts`, `src/main.ts`, `tests/pocketbaseClient.test.ts`)**:
+  - Replaced timestamp-based event sequence check (`eventSeq <= this.lastEventSeq`) with globally unique PocketBase record ID tracking (`seenRecordIds: Set<string>`). This eliminates clock-skew false drops where the host dropped the opponent's moves due to local counter increments or slight client clock offsets.
+  - Added self-healing authoritative state sync via `session_updated` SSE channel in `initRealtimeClient`. Any difference between local FEN and remote game session FEN immediately updates the 3D board pieces, turn indicators, and check/game-over modals without requiring a manual refresh.
+  - Implemented background tab fast-path in `animateChessMove` (`typeof document !== 'undefined' && document.hidden`): applies piece coordinates and updates `pieceMap` synchronously so browser tab throttling/pausing of `requestAnimationFrame` when testing or playing in background tabs does not freeze or block move execution.
+  - Added clean board reset (`chess.reset()`, `syncBoardPiecesWithChessState()`, `updateHighlights()`) in `#btn-create-live-session` so generating a new live match always initializes with a pristine board.
+
 ## [1.2.0-rc.3] - 2026-10-25
 ### Fixed
 - **PocketBase Real-Time SSE Event Routing & Subscription Topic Multiplexing (`src/realtime/pocketbaseClient.ts`, `tests/pocketbaseClient.test.ts`)**:

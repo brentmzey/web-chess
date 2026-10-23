@@ -463,6 +463,7 @@ function main(): void {
     }
 
     isAnimating = false;
+    updateHighlights();
     syncAllControlsUI();
     void persistCurrentSession();
     if (onComplete) onComplete();
@@ -504,6 +505,22 @@ function main(): void {
       camController.camState.target.lerpVectors(startPos, endPos, 0.65);
       camController.camState.radius = 13.5;
       camController.camState.phi = 0.98;
+    }
+
+    // Fast-path: When tab is in the background (hidden), requestAnimationFrame is paused
+    if (typeof document !== 'undefined' && document.hidden) {
+      attacker.position.copy(endPos);
+      attacker.rotation.x = 0;
+      attacker.rotation.y = attacker.userData.baseRotY;
+      if (attacker.userData.weaponGroup) {
+        attacker.userData.weaponGroup.rotation.set(0, 0, 0);
+      }
+      if (isCapture && victim) {
+        scene.remove(victim);
+        delete pieceMap[victimSquare];
+      }
+      finishMoveState(moveObj, attacker, savedCamState, onComplete);
+      return;
     }
 
     if (!isCapture) {
@@ -1415,6 +1432,19 @@ function main(): void {
       }
     });
 
+    activeRealtimeClient.on('session_updated', data => {
+      const s = data as { fen?: string; last_move_san?: string; status?: string };
+      if (s?.fen && s.fen !== chess.fen()) {
+        logger.info('[LIVE] Synchronizing authoritative board state from session_updated FEN:', s.fen);
+        chess.load(s.fen);
+        syncBoardPiecesWithChessState();
+        updateHighlights();
+        syncAllControlsUI();
+        if (chess.in_check()) soundFX.playCathedralOrganAndBell();
+        if (chess.game_over()) ui.showGameOver(chess);
+      }
+    });
+
     void activeRealtimeClient.connect();
   }
 
@@ -1457,6 +1487,9 @@ function main(): void {
 
       res.match({
         Ok: session => {
+          chess.reset();
+          syncBoardPiecesWithChessState();
+          updateHighlights();
           currentMode = GameModeEnum.Live;
           liveUserRole = session.assignedRole as 'white' | 'black';
           if (liveUserRole === 'black') {

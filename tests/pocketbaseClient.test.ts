@@ -113,6 +113,7 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
       data: JSON.stringify({
         action: 'create',
         record: {
+          id: 'evt-1',
           session: 'sess-123',
           event_type: 'move_made',
           event_seq: 4,
@@ -123,11 +124,28 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     expect(moveReceived).toEqual({ san: 'e4', ply: 1 });
     expect(client.getLastEventSeq()).toBe(4);
 
+    // Duplicate message for evt-1 should be ignored
+    moveReceived = null;
+    listeners['session_events']({
+      data: JSON.stringify({
+        action: 'create',
+        record: {
+          id: 'evt-1',
+          session: 'sess-123',
+          event_type: 'move_made',
+          event_seq: 4,
+          payload: { san: 'e4-dup', ply: 1 }
+        }
+      })
+    });
+    expect(moveReceived).toBeNull();
+
     // Trigger session_events/* (wildcard topic listener)
     listeners['session_events/*']({
       data: JSON.stringify({
         action: 'create',
         record: {
+          id: 'evt-2',
           session: 'sess-123',
           event_type: 'move_made',
           event_seq: 5,

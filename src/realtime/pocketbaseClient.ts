@@ -44,6 +44,7 @@ export class PocketBaseChessClient {
   private clientId: string | null = null;
   private isConnected: boolean = false;
   private lastEventSeq: number = 0;
+  private seenRecordIds: Set<string> = new Set();
   private eventHandlers: Map<string, Set<RealtimeEventHandler>> = new Map();
 
   constructor(private config: RealtimeClientConfig) {
@@ -144,10 +145,16 @@ export class PocketBaseChessClient {
         try {
           const msg = JSON.parse(e.data) as PocketBaseRealtimeMessage;
           if (msg.action === 'create' && msg.record.session === this.config.sessionId) {
+            const recordId = String(msg.record.id || '');
+            if (recordId) {
+              if (this.seenRecordIds.has(recordId)) return;
+              this.seenRecordIds.add(recordId);
+            }
             const eventType = String(msg.record.event_type);
             const eventSeq = Number(msg.record.event_seq) || Math.max(Date.now(), this.lastEventSeq + 1);
-            if (eventSeq <= this.lastEventSeq) return;
-            this.lastEventSeq = eventSeq;
+            if (eventSeq > this.lastEventSeq) {
+              this.lastEventSeq = eventSeq;
+            }
             const payload = msg.record.payload;
             this.dispatchEvent(eventType, payload, eventSeq);
           }
@@ -163,7 +170,7 @@ export class PocketBaseChessClient {
         try {
           const msg = JSON.parse(e.data) as PocketBaseRealtimeMessage;
           if (msg.record.id === this.config.sessionId) {
-            this.dispatchEvent('session_updated', msg.record, ++this.lastEventSeq);
+            this.dispatchEvent('session_updated', msg.record, this.lastEventSeq);
           }
         } catch (err) {
           logger.error('[PocketBase] Failed handling game_sessions SSE message:', err);
@@ -190,6 +197,7 @@ export class PocketBaseChessClient {
     }
     this.isConnected = false;
     this.clientId = null;
+    this.seenRecordIds.clear();
   }
 
   /**
