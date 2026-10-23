@@ -145,7 +145,7 @@ export class PocketBaseChessClient {
           const msg = JSON.parse(e.data) as PocketBaseRealtimeMessage;
           if (msg.action === 'create' && msg.record.session === this.config.sessionId) {
             const eventType = String(msg.record.event_type);
-            const eventSeq = Number(msg.record.event_seq) || ++this.lastEventSeq;
+            const eventSeq = Number(msg.record.event_seq) || Math.max(Date.now(), this.lastEventSeq + 1);
             if (eventSeq > this.lastEventSeq) this.lastEventSeq = eventSeq;
             const payload = msg.record.payload;
             this.dispatchEvent(eventType, payload, eventSeq);
@@ -202,10 +202,11 @@ export class PocketBaseChessClient {
   }): Promise<Result<{ success: boolean; eventSeq: number }, Error>> {
     return tryCatchAsync(async () => {
       const baseUrl = this.getBaseUrl();
-      const nextSeq = ++this.lastEventSeq;
+      const nextSeq = Math.max(Date.now(), this.lastEventSeq + 1);
+      this.lastEventSeq = nextSeq;
 
       // 1. Record move in game_moves
-      await fetch(`${baseUrl}/api/collections/game_moves/records`, {
+      const moveRes = await fetch(`${baseUrl}/api/collections/game_moves/records`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -223,8 +224,13 @@ export class PocketBaseChessClient {
         })
       });
 
+      if (!moveRes.ok) {
+        const err = await moveRes.text();
+        logger.warn('[PocketBase] Failed recording game_moves:', err);
+      }
+
       // 2. Publish real-time event
-      await fetch(`${baseUrl}/api/collections/session_events/records`, {
+      const eventRes = await fetch(`${baseUrl}/api/collections/session_events/records`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -244,8 +250,14 @@ export class PocketBaseChessClient {
         })
       });
 
+      if (!eventRes.ok) {
+        const err = await eventRes.text();
+        logger.error('[PocketBase] Failed publishing session_events:', err);
+        throw new Error(`Failed publishing move event: ${err}`);
+      }
+
       // 3. Update game_sessions summary
-      await fetch(`${baseUrl}/api/collections/game_sessions/records/${this.config.sessionId}`, {
+      const patchRes = await fetch(`${baseUrl}/api/collections/game_sessions/records/${this.config.sessionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -257,6 +269,11 @@ export class PocketBaseChessClient {
           winner: payload.isCheckmate ? payload.color : ''
         })
       });
+
+      if (!patchRes.ok) {
+        const err = await patchRes.text();
+        logger.warn('[PocketBase] Failed patching game_sessions:', err);
+      }
 
       return { success: true, eventSeq: nextSeq };
     }, toError);
@@ -299,7 +316,8 @@ export class PocketBaseChessClient {
   public async changeTheme(theme: string): Promise<Result<{ success: boolean; eventSeq: number }, Error>> {
     return tryCatchAsync(async () => {
       const baseUrl = this.getBaseUrl();
-      const nextSeq = ++this.lastEventSeq;
+      const nextSeq = Math.max(Date.now(), this.lastEventSeq + 1);
+      this.lastEventSeq = nextSeq;
 
       await fetch(`${baseUrl}/api/collections/session_events/records`, {
         method: 'POST',
@@ -328,7 +346,8 @@ export class PocketBaseChessClient {
   public async resign(): Promise<Result<{ success: boolean; eventSeq: number }, Error>> {
     return tryCatchAsync(async () => {
       const baseUrl = this.getBaseUrl();
-      const nextSeq = ++this.lastEventSeq;
+      const nextSeq = Math.max(Date.now(), this.lastEventSeq + 1);
+      this.lastEventSeq = nextSeq;
 
       await fetch(`${baseUrl}/api/collections/session_events/records`, {
         method: 'POST',
@@ -537,7 +556,7 @@ export class PocketBaseChessClient {
         body: JSON.stringify({
           session: sessionId,
           event_type: 'player_joined',
-          event_seq: 1,
+          event_seq: Date.now(),
           payload: {
             participantId: participantData.id,
             displayName: playerName,

@@ -204,6 +204,43 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
 
     const resignRes = await client.resign();
     expect(resignRes.isSuccess()).toBe(true);
+
+    // Test warning and failure branches in makeMove
+    globalThis.fetch = mock(async (url: any, _init?: any) => {
+      const u = String(url);
+      if (u.includes('session_events/records')) {
+        return new Response('Event failed', { status: 500 });
+      }
+      return new Response('Warning response', { status: 400 });
+    }) as any;
+
+    const failMove = await client.makeMove({
+      ply: 3,
+      color: 'w',
+      from: 'g1',
+      to: 'f3',
+      san: 'Nf3',
+      fenAfter: 'fen-after'
+    });
+    expect(failMove.isFailure()).toBe(true);
+
+    // Test patchRes warning branch where event succeeds but patch fails
+    globalThis.fetch = mock(async (_url: any, init?: any) => {
+      if (init?.method === 'PATCH') {
+        return new Response('Patch failed', { status: 400 });
+      }
+      return new Response(JSON.stringify({ id: 'ok' }), { status: 200 });
+    }) as any;
+
+    const patchFailMove = await client.makeMove({
+      ply: 4,
+      color: 'b',
+      from: 'b8',
+      to: 'c6',
+      san: 'Nc6',
+      fenAfter: 'fen-after'
+    });
+    expect(patchFailMove.isSuccess()).toBe(true);
   });
 
   it('creates sessions via PocketBaseChessClient.createSession with role branching', async () => {
