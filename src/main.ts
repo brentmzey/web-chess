@@ -654,7 +654,7 @@ function main(): void {
       from: string;
       to: string;
       promotion?: string;
-    },
+    } | string,
     isRemote: boolean = false
   ): void {
     const executed = chess.move(moveAttempt);
@@ -671,6 +671,7 @@ function main(): void {
         color: executed.color,
         from: executed.from,
         to: executed.to,
+        promotion: executed.promotion,
         fenAfter: chess.fen(),
         capturedPiece: executed.captured,
         isCheck: chess.in_check(),
@@ -747,8 +748,14 @@ function main(): void {
   function handleBoardClick(clientX: number, clientY: number): void {
     if (isAnimating || chess.game_over()) return;
     if (currentMode === GameModeEnum.Live) {
-      const myTurn = liveUserRole === 'white' ? PieceColorEnum.White : PieceColorEnum.Black;
-      if (liveUserRole === 'spectator' || chess.turn() !== myTurn) {
+      const myTurn = liveUserRole === 'white' ? PieceColorEnum.White : (liveUserRole === 'black' ? PieceColorEnum.Black : null);
+      if (!myTurn || chess.turn() !== myTurn) {
+        ui.showTemporaryBanner(
+          liveUserRole === 'spectator'
+            ? 'Spectator mode: board interactions disabled.'
+            : `Waiting for ${chess.turn() === PieceColorEnum.White ? 'White Marble' : 'Black Obsidian'} to move...`,
+          1500
+        );
         return;
       }
     } else if (currentMode !== GameModeEnum.PassAndPlay && chess.turn() === PieceColorEnum.Black) {
@@ -1381,22 +1388,16 @@ function main(): void {
           3500
         );
         soundFX.playCathedralOrganAndBell();
+        ui.hideLiveSessionModal();
       },
       onMove: data => {
-        const myColor = liveUserRole === 'white' ? 'w' : 'b';
+        const myColor = liveUserRole === 'white' ? 'w' : (liveUserRole === 'black' ? 'b' : null);
         const m = data as { color: 'w' | 'b'; uci?: string; san?: string };
         if (m.color !== myColor) {
-          const moveFrom = m.uci ? m.uci.slice(0, 2) : (m.san ? m.san.slice(0, 2) : '');
-          const moveTo = m.uci ? m.uci.slice(2, 4) : (m.san ? m.san.slice(-2) : '');
-          const promotion = m.uci ? m.uci[4] : undefined;
-          executeMoveOnBoard(
-            {
-              from: moveFrom,
-              to: moveTo,
-              promotion
-            },
-            true
-          );
+          const moveCandidate = (m.uci && m.uci.length >= 4)
+            ? { from: m.uci.slice(0, 2), to: m.uci.slice(2, 4), promotion: m.uci[4] || undefined }
+            : (m.san || '');
+          executeMoveOnBoard(moveCandidate, true);
         }
       },
       onThemeChanged: data => {
@@ -1456,7 +1457,14 @@ function main(): void {
 
       res.match({
         Ok: session => {
-          liveUserRole = session.assignedRole === 'w' ? 'white' : 'black';
+          currentMode = GameModeEnum.Live;
+          liveUserRole = session.assignedRole as 'white' | 'black';
+          if (liveUserRole === 'black') {
+            camController.camState.theta = Math.PI;
+          } else {
+            camController.camState.theta = 0;
+          }
+          syncAllControlsUI();
           ui.showLiveCreatedSession(session.sessionCode);
           ui.showTemporaryBanner(
             `Session ${session.sessionCode} created! Waiting for opponent.`,
@@ -1502,8 +1510,13 @@ function main(): void {
 
       res.match({
         Ok: session => {
-          liveUserRole = session.assignedRole as 'white' | 'black' | 'spectator';
+          liveUserRole = session.assignedRole;
           currentMode = GameModeEnum.Live;
+          if (liveUserRole === 'black') {
+            camController.camState.theta = Math.PI;
+          } else if (liveUserRole === 'white') {
+            camController.camState.theta = 0;
+          }
           currentTheme = (session.theme as ChessThemeEnum) || currentTheme;
           applyThemePalette(currentTheme, materials, squareMeshes, {
             scene,

@@ -122,8 +122,8 @@ export class PocketBaseChessClient {
             body: JSON.stringify({
               clientId: data.clientId,
               subscriptions: [
-                `game_sessions/${this.config.sessionId}`,
-                'session_events/*'
+                'session_events',
+                `game_sessions/${this.config.sessionId}`
               ]
             })
           });
@@ -140,22 +140,26 @@ export class PocketBaseChessClient {
         }
       });
 
-      es.addEventListener('session_events', (e: MessageEvent) => {
+      const handleSessionEvent = (e: MessageEvent) => {
         try {
           const msg = JSON.parse(e.data) as PocketBaseRealtimeMessage;
           if (msg.action === 'create' && msg.record.session === this.config.sessionId) {
             const eventType = String(msg.record.event_type);
             const eventSeq = Number(msg.record.event_seq) || Math.max(Date.now(), this.lastEventSeq + 1);
-            if (eventSeq > this.lastEventSeq) this.lastEventSeq = eventSeq;
+            if (eventSeq <= this.lastEventSeq) return;
+            this.lastEventSeq = eventSeq;
             const payload = msg.record.payload;
             this.dispatchEvent(eventType, payload, eventSeq);
           }
         } catch (err) {
           logger.error('[PocketBase] Failed handling session_events SSE message:', err);
         }
-      });
+      };
 
-      es.addEventListener('game_sessions', (e: MessageEvent) => {
+      es.addEventListener('session_events', handleSessionEvent);
+      es.addEventListener('session_events/*', handleSessionEvent);
+
+      const handleGameSessionUpdate = (e: MessageEvent) => {
         try {
           const msg = JSON.parse(e.data) as PocketBaseRealtimeMessage;
           if (msg.record.id === this.config.sessionId) {
@@ -164,7 +168,10 @@ export class PocketBaseChessClient {
         } catch (err) {
           logger.error('[PocketBase] Failed handling game_sessions SSE message:', err);
         }
-      });
+      };
+
+      es.addEventListener('game_sessions', handleGameSessionUpdate);
+      es.addEventListener(`game_sessions/${this.config.sessionId}`, handleGameSessionUpdate);
 
       es.onerror = (err) => {
         logger.warn('[PocketBase] SSE stream error / disconnected:', err);
@@ -198,6 +205,7 @@ export class PocketBaseChessClient {
     capturedPiece?: string | null;
     isCheck?: boolean;
     isCheckmate?: boolean;
+    promotion?: string;
     timeSpentMs?: number;
   }): Promise<Result<{ success: boolean; eventSeq: number }, Error>> {
     return tryCatchAsync(async () => {
@@ -242,7 +250,7 @@ export class PocketBaseChessClient {
             moveNumber: Math.ceil(payload.ply / 2),
             color: payload.color,
             san: payload.san,
-            uci: `${payload.from}${payload.to}`,
+            uci: `${payload.from}${payload.to}${payload.promotion || ''}`,
             fen: payload.fenAfter,
             turn: payload.color === 'w' ? 'b' : 'w',
             status: payload.isCheckmate ? 'checkmate' : (payload.isCheck ? 'check' : 'in_progress')
@@ -289,6 +297,7 @@ export class PocketBaseChessClient {
       color?: 'w' | 'b';
       from?: string;
       to?: string;
+      promotion?: string;
       fenAfter?: string;
       capturedPiece?: string | null;
       isCheck?: boolean;
@@ -301,6 +310,7 @@ export class PocketBaseChessClient {
       color: details?.color || 'w',
       from: details?.from || san.slice(0, 2),
       to: details?.to || san.slice(-2),
+      promotion: details?.promotion,
       san,
       fenAfter: details?.fenAfter || '',
       capturedPiece: details?.capturedPiece,
@@ -393,7 +403,7 @@ export class PocketBaseChessClient {
     sessionCode: string;
     participantId: string;
     token: string;
-    assignedRole: 'w' | 'b';
+    assignedRole: 'white' | 'black';
   }, Error>> {
     return tryCatchAsync(async () => {
       const url = (baseUrl || POCKETHOST_URL).replace(/\/+$/, '');
@@ -460,7 +470,7 @@ export class PocketBaseChessClient {
         sessionCode,
         participantId: participantData.id,
         token: hostToken,
-        assignedRole
+        assignedRole: assignedRole === 'w' ? ('white' as const) : ('black' as const)
       };
     }, toError);
   }
@@ -477,7 +487,7 @@ export class PocketBaseChessClient {
     sessionCode: string;
     participantId: string;
     token: string;
-    assignedRole: string;
+    assignedRole: 'white' | 'black' | 'spectator';
     fen: string;
     theme: string;
   }, Error>> {
@@ -504,14 +514,36 @@ export class PocketBaseChessClient {
       const blackName = String(session.black_player_name || '');
 
       // Determine available role
-      let role: string = 'spectator';
-      if (options.preferredRole === 'w' && !whiteName) {
-        role = 'white';
-      } else if (options.preferredRole === 'b' && !blackName) {
+      let role: 'white' | 'black' | 'spectator' = 'spectator';
+      const cleanDisplayName = (options.displayName || '').trim();
+
+      if (cleanDisplayName && cleanDisplayName === blackName) {
         role = 'black';
-      } else if (options.preferredRole !== 'spectator') {
-        if (!whiteName) role = 'white';
-        else if (!blackName) role = 'black';
+      } else if (cleanDisplayName && cleanDisplayName === whiteName) {
+        role = 'white';
+      } else if (options.preferredRole === 'w') {
+        if (!whiteName) {
+          role = 'white';
+        } else {
+          throw new Error(`The White Marble seat is already occupied by ${whiteName}.`);
+        }
+      } else if (options.preferredRole === 'b') {
+        if (!blackName) {
+          role = 'black';
+        } else {
+          throw new Error(`The Black Obsidian seat is already occupied by ${blackName}.`);
+        }
+      } else if (options.preferredRole === 'spectator') {
+        role = 'spectator';
+      } else {
+        // Auto-assign open seat (prefer Black since host typically takes White)
+        if (!blackName) {
+          role = 'black';
+        } else if (!whiteName) {
+          role = 'white';
+        } else {
+          role = 'spectator';
+        }
       }
 
       const playerName = options.displayName || `Player (${role})`;

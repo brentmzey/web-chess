@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.3] - 2026-10-25
+### Fixed
+- **PocketBase Real-Time SSE Event Routing & Subscription Topic Multiplexing (`src/realtime/pocketbaseClient.ts`, `tests/pocketbaseClient.test.ts`)**:
+  - Fixed event listener mismatch where PocketBase Server-Sent Events emitted exact topic names (`session_events`, `session_events/*`, `game_sessions`, `game_sessions/:id`); registered matching listeners for both collection-level and wildcard topics to guarantee 100% real-time move, player joined, and session update delivery without manual page reloads.
+  - Added monotonic sequence event deduplication (`eventSeq <= this.lastEventSeq`) inside `PocketBaseChessClient` event dispatcher to prevent duplicate execution when subscribed across multiplexed SSE channels.
+- **Seat Resolution, Participant Re-join & Role Permissions (`src/realtime/pocketbaseClient.ts`, `src/main.ts`)**:
+  - Fixed seat assignment logic in `PocketBaseChessClient.joinSession` to recognize re-joining players by matching `displayName` against existing `white_player_name` or `black_player_name`, preventing unintentional demotion to spectator on tab refresh or re-connection.
+  - Added explicit seat validation: throwing an actionable descriptive error when attempting to join as White or Black if that seat is already occupied by a different player.
+  - Standardized role type representations (`'white' | 'black' | 'spectator'`) across both `createSession` and `joinSession` returns.
+- **Opponent Piece Movement & Board Interaction Locking (`src/main.ts`)**:
+  - Resolved piece movement locking for Black and White players by validating player color against active `chess.turn()` (`PieceColorEnum.White` / `PieceColorEnum.Black`) with informative temporary status banners explaining when interactions are waiting on opponent turns or disabled in spectator mode.
+  - Automatically synchronized 3D camera orientation for Black players (`camController.camState.theta = Math.PI`), framing the board naturally from Black's perspective upon hosting or joining as Black.
+  - Extended `executeMoveOnBoard` and `submitMove` to support pawn promotion flags (`promotion?: string`) in both UCI strings and SAN objects.
+  - Added auto-dismissal of host match modal upon receipt of `player_joined` SSE event, instantly transitioning the host into active play when their opponent connects.
+
 ## [1.2.0-rc.2] - 2026-10-24
 ### Added
 - **PocketHost / PocketBase BaaS Cloud Migration & Realtime SSE Adapter (`scripts/pb-migrate.ts`, `src/server/pocketbase/schema.json`, `src/server/pocketbase/migrator.ts`, `src/realtime/pocketbaseClient.ts`, `src/main.ts`, `netlify.toml`, `package.json`)**:

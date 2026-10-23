@@ -123,6 +123,21 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     expect(moveReceived).toEqual({ san: 'e4', ply: 1 });
     expect(client.getLastEventSeq()).toBe(4);
 
+    // Trigger session_events/* (wildcard topic listener)
+    listeners['session_events/*']({
+      data: JSON.stringify({
+        action: 'create',
+        record: {
+          session: 'sess-123',
+          event_type: 'move_made',
+          event_seq: 5,
+          payload: { san: 'e5', ply: 2 }
+        }
+      })
+    });
+    expect(moveReceived).toEqual({ san: 'e5', ply: 2 });
+    expect(client.getLastEventSeq()).toBe(5);
+
     // Trigger session_events for other session (should be ignored)
     listeners['session_events']({
       data: JSON.stringify({
@@ -142,6 +157,18 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
       })
     });
     expect(sessionUpdated).toBe(true);
+
+    // Trigger game_sessions/sess-123 topic listener
+    let specificSessionUpdated = false;
+    client.on('session_updated', () => {
+      specificSessionUpdated = true;
+    });
+    listeners['game_sessions/sess-123']({
+      data: JSON.stringify({
+        record: { id: 'sess-123', status: 'completed' }
+      })
+    });
+    expect(specificSessionUpdated).toBe(true);
 
     // Trigger error
     let errorCalled = false;
@@ -265,7 +292,7 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
       Ok: (s) => {
         expect(s.sessionId).toBe('sess-abc');
         expect(s.sessionCode.startsWith('SANCT-')).toBe(true);
-        expect(s.assignedRole).toBe('w');
+        expect(s.assignedRole).toBe('white');
       },
       Err: (err) => { throw err; }
     });
@@ -277,7 +304,7 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
       strictMode: false,
       role: 'b'
     });
-    expect(resBlack.match({ Ok: (s) => s.assignedRole, Err: () => null })).toBe('b');
+    expect(resBlack.match({ Ok: (s) => s.assignedRole, Err: () => null })).toBe('black');
 
     const resRand = await PocketBaseChessClient.createSession('', {
       mode: 'live',
@@ -286,7 +313,7 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
       strictMode: false,
       role: 'rand'
     });
-    expect(['w', 'b']).toContain(resRand.match({ Ok: (s) => s.assignedRole, Err: () => null }) as any);
+    expect(['white', 'black']).toContain(resRand.match({ Ok: (s) => s.assignedRole, Err: () => null }) as any);
   });
 
   it('joins existing sessions and resolves roles properly', async () => {
@@ -455,5 +482,125 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     });
     expect(noPrefJoin.isSuccess()).toBe(true);
     expect(noPrefJoin.match({ Ok: (j) => j.assignedRole, Err: () => null })).toBe('black');
+
+    // 4. Re-joining as Black when displayName matches black_player_name
+    globalThis.fetch = mock(async (url: any, _init?: any) => {
+      const u = String(url);
+      if (u.includes('filter=')) {
+        return new Response(JSON.stringify({
+          items: [{
+            id: 'sess-full',
+            white_player_name: 'ExistingWhite',
+            black_player_name: 'MyBlackName',
+            fen: 'start-fen',
+            theme: 'gothic-basilica'
+          }]
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ id: 'part-res' }), { status: 200 });
+    }) as any;
+
+    const rejoinBlack = await PocketBaseChessClient.joinSession('', {
+      sessionCode: 'SANCT-FULL',
+      displayName: 'MyBlackName'
+    });
+    expect(rejoinBlack.isSuccess()).toBe(true);
+    expect(rejoinBlack.match({ Ok: (j) => j.assignedRole, Err: () => null })).toBe('black');
+
+    // 5. Re-joining as White when displayName matches white_player_name
+    const rejoinWhite = await PocketBaseChessClient.joinSession('', {
+      sessionCode: 'SANCT-FULL',
+      displayName: 'ExistingWhite'
+    });
+    expect(rejoinWhite.isSuccess()).toBe(true);
+    expect(rejoinWhite.match({ Ok: (j) => j.assignedRole, Err: () => null })).toBe('white');
+
+    // 6. Requesting 'w' when White seat is occupied throws error
+    const failWhite = await PocketBaseChessClient.joinSession('', {
+      sessionCode: 'SANCT-FULL',
+      displayName: 'NewPlayer',
+      preferredRole: 'w'
+    });
+    expect(failWhite.isFailure()).toBe(true);
+    expect(failWhite.match({ Ok: () => '', Err: (e) => e.message })).toContain('White Marble seat is already occupied');
+
+    // 7. Requesting 'b' when Black seat is occupied throws error
+    const failBlack = await PocketBaseChessClient.joinSession('', {
+      sessionCode: 'SANCT-FULL',
+      displayName: 'NewPlayer',
+      preferredRole: 'b'
+    });
+    expect(failBlack.isFailure()).toBe(true);
+    expect(failBlack.match({ Ok: () => '', Err: (e) => e.message })).toContain('Black Obsidian seat is already occupied');
+
+    // 8. Joining explicitly as spectator
+    const joinSpectator = await PocketBaseChessClient.joinSession('', {
+      sessionCode: 'SANCT-FULL',
+      displayName: 'SpectatorUser',
+      preferredRole: 'spectator'
+    });
+    expect(joinSpectator.isSuccess()).toBe(true);
+    expect(joinSpectator.match({ Ok: (j) => j.assignedRole, Err: () => null })).toBe('spectator');
+
+    // 9. Auto-assign when both seats occupied falls back to spectator
+    const autoSpectator = await PocketBaseChessClient.joinSession('', {
+      sessionCode: 'SANCT-FULL',
+      displayName: 'ThirdPartyUser'
+    });
+    expect(autoSpectator.isSuccess()).toBe(true);
+    expect(autoSpectator.match({ Ok: (j) => j.assignedRole, Err: () => null })).toBe('spectator');
+
+    // 10. Auto-assign when Black is occupied but White is open
+    globalThis.fetch = mock(async (url: any, _init?: any) => {
+      const u = String(url);
+      if (u.includes('filter=')) {
+        return new Response(JSON.stringify({
+          items: [{
+            id: 'sess-white-only-open',
+            white_player_name: '',
+            black_player_name: 'ExistingBlack',
+            fen: 'start-fen',
+            theme: 'gothic-basilica'
+          }]
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ id: 'part-res' }), { status: 200 });
+    }) as any;
+
+    const autoWhite = await PocketBaseChessClient.joinSession('', {
+      sessionCode: 'SANCT-WHITE-OPEN',
+      displayName: 'AutoWhiteUser'
+    });
+    expect(autoWhite.isSuccess()).toBe(true);
+    expect(autoWhite.match({ Ok: (j) => j.assignedRole, Err: () => null })).toBe('white');
+  });
+
+  it('submits moves with promotion flag and verifies uci payload', async () => {
+    let capturedBody: any = null;
+    globalThis.fetch = mock(async (url: any, init?: any) => {
+      if (String(url).includes('session_events') && init?.body) {
+        capturedBody = JSON.parse(init.body);
+      }
+      return new Response(JSON.stringify({ id: 'rec-1' }), { status: 200 });
+    }) as any;
+
+    const client = new PocketBaseChessClient({
+      sessionId: 'sess-prom',
+      participantId: 'part-prom',
+      token: 'tok-prom'
+    });
+
+    const moveRes = await client.submitMove('e8=Q', {
+      ply: 50,
+      color: 'w',
+      from: 'e7',
+      to: 'e8',
+      promotion: 'q',
+      fenAfter: 'promoted-fen'
+    });
+
+    expect(moveRes.isSuccess()).toBe(true);
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody.payload.uci).toBe('e7e8q');
   });
 });
