@@ -51,6 +51,15 @@ We exclusively use **Bun** as our runtime, package manager, and test runner.
 7. **Chess Engine Integrity**:
    - All board modifications must go through `chess.js` and sync accurately via `syncBoardPiecesWithChessState()`.
    - Never bypass legal chess rules (check, checkmate, stalemate, castling rights, promotion, en passant).
+8. **Standardized DateTime Architecture ([`src/utils/dateTime.ts`](file:///Users/brentzey/personal/web-chess/src/utils/dateTime.ts))**:
+   - All date, timestamp, and duration operations must use the centralized datetime utility conforming to the ECMAScript `Temporal` API (`currentEpochMs()`, `nowIso()`, `epochMsToIso()`, `formatDateTime()`) with automatic `Day.js` fallback.
+   - Never invoke raw `Date.now()` or `new Date().toISOString()` directly in application code.
+9. **Mandatory Universal Credential & Vulnerability Pre-Commit/Pre-Push Scanning**:
+   - Never commit or push real secrets, admin credentials, database tokens, or PocketHost superuser passwords to Git or remote.
+   - Always verify `.env` files are excluded in `.gitignore`, inspect `git diff`, and confirm zero sensitive leaks before pushing to remote. Sourced credentials must be injected via external environment variables (`PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD` from `~/.zshrc`).
+10. **PocketHost / PocketBase BaaS & Schema Integrity ([`src/server/pocketbase/`](file:///Users/brentzey/personal/web-chess/src/server/pocketbase/))**:
+   - Apply cloud schema migrations via `bun run pb:migrate`.
+   - Maintain append-only immutability on move and event collections (`updateRule: null`, `deleteRule: null`) to prevent data tampering.
 
 ---
 

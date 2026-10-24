@@ -1,14 +1,29 @@
 # ♟️ Wizard's Chess 3D — High Gothic Basilica
 
+[![Version](https://img.shields.io/badge/Version-1.2.0--rc.7-emerald.svg)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Runtime](https://img.shields.io/badge/Runtime-Bun%201.4-black.svg?logo=bun&logoColor=white)](https://bun.sh/)
 [![Bundler](https://img.shields.io/badge/Bundler-Vite%205-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Graphics](https://img.shields.io/badge/Graphics-Three.js%20r160-000000.svg?logo=three.js&logoColor=white)](https://threejs.org/)
-[![Styling](https://img.shields.io/badge/Styling-Tailwind%20CSS-38B2AC.svg?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Deployment](https://img.shields.io/badge/Deploy-Netlify-00C7B7.svg?logo=netlify&logoColor=white)](https://www.netlify.com/)
+[![Realtime BaaS](https://img.shields.io/badge/BaaS-PocketHost%20%2F%20PocketBase-orange.svg)](https://pockethost.io)
+[![Encryption](https://img.shields.io/badge/Storage-AES--GCM--256%20IndexedDB-purple.svg)](docs/SECURITY_PERSISTENCE.md)
+[![DateTime](https://img.shields.io/badge/DateTime-Temporal%20%2B%20Day.js-yellow.svg)](docs/DATETIME_TEMPORAL.md)
+[![Coverage](https://img.shields.io/badge/Coverage-99.2%25%20Lines%20%7C%2099.4%25%20Branches-brightgreen.svg)](coverage/coverage-report.md)
+[![Deploy](https://img.shields.io/badge/Deploy-Netlify-00C7B7.svg?logo=netlify&logoColor=white)](https://web-chess-app.netlify.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An immersive, fully articulated 3D Wizard's Chess experience staged upon the Crossing Altar of a High Gothic Catholic Basilica. Designed with zero external asset dependencies, the game leverages procedural Web Audio synthesis for cathedral acoustics, a 34-shard marble and obsidian physics engine, dynamic melee combat animations with action camera tracking, an intelligent Minimax engine with center-control heuristics, and Material Design 3 glassmorphic HUD controls.
+An immersive, fully articulated 3D Wizard's Chess experience staged upon the Crossing Altar of a High Gothic Catholic Basilica. Designed with zero external asset dependencies, the game leverages procedural Web Audio synthesis for cathedral acoustics, a 34-shard marble and obsidian physics engine, dynamic melee combat animations with action camera tracking, an intelligent Minimax engine with center-control heuristics, a connectionist embedded neural network, Chrome on-device Gemini Nano LLM reasoning, real-time 1v1 multiplayer over PocketHost Server-Sent Events (SSE), and AES-GCM-256 encrypted client-side session persistence.
+
+---
+
+## 📚 Specialized Documentation
+
+Detailed technical guides are available in [`docs/`](file:///Users/brentzey/personal/web-chess/docs/):
+
+* **[🏛️ System Architecture Guide (`docs/ARCHITECTURE.md`)](docs/ARCHITECTURE.md)**: Deep dive into the client Three.js pipeline, state flow, multi-agent AI engine, and dual-stack server.
+* **[🌐 Real-Time Multiplayer Guide (`docs/REALTIME_MULTIPLAYER.md`)](docs/REALTIME_MULTIPLAYER.md)**: Comprehensive guide to PocketHost Server-Sent Events, URL-first invites, schema validation rules, and monotonic sequence synchronization.
+* **[🛡️ Security & Encrypted Storage Guide (`docs/SECURITY_PERSISTENCE.md`)](docs/SECURITY_PERSISTENCE.md)**: Cryptographic specifications (AES-GCM-256 Web Crypto in IndexedDB), non-extractable keys, storage audit report, and universal secret safety policy.
+* **[⏱️ DateTime & ECMAScript Temporal Architecture (`docs/DATETIME_TEMPORAL.md`)](docs/DATETIME_TEMPORAL.md)**: Standardized datetime operations using ECMAScript `Temporal` API with graceful `Day.js` fallback and testing harness.
 
 ---
 
@@ -19,27 +34,28 @@ flowchart TD
     subgraph UI ["User Interface (HTML5 / Tailwind / MD3)"]
         HUD["Minimalist Cathedral Header & Turn Pill"]
         Chronicle["Slide-Over Chronicle of Moves Drawer"]
-        Modals["Sanctuary Promotion & Game Over Modals"]
-        Controls["MD3 Bottom Navigation (Cam / Mode / Undo)"]
+        Modals["Sanctuary Promotion, Match Setup & Storage Audit"]
+        Controls["MD3 Bottom Navigation (Cam / Mode / Undo / Theme)"]
     end
 
-    subgraph Interaction ["Interaction & View Layer"]
-        Raycaster["Three.js Raycaster (Square & Piece Picking)"]
-        CamCtrl["CameraController (Orbit Lerp & Shake)"]
-    end
-
-    subgraph Core ["Game & AI Engine"]
+    subgraph Core ["Core Reactive Engine"]
+        Store["Centralized ChessStore (src/store/chessStore.ts)"]
         Rules["Chess.js Legal Rules Engine"]
-        AI["Minimax AI (2-Ply + Center-Control Heuristic)"]
         Coords["Coordinate Transformation (Algebraic <-> World)"]
+    end
+
+    subgraph AI ["AI Decision Engines"]
+        Minimax["Minimax (2-Ply + Center Heuristics)"]
+        Neural["Micro-Neural MLP (791-Feature Tensor)"]
+        Nano["Gemini Nano (Chrome On-Device LLM Prompt API)"]
     end
 
     subgraph Graphics ["Three.js 3D Rendering (WebGL / PBR)"]
         SceneMgr["Scene, Camera & ACES Filmic Tone Mapping"]
-        Cathedral["Gothic Basilica (Piers, Vaults, Apse, Organ, Lights)"]
-        Board["64-Square Marble Board & Interactive Rings"]
-        Pieces["32 Articulated Piece Meshes (White Marble vs Obsidian)"]
-        Shatter["34-Shard Stone Physics & Shockwave Rings"]
+        Cathedral["Gothic Basilica (Vaults, Apse, Organ, Lights)"]
+        Board["64-Square Marble Board & Highlights"]
+        Pieces["32 Articulated Piece Meshes (White vs Obsidian)"]
+        Shatter["34-Shard Stone Physics & Shockwaves"]
         Dust["Ambient Incense Smoke & Gold Dust Motes"]
     end
 
@@ -47,15 +63,24 @@ flowchart TD
         SoundFX["Procedural Organ Chords, Bell, Slides, Cleaves & Shatters"]
     end
 
-    Controls --> Coords
-    Raycaster --> Coords
-    Coords --> Rules
+    subgraph Storage ["Encrypted Client Persistence"]
+        IDB["IndexedDB (AES-GCM-256 Non-Extractable Key)"]
+    end
+
+    subgraph Realtime ["Real-Time Multiplayer Layer"]
+        PocketHost["PocketHost / PocketBase BaaS Cloud (SSE /api/realtime)"]
+    end
+
+    Controls --> Store
+    Modals --> Store
+    Store --> Rules
     Rules --> AI
-    Rules --> UI
-    Rules --> Pieces
+    Rules --> Coords
+    Coords --> Pieces
     Pieces --> Shatter
     Shatter --> SoundFX
-    CamCtrl --> SceneMgr
+    Store <--> Storage
+    Store <--> Realtime
     SceneMgr --> Renderer["WebGL Output Canvas"]
 ```
 
@@ -63,7 +88,14 @@ flowchart TD
 
 ## 🌟 Key Highlights
 
-### 1. Articulated 3D Wizard Pieces
+### 1. Real-Time 1v1 Multiplayer over PocketHost Server-Sent Events
+- Connect with friends instantly across devices using **PocketHost** (`https://web-chess.pockethost.io`).
+- **URL-First Sharing**: Generates a one-click invite URL (`https://web-chess-app.netlify.app/?session=SANCT-XXXX`) that automatically joins the opponent into your match without typing codes.
+- **Seat Resolution & 3D Perspective**: White hosts the board facing North; Black players automatically receive a smooth 180° camera rotation framing the board from Black's perspective.
+- **Full Match Synchronization**: Live moves, pawn promotions, mid-game theme synchronization, and resignations stream seamlessly over multiplexed SSE channels.
+- **Tab-Refresh Reconnection**: Active match credentials and seats are securely remembered in encrypted storage, automatically re-establishing the real-time stream upon reload.
+
+### 2. Articulated 3D Wizard Pieces
 Every piece is custom-modeled in Three.js with distinctive gothic armor and weaponry:
 - **Pawns**: Armored Swiss Guard Sentinels with halberds
 - **Rooks**: Castellated Basilica battlement towers wielding warhammers
@@ -72,38 +104,62 @@ Every piece is custom-modeled in Three.js with distinctive gothic armor and weap
 - **Queens**: Crowned basilica sovereigns with star scepters
 - **Kings**: Cathedral-crowned monarchs wielding royal broadswords
 
-### 2. High Gothic Cathedral Environment
-- Clustered basilica nave piers and quadripartite ribbed groin vaults
-- 13th-century Cosmati polychrome marble pavement with a 16-pointed basilica compass star
-- North Sanctuary Apse with 3-step presbytery, High Altar, golden tabernacle, and ciborium baldacchino
-- Six flickering brass altar candlesticks and suspended ruby-glass eternal sanctuary lamp
-- 4 swinging brass thuribles (incense burners) suspended on 17.5m chains
-- Grand West Gallery pipe organ facade with fluted pewter pipes and dual radiant rose windows
-- Clerestory pointed lancet stained-glass windows casting volumetric god-rays
+### 3. Swappable 3D Sanctuary Themes
+Switch between four high-fidelity procedural themes in real time without interrupting active matches:
+- **High Gothic Basilica** (Classic Carrara White Marble & Black Obsidian)
+- **Emerald Citadel** (Polished Malachite, Forest Jade & Antique Verdigris Bronze)
+- **Golden Sanctuary** (Imperial Byzantine Gold, Travertine & Warm Honey Marble)
+- **Obsidian Crypt** (Volcanic Basalt, Charcoal Slate & Glowing Magma Runes)
 
-### 3. Combat Animations & 34-Shard Shatter Physics
+### 4. Combat Animations & 34-Shard Shatter Physics
 - Pieces advance with heavy marble friction sound effects.
 - Attacking pieces wind up and execute physical melee cleaves.
 - Captured pieces shatter into **34 physics-driven marble or obsidian stone shards** that bounce with clinking acoustics across the Cosmati pavement.
-- Expanding arcane shockwave rings and camera impact shake.
+- Expanding arcane shockwave rings and dynamic camera impact shake.
 
-### 4. Procedural Cathedral Web Audio Engine
+### 5. Procedural Cathedral Web Audio Engine
 Synthesized in real-time via the Web Audio API with **zero external audio files**:
 - D-minor pipe organ chords with bronze sanctuary bell harmonics
 - Heavy stone slide friction and marble impact thuds
 - Metallic cleave strikes and high-pitch shard clinks
 - Celestial square selection chimes
 
-### 5. Multi-Paradigm AI Engine & Game Modes
+### 6. Multi-Paradigm AI Engine & Game Modes
 - Strict chess legality enforcement via `chess.js` (en passant, castling, promotion, checkmate, stalemate, threefold repetition)
 - 4 distinct opponent modes: **Minimax Engine (Classical Tree Search)**, **Micro-Neural AI (Embedded Multi-Layer Perceptron)**, **Gemini Nano (Browser On-Device LLM)**, and **Pass & Play (Local 2P Duel)**
-- Functional programming architecture inspired by Scala and Rust (`Optional`, `Result`, compile-time exhaustive pattern matching)
+- Functional programming architecture inspired by Scala and Rust (`Option`, `Result`, compile-time exhaustive pattern matching)
+
+### 7. Encrypted Client Storage (AES-GCM-256 Web Crypto in IndexedDB)
+- **Zero LocalStorage**: All persistent state is encrypted at rest using native browser **IndexedDB** (`WizardChessSessionDB`) with Web Crypto API **AES-GCM-256** and unique 12-byte random IVs per write.
+- **Storage Audit Modal**: Inspect encrypted envelopes directly to mathematically verify zero plaintext exposure at rest.
+- **Two-Step Wipe & Start Over**: Instantly purge all storage and rotate the master encryption key.
+
+### 8. ECMAScript Temporal API with Day.js Fallback
+- Standardized datetime architecture in [`src/utils/dateTime.ts`](file:///Users/brentzey/personal/web-chess/src/utils/dateTime.ts).
+- Automatically uses modern ECMAScript `Temporal` operations (`Temporal.Now.instant()`) when supported, with robust, monad-safe fallback to `Day.js` across legacy browsers.
+
+---
+
+## 🌐 Real-Time 1v1 Multiplayer (PocketHost / PocketBase BaaS Cloud)
+
+Players can start or join live multiplayer chess matches from the **Live Match Setup** modal (`#live-session-modal`):
+
+| Feature | Behavior | Technical Implementation |
+|---|---|---|
+| **URL-First Invite** | Instant shareable match link | Generates full URL `https://web-chess-app.netlify.app/?session=SANCT-XXXX` with 1-click clipboard copy. |
+| **Manual Code** | 6-character session code | Secondary copy option for players typing codes manually. |
+| **Backdrop Dismissal** | Click outside or press `Escape` | Modal closes when clicking anywhere on the darkened backdrop or pressing `Escape`. |
+| **Seat Assignment** | White, Black, or Spectator | Host claims White or Black; opponent claims remaining open seat; extras join as spectators. |
+| **Camera Alignment** | Auto-rotates 180° for Black | Aligns 3D perspective naturally behind the player's own pieces. |
+| **Self-Healing Sync** | Authoritative position alignment | Subscribed to `game_sessions/:id` SSE channel; automatically synchronizes board position if clock drift or background tab throttling occurs. |
+| **Move Deduplication** | Monotonic ply guard | Discards accidental double-clicks on the same ply (`this.lastMovePly === payload.ply`). |
+| **Schema Security** | Append-only immutability | `game_moves` and `session_events` forbid updates and deletes (`updateRule: null`, `deleteRule: null`). |
 
 ---
 
 ## 🧠 Opponent Play Styles & Engine Architectures
 
-Players can cycle through four distinct opponent modes using the `#btn-mode` chip in the bottom navigation. Each mode represents a fundamentally different paradigm in computer chess and AI engineering:
+Players can cycle through four distinct opponent modes using the `#btn-mode` chip in the bottom navigation:
 
 | Opponent Mode | Top Badge | Icon | Paradigm | Underlying Architecture | External Dependencies |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -112,78 +168,29 @@ Players can cycle through four distinct opponent modes using the `#btn-mode` chi
 | **3. Gemini Nano (Local)** | `NANO AI` | `auto_awesome` | On-Device Generative AI (LLM) | W3C Prompt API (`window.ai.languageModel`) in Chrome Canary with auto-fallback | Chrome Canary Built-in AI |
 | **4. Pass & Play** | `2P DUEL` | `group` | Human vs. Human | Manual turn alternation across the Gothic Crossing Altar | None |
 
----
-
-### Deep Dive: The 4 Opponent Paradigms
-
-#### 1. Minimax Engine: "Is it an AI model or just math?"
-* **What it is**: A **Classical Adversarial Game-Tree Search with a Static Heuristic Evaluation Function** (Shannon Type A engine).
-* **The Static Math Formula ([`evaluateBoard`](file:///src/engine/ai.ts))**: Takes a snapshot of the chessboard and computes a deterministic scalar score from White's perspective based on:
-  - Standard material values: Pawn = 100, Knight = 320, Bishop = 335, Rook = 505, Queen = 950, King = 20,000.
-  - Central control heuristic: Manhattan-distance bonuses rewarding pieces dominating the center squares (`d4`, `d5`, `e4`, `e5`).
-  - Terminal states: Checkmate = $\pm 99,999$, Draw = $0$.
-* **The Recursive Search ([`computeMinimaxMove`](file:///src/engine/ai.ts))**: Dynamically generates an adversarial decision tree 2 plies deep. For every candidate Black move, it simulates all possible White responses, assumes White plays the optimal countermove, and picks the branch that minimizes White's maximum potential advantage.
-* **Why it's not a machine learning model**: It contains no learned neural weights, loss functions, or training loops. It is deterministic, rule-coded "Good Old-Fashioned AI" (GOFAI).
-
-#### 2. Micro-Neural AI: Embedded Zero-Dependency Neural Network
-* **What it is**: A connectionist **Multi-Layer Perceptron (MLP)** operating directly on an encoded board tensor in [`src/engine/neuralAI.ts`](file:///src/engine/neuralAI.ts).
-* **791-Dimensional Input Tensor**:
-  - `[0..767]`: 64 squares × 12 piece types (one-hot spatial feature maps)
-  - `[768..773]`: Material count differential vector ($\text{White} - \text{Black}$)
-  - `[774]`: Active turn indicator ($+1.0$ for White, $-1.0$ for Black)
-  - `[775..790]`: Center ring & inner quadrant spatial density metrics
-* **Network Topology & Inference**:
-  - **Dense Layer 1**: $791 \to 32$ neurons with LeakyReLU activation ($\alpha = 0.01$).
-  - **Dense Layer 2**: $32 \to 16$ neurons with LeakyReLU activation ($\alpha = 0.01$).
-  - **Output Layer**: $16 \to 1$ neuron producing a centipawn position evaluation.
-* **Zero Asset Overhead**: Operates entirely in pure TypeScript with **zero downloaded binary weights or model files**, executing full inference in $<1\text{ms}$ while preserving sub-second build times.
-
-#### 3. Gemini Nano: Browser-Native On-Device LLM
-* **What it is**: An experimental browser-native **Generative AI Agent** powered by Google's Gemini Nano model running locally via the W3C Prompt API (`window.ai.languageModel`).
-* **Prompt & Reasoning Pipeline**: When Black moves, the game constructs a structured prompt containing the current board FEN, recent move history, and list of legal SAN moves.
-* **Monadic Parsing & Robust Fallback**: The response is parsed via a functional `Optional` pipeline ([`src/utils/fp.ts`](file:///src/utils/fp.ts)) supporting exact SAN, UCI notation, and conversational markdown output. If running on an unsupported browser or if the model produces an invalid move, it automatically and gracefully falls back to the Micro-Neural engine with an informative notification banner.
-
-#### 4. Pass & Play (Local 2P Duel)
-* **What it is**: Classic two-player local mode. Black piece clicks are unlocked, allowing two human opponents to command the White Marble and Black Obsidian armies face-to-face across the Gothic Crossing Altar without engine interference.
-
----
-
 ### ⚔️ Opponent Difficulty & Aggressiveness Profiles
 
-Every AI opponent mode supports three selectable **Difficulty & Aggressiveness** levels (`OpponentDifficultyEnum`: `cautious`, `balanced`, `aggressive`), configurable before a match begins in the **Game Settings & Match Setup** modal or live from the bottom navigation bar (`#btn-difficulty`):
+Every AI opponent mode supports three selectable **Difficulty & Aggressiveness** levels (`cautious`, `balanced`, `aggressive`):
 
 | Difficulty Tier | Badge | Aggressiveness | Minimax Engine Behavior | Micro-Neural AI Behavior | Gemini Nano (Local LLM) Persona |
 | :--- | :--- | :---: | :--- | :--- | :--- |
-| **1. Novice / Cautious** | `CAUTIOUS` | Lv 1 (`shield`) | **1-Ply Initiate**: Evaluates immediate moves with higher exploratory variance ($\pm 35\text{ cp}$) and defensive restraint. | **Initiate Network**: Softened PST weights ($0.65\times$) with exploratory temperature noise ($\pm 28\text{ cp}$). | **Contemplative Monk**: System prompt instructs the LLM to prioritize king safety, solid pawn structure, and avoiding risky exchanges. |
-| **2. Tactician / Balanced** | `BALANCED` | Lv 2 (`balance`) | **2-Ply Tactician**: Full 2-ply Minimax lookahead balancing material value and Crossing Altar center control ($\pm 12\text{ cp}$). | **Sanctuary MLP**: Calibrated $791 \to 32 \to 16 \to 1$ neural evaluation with standard piece-square tables ($1.0\times$). | **Cathedral Scholar**: Instructs the LLM to play principled, balanced positional and tactical chess. |
-| **3. Grand Inquisitor / Ruthless** | `RUTHLESS` | Lv 3 (`local_fire_department`) | **2-Ply Warlord**: Deterministic 2-ply search with $+45\text{ cp}$ capture/check aggression bonus and forward-rank invasion pressure. | **Zealot Vanguard**: Amplifies neural attack weights ($1.45\times$), capture/promotion greed ($+55\text{ cp}$), and check threats ($+45\text{ cp}$). | **Arcane Warmonger**: Commands the LLM to seek relentless attacks, captures, checks, and aggressive invasion of White territory. |
+| **1. Novice / Cautious** | `CAUTIOUS` | Lv 1 (`shield`) | **1-Ply Initiate**: Evaluates immediate moves with higher exploratory variance ($\pm 35\text{ cp}$) and defensive restraint. | **Initiate Network**: Softened PST weights ($0.65\times$) with exploratory temperature noise ($\pm 28\text{ cp}$). | **Contemplative Monk**: Prioritizes king safety, solid pawn structure, and avoiding exchanges. |
+| **2. Tactician / Balanced** | `BALANCED` | Lv 2 (`balance`) | **2-Ply Tactician**: Full 2-ply Minimax lookahead balancing material value and Crossing Altar center control ($\pm 12\text{ cp}$). | **Sanctuary MLP**: Calibrated $791 \to 32 \to 16 \to 1$ neural evaluation with standard piece-square tables ($1.0\times$). | **Cathedral Scholar**: Plays principled, balanced positional and tactical chess. |
+| **3. Grand Inquisitor / Ruthless** | `RUTHLESS` | Lv 3 (`local_fire_department`) | **2-Ply Warlord**: Deterministic 2-ply search with $+45\text{ cp}$ capture/check aggression bonus and forward-rank invasion pressure. | **Zealot Vanguard**: Amplifies neural attack weights ($1.45\times$), capture greed ($+55\text{ cp}$), and check threats ($+45\text{ cp}$). | **Arcane Warmonger**: Relentless attacks, tactical sacrifices, checks, and territory invasion. |
 
 ---
 
-### 🛡️ Pre-Game Match Rules ("Allow Undo") & Encrypted IndexedDB Session Persistence
+## 📱 Mobile Sanctuary Lite vs. Desktop Ultra HD
 
-* **Pre-Game "Allow Undo" Rule (`allowUndo: boolean`)**:
-  - Before a match begins (in the **Game Settings & Match Setup** modal), players choose whether **Move Undo** is permitted for the match.
-  - **Standard Mode (`Allowed`)**: The `#btn-undo` control remains active throughout the match, reverting a full round-trip turn in AI modes or a single half-move in Pass & Play.
-  - **Strict Mode (`Locked`)**: Once the first move is played, Undo is locked (`lock` icon) for the duration of the match until a New Game is started.
-* **AES-GCM-256 Encrypted IndexedDB Session Persistence (`src/storage/indexedDbStore.ts`)**:
-  - Players can check **"Do you want to keep your session running to pick up later?"** in either the Game Settings modal or the Chronicle of Moves drawer.
-  - Powered 100% by native browser **IndexedDB** (`WizardChessSessionDB` — **zero `localStorage` usage**) with **Web Crypto API `AES-GCM-256` authenticated encryption** (unique 12-byte random IV per write) and decrypted on fetch via functional `Option`/`Result` monadic pipelines.
-  - Automatically encrypts, persists, and decrypts the FEN board state, full algebraic move history (`history`), active `mode`, `difficulty`, `allowUndo` rule lock, display `contrast`/`brightness`, and `deviceTier` across page refreshes or re-navigation.
-
----
-
-### 📱 Mobile Sanctuary Lite vs. Desktop Ultra HD (`src/graphics/deviceTier.ts`)
-
-To guarantee fluid 60fps gameplay and responsive touch ergonomics on smartphones, tablets, and low-power GPUs without sacrificing visual atmosphere, the application automatically detects viewport dimensions, touch points, CPU concurrency, and device memory:
+The game automatically adapts to device capabilities via [`src/graphics/deviceTier.ts`](file:///Users/brentzey/personal/web-chess/src/graphics/deviceTier.ts):
 
 | Feature / Parameter | Desktop (`Cathedral Ultra HD`) | Mobile / Underpowered (`Mobile Sanctuary Lite`) |
 | :--- | :--- | :--- |
-| **Crossing Spotlight Shadow Map** | `2048 × 2048` PCF Soft Shadows | `512 × 512` High-Efficiency Shadow Map |
-| **Melee Shatter Debris Physics** | `34` shadow-casting stone shards | `12` non-shadowed stone shards |
-| **Ambient Incense & Dust Motes** | `300` particles | `60` particles |
+| **Spotlight Shadow Map** | `2048 × 2048` PCF Soft Shadows | `512 × 512` High-Efficiency Shadow Map |
+| **Melee Shatter Physics** | `34` shadow-casting stone shards | `12` non-shadowed stone shards |
+| **Incense & Dust Motes** | `300` particles | `60` particles |
 | **Max WebGL Pixel Ratio** | `2.0x` Retina | `1.25x` Battery-Saver Cap |
-| **Heavy Desktop-Only Options** | Full access (`Gemini Nano` Local Chrome LLM) | Stripped with clear *"Available on Desktop"* badge & notice |
+| **Heavy Desktop Options** | Full access (`Gemini Nano` Local LLM) | Stripped with clear *"Available on Desktop"* notice |
 | **Touch Gestures** | Mouse Orbit & Wheel Zoom | 1-Finger Orbit, 2-Finger Pinch-to-Zoom & Tap-to-Move |
 
 ---
@@ -197,21 +204,10 @@ To guarantee fluid 60fps gameplay and responsive touch ergonomics on smartphones
 | **[Three.js](https://threejs.org/)** | PBR WebGL rendering, custom procedural textures, lighting & shadows |
 | **[Vite 5](https://vitejs.dev/)** | Lightning-fast HMR dev server and optimized production bundler |
 | **[chess.js](https://github.com/jhlywa/chess.js)** | Complete chess engine for legal move validation and history tracking |
+| **[PocketBase / PocketHost](https://pockethost.io)** | Real-time Server-Sent Events (SSE) streaming and serverless BaaS cloud |
 | **[Tailwind CSS](https://tailwindcss.com/)** | Material Design 3 surface tokens, responsive glass HUD, and typography |
+| **[Day.js](https://day.js.org/)** | Light, robust fallback for ECMAScript Temporal date/time operations |
 | **[Netlify](https://www.netlify.com/)** | Zero-config continuous deployment with HTTP security headers and asset caching |
-
----
-
-## ⚡ Why Bun?
-
-This repository is optimized for **Bun**:
-
-| Metric | Node.js | Bun (v1.4+) | Advantage |
-| :--- | :--- | :--- | :--- |
-| **Dependency Install** | ~12–20s | **< 1s** | **15–20x Faster** 🚀 |
-| **Test Execution** | ~400–800ms | **~50ms** | **8–15x Faster** 🚀 |
-| **Cold Start** | ~180ms | **~20ms** | **9x Faster** 🚀 |
-| **Production Build** | Baseline | **Sub-second compilation** | **Instant CI/CD** 🚀 |
 
 ---
 
@@ -219,40 +215,30 @@ This repository is optimized for **Bun**:
 
 ```text
 web-chess/
-├── .node-version             # Node runtime compatibility (v22)
-├── .nvmrc                    # NVM version configuration (v22)
-├── .gitignore                # Comprehensive ignore rules
-├── AGENTS.md                 # Multi-agent collaboration guide
-├── CHANGELOG.md              # Project version history
-├── CONTRIBUTING.md           # Developer guidelines & coding standards
-├── LICENSE                   # MIT License
-├── README.md                 # Project documentation
-├── index.html                # Semantic HTML5 entry point & HUD layout
-├── netlify.toml              # Netlify build configuration & security headers
-├── package.json              # Bun dependencies, scripts & metadata
-├── bun.lock                  # Bun reproducible lockfile
-├── postcss.config.js         # PostCSS configuration
-├── tailwind.config.js        # Tailwind CSS theme & Cathedral design tokens
-├── tsconfig.json             # Strict TypeScript compiler options
-├── vite.config.ts            # Vite configuration with chunk optimization
-├── public/
-│   ├── favicon.svg           # High-resolution vector basilica crown favicon
-│   └── robots.txt            # Search engine crawl directives
+├── docs/                     # Detailed architectural & subsystem documentation
+│   ├── ARCHITECTURE.md       # High-level architecture, rendering & state flow
+│   ├── DATETIME_TEMPORAL.md  # ECMAScript Temporal API & Day.js fallback model
+│   ├── REALTIME_MULTIPLAYER.md # PocketHost SSE, 1v1 setup & security rules
+│   └── SECURITY_PERSISTENCE.md # AES-GCM-256 IndexedDB encryption & audit report
+├── scripts/
+│   ├── benchmark-storage.ts  # Performance benchmarks for encrypted client storage
+│   ├── coverageReport.ts     # SonarQube & JaCoCo Markdown coverage report generator
+│   └── pb-migrate.ts         # Automated PocketHost schema rule migration runner
 ├── src/
 │   ├── audio/
 │   │   └── CathedralSoundEngine.ts # Procedural Web Audio synthesizer
 │   ├── constants/
-│   │   └── board.ts          # Board dimensions, piece values, unicode icons
+│   │   └── board.ts          # Board dimensions, piece values, themes, settings
 │   ├── engine/
 │   │   ├── ai.ts             # Classical Minimax engine with center-control heuristic
 │   │   ├── coordinates.ts    # Square-to-world & algebraic coordinate math
 │   │   ├── geminiNanoAI.ts   # Chrome Canary Built-in AI (Prompt API / Gemini Nano)
 │   │   └── neuralAI.ts       # Embedded zero-dependency micro-neural network
-│   ├── utils/
-│   │   └── fp.ts             # Functional programming utilities (Optional, Result, match)
 │   ├── graphics/
 │   │   ├── board.ts          # 64-square grid, borders & square highlights
 │   │   ├── cathedral.ts      # 3D Gothic Basilica architecture & lighting
+│   │   ├── deviceTier.ts     # Mobile Sanctuary Lite vs Desktop tier detector
+│   │   ├── displaySettings.ts# Display presets (contrast, brightness)
 │   │   ├── dust.ts           # Floating dust motes & incense smoke
 │   │   ├── materials.ts      # Shared PBR textures & materials factory
 │   │   ├── pieces.ts         # Articulated 3D piece mesh generators
@@ -261,22 +247,62 @@ web-chess/
 │   │   └── textures.ts       # Procedural Carrara marble, obsidian & cosmati
 │   ├── interaction/
 │   │   └── camera.ts         # Camera controller, presets & orbit smoothing
-│   ├── styles/
-│   │   └── main.css          # Tailwind directives & MD3 glass surfaces
+│   ├── realtime/
+│   │   ├── pocketbaseClient.ts # PocketHost SSE real-time client & REST mutations
+│   │   └── realtimeClient.ts   # Real-time event handler interfaces & types
+│   ├── server/
+│   │   ├── db/               # Local Bun SQLite schema & session repository
+│   │   ├── pocketbase/       # PocketBase schema.json & migrator
+│   │   ├── services/         # Realtime chess game session coordinator
+│   │   ├── sse/              # Server-Sent Events stream manager
+│   │   ├── index.ts          # Standalone server entry point
+│   │   └── server.ts         # Bun native HTTP server
+│   ├── storage/
+│   │   └── indexedDbStore.ts # AES-GCM-256 Web Crypto storage & audit reporter
+│   ├── store/
+│   │   └── chessStore.ts     # Centralized reactive state store & tab rehydration
 │   ├── types/
 │   │   ├── chess.d.ts        # Type declarations for chess.js engine
-│   │   └── index.ts          # Type interfaces for particles, pieces, camera, modes
+│   │   └── index.ts          # Strongly typed domain models, enums & interfaces
 │   ├── ui/
 │   │   └── uiController.ts   # HUD status, move history & modal controller
+│   ├── utils/
+│   │   ├── dateTime.ts       # ECMAScript Temporal API with Day.js fallback
+│   │   ├── env.ts            # Environment detector (Vite DEV vs Node vs Prod)
+│   │   ├── fp.ts             # Functional programming monads (Option, Result, match)
+│   │   └── logger.ts         # Execution-side tslog logger (CLIENT_SIDE / SERVER_SIDE)
 │   └── main.ts               # Application orchestrator & animation loop
-└── tests/
-    ├── ai.test.ts            # Unit tests for Minimax AI & board evaluation
-    ├── chessEngine.test.ts   # Unit tests for rules, castling, promotion & undo
-    ├── coordinates.test.ts   # Unit tests for 3D coordinate transformations
-    ├── fp.test.ts            # Unit tests for Scala/Rust functional programming monads
-    ├── geminiNanoAI.test.ts  # Unit tests for Chrome Built-in AI Prompt API
-    ├── neuralAI.test.ts      # Unit tests for embedded micro-neural network
-    └── uiController.test.ts  # Unit tests for UI state & DOM updates
+├── tests/                    # 27 automated test suites (200 tests, 100% pass)
+│   ├── ai.test.ts            # Minimax AI evaluation & move generation
+│   ├── chessEngine.test.ts   # Rules legality, promotion, castling & undo
+│   ├── chessStore.test.ts    # Centralized state store & tab-refresh persistence
+│   ├── coordinates.test.ts   # Coordinate transformation math
+│   ├── dateTime.test.ts      # Temporal API & Day.js fallback execution
+│   ├── deviceTier.test.ts    # Device tier detection & profiling
+│   ├── displaySettings.test.ts # Display settings presets & adjustments
+│   ├── env.test.ts           # Environment probe & dev mode override
+│   ├── fp.test.ts            # Functional monads & pattern matching
+│   ├── geminiNanoAI.test.ts  # Chrome Canary Prompt API LLM integration
+│   ├── indexedDbStore.test.ts# AES-GCM-256 storage, audit & wipe tests
+│   ├── integration.test.ts   # End-to-end integration flows across all engines
+│   ├── logger.test.ts        # Tslog logger execution side tagging
+│   ├── materials.test.ts     # Three.js PBR materials factory
+│   ├── neuralAI.test.ts      # Micro-neural network forward pass
+│   ├── pieces.test.ts        # 3D piece mesh generation & geometries
+│   ├── pocketbaseClient.test.ts # Real-time SSE streaming & REST moves
+│   ├── pocketbaseMigrator.test.ts # Schema migration & superuser auth
+│   ├── realtimeClient.test.ts# Client reconnection & event dispatching
+│   ├── realtimeService.test.ts # Server game service & clock validation
+│   ├── scene.test.ts         # Three.js scene & renderer initialization
+│   ├── schema.test.ts        # SQLite database constraints & foreign keys
+│   ├── sessionRepository.test.ts # SQL repository operations & token validation
+│   ├── shatter.test.ts       # 34-shard debris particle physics
+│   ├── sseManager.test.ts    # SSE fan-out & keep-alive ping comments
+│   ├── uiController.test.ts  # UI DOM updates, banners & modal controls
+│   └── wipeUi.test.ts        # Two-step storage wipe confirmation UI
+├── CHANGELOG.md              # Semantic Versioning history & release notes
+├── CONTRIBUTING.md           # Developer guidelines & coding standards
+└── package.json              # Bun configuration & dependencies
 ```
 
 ---
@@ -303,17 +329,16 @@ bun run dev
 
 Visit `http://localhost:3000` in your browser.
 
-### Run Unit Tests
+### Run Automated Tests & Coverage
 
-Execute the test suite using Bun's built-in test runner:
+Execute the 27 test suites using Bun's built-in test runner:
 
 ```bash
-bun test
+# Run tests with Line & Branch coverage report
+bun run test:coverage
 ```
 
 ### Type Checking & Production Build
-
-Verify TypeScript types and build the production bundle:
 
 ```bash
 bun run typecheck
@@ -326,40 +351,28 @@ Preview the production build locally:
 bun run preview
 ```
 
+### PocketHost Cloud Schema Migration
+
+To deploy or update schema rules on your live PocketHost instance:
+
+```bash
+# Sourced automatically from ~/.zshrc (PB_ADMIN_EMAIL & PB_ADMIN_PASSWORD)
+bun run pb:migrate
+```
+
 ---
 
-## 🌐 Deploy to Netlify
+## 🧪 Test Suite & Code Quality Metrics
 
-The repository includes a production-ready `netlify.toml` configured with:
-- **Build command**: `bun run build`
-- **Publish directory**: `dist`
-- **Runtime environment**: Node 22 & latest Bun
-- **Security headers**: Strict CSP, HSTS, X-Frame-Options, X-Content-Type-Options
-- **Asset caching**: Immutable 1-year cache headers for `/assets/*`
-
-### Method 1: Git-Connected Continuous Deployment (Recommended)
-
-1. Push this repository to your GitHub account:
-   ```bash
-   git remote add origin https://github.com/brentmzey/web-chess.git
-   git branch -M main
-   git push -u origin main
-   ```
-2. Log into **[Netlify](https://app.netlify.com/)**.
-3. Click **Add new site** → **Import an existing project** → **GitHub**.
-4. Select `web-chess`. Netlify will automatically detect `netlify.toml` and deploy with Bun!
-
-### Method 2: Netlify CLI Direct Deployment
-
-Deploy preview:
-```bash
-bun run deploy
-```
-
-Deploy to production:
-```bash
-bun run deploy:prod
-```
+| Metric | Measured Value | Standard | Status |
+| :--- | :--- | :--- | :---: |
+| **Total Test Suites** | **27 Files** | Comprehensive unit & integration coverage | ✅ Pass |
+| **Total Tests Passed** | **200 Tests** (0 Failures) | 100% green build | ✅ Pass |
+| **Total Assertions** | **1,195 `expect()` calls** | Deep boundary validation | ✅ Pass |
+| **Line Coverage** | **99.20%** (5,209 / 5,251 lines) | >99% line requirement | ✅ Pass |
+| **Branch Coverage** | **99.40%** (1,002 / 1,008 branches) | >99% branch requirement | ✅ Pass |
+| **Function Coverage** | **98.76%** (716 / 725 functions) | High function coverage | ✅ Pass |
+| **Core Modules** | **100.00% Line Coverage** (`uiController.ts`, `dateTime.ts`, `env.ts`, `indexedDbStore.ts`, `chessStore.ts`, `pocketbaseClient.ts`) | Mission-critical modules | ✅ Pass |
 
 ---
 
@@ -371,10 +384,12 @@ bun run deploy:prod
 | **Zoom In / Out** | Mouse wheel / Pinch-to-zoom |
 | **Select Piece** | Click or tap your piece on the board |
 | **Execute Move** | Click or tap a highlighted target square |
-| **Cycle Views** | Click the camera preset button (White Nave, Sanctuary Orbit, etc.) |
+| **Cycle Views** | Click the camera preset button (White Nave, Sanctuary Orbit, Overhead) |
 | **Cycle Mode** | Cycle between *Minimax Engine*, *Micro-Neural AI*, *Gemini Nano (Local)*, and *Pass & Play* |
+| **Cycle Theme** | Switch 3D sanctuary aesthetics (*High Gothic*, *Emerald Citadel*, *Golden Sanctuary*, *Obsidian Crypt*) |
 | **Toggle Audio** | Click the volume button to toggle cathedral acoustics |
 | **View Chronicle** | Open the drawer to inspect move list & shattered pieces |
+| **Close Modals** | Click outside modal cards on the backdrop or press `Escape` |
 
 ---
 

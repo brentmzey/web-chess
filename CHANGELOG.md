@@ -8,6 +8,9 @@ Every general feature change or application behavior update is consolidated unde
 
 ## [1.2.0-rc.7] - 2026-10-25
 ### Added
+- **Comprehensive Documentation Suite & Architecture Overhaul (`README.md`, `docs/`, `CONTRIBUTING.md`)**:
+  - Authored dedicated subsystem guides in `docs/`: `ARCHITECTURE.md` (high-level architecture, rendering, and state flow), `REALTIME_MULTIPLAYER.md` (PocketHost SSE streams, URL-first invites, seat assignment, and schema validation), `SECURITY_PERSISTENCE.md` (AES-GCM-256 Web Crypto in IndexedDB, zero-plaintext guarantees, and universal credential policies), and `DATETIME_TEMPORAL.md` (ECMAScript Temporal API and Day.js fallback model).
+  - Synchronized `README.md` and `CONTRIBUTING.md` with complete tech stack updates, all 27 automated test suites (200 tests), and real-time multiplayer workflows.
 - **ECMAScript Temporal API with Day.js Fallback for All DateTime Operations (`src/utils/dateTime.ts`, `tests/dateTime.test.ts`, `package.json`)**:
   - Implemented unified, functional date/datetime utility (`src/utils/dateTime.ts`) conforming to the modern ECMAScript `Temporal` specification with seamless fallback to `Day.js` (with UTC, timezone, and advancedFormat plugins) when Temporal is unsupported or throws an engine exception.
   - Migrated 100% of date and time operations across client storage (`src/storage/indexedDbStore.ts`), reactive state persistence (`src/store/chessStore.ts`), real-time multiplayer synchronization (`src/realtime/pocketbaseClient.ts`), execution logger (`src/utils/logger.ts`), SSE stream manager (`src/server/sse/sseManager.ts`), and database persistence layers (`src/server/db/sessionRepository.ts`, `src/server/services/realtimeChessService.ts`) to use `currentEpochMs()`, `nowIso()`, `epochMsToIso()`, `isoToEpochMs()`, and `formatDateTime()`.
