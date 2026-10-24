@@ -4,8 +4,8 @@
     "type": "base",
     "listRule": "",
     "viewRule": "",
-    "createRule": "",
-    "updateRule": "",
+    "createRule": "session_code != \"\" && fen != \"\"",
+    "updateRule": "status != \"\"",
     "deleteRule": null,
     "fields": [
       {
@@ -94,8 +94,8 @@
     "type": "base",
     "listRule": "",
     "viewRule": "",
-    "createRule": "",
-    "updateRule": "",
+    "createRule": "player_name != \"\" && role != \"\"",
+    "updateRule": "role != \"\"",
     "deleteRule": null,
     "fields": [
       {
@@ -137,7 +137,7 @@
     "type": "base",
     "listRule": "",
     "viewRule": "",
-    "createRule": "",
+    "createRule": "san != \"\" && ply > 0",
     "updateRule": null,
     "deleteRule": null,
     "fields": [
@@ -209,7 +209,7 @@
     "type": "base",
     "listRule": "",
     "viewRule": "",
-    "createRule": "",
+    "createRule": "event_type != \"\" && event_seq > 0",
     "updateRule": null,
     "deleteRule": null,
     "fields": [

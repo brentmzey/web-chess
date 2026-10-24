@@ -78,6 +78,7 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'panel-join-live': new MockElement(),
       'live-created-info': new MockElement(),
       'live-created-code': new MockElement(),
+      'live-created-url': new MockElement(),
       'live-join-error': new MockElement()
     };
 
@@ -317,9 +318,19 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['panel-join-live']?.classList.contains('hidden')).toBe(true);
 
     // Created session feedback
-    ui.showLiveCreatedSession('SANCT-TEST123');
+    ui.showLiveCreatedSession('SANCT-TEST123', 'https://custom.app/?session=SANCT-TEST123');
     expect(domElements['live-created-info']?.classList.contains('hidden')).toBe(false);
     expect(domElements['live-created-code']?.textContent).toBe('SANCT-TEST123');
+    expect((domElements['live-created-url'] as any)?.value).toBe('https://custom.app/?session=SANCT-TEST123');
+
+    // Default URL generation fallback when inviteUrl omitted (without window, then with window)
+    ui.showLiveCreatedSession('SANCT-DEF');
+    expect((domElements['live-created-url'] as any)?.value).toContain('SANCT-DEF');
+
+    (globalThis as any).window = { location: { origin: 'https://test.origin', pathname: '/game' } };
+    ui.showLiveCreatedSession('SANCT-WIN');
+    expect((domElements['live-created-url'] as any)?.value).toBe('https://test.origin/game?session=SANCT-WIN');
+    delete (globalThis as any).window;
 
     // Join errors
     ui.showLiveJoinError('Invalid session code');

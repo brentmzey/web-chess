@@ -71,6 +71,7 @@ export interface UIControllerElements {
   panelJoinLive: HTMLElement | null;
   liveCreatedInfo: HTMLElement | null;
   liveCreatedCode: HTMLElement | null;
+  liveCreatedUrl: HTMLInputElement | null;
   liveJoinError: HTMLElement | null;
 }
 
@@ -117,6 +118,7 @@ export class UIController {
       panelJoinLive: document.getElementById('panel-join-live'),
       liveCreatedInfo: document.getElementById('live-created-info'),
       liveCreatedCode: document.getElementById('live-created-code'),
+      liveCreatedUrl: document.getElementById('live-created-url') as HTMLInputElement | null,
       liveJoinError: document.getElementById('live-join-error')
     };
   }
@@ -462,12 +464,19 @@ export class UIController {
     });
   }
 
-  public showLiveCreatedSession(sessionCode: string): void {
+  public showLiveCreatedSession(sessionCode: string, inviteUrl?: string): void {
     fromNullable(this.el.liveCreatedInfo).map(container => {
       container.classList.remove('hidden');
     });
     fromNullable(this.el.liveCreatedCode).map(codeEl => {
       codeEl.textContent = sessionCode;
+    });
+    fromNullable(this.el.liveCreatedUrl).map(urlEl => {
+      urlEl.value =
+        inviteUrl ||
+        (typeof window !== 'undefined'
+          ? `${window.location.origin}${window.location.pathname}?session=${sessionCode}`
+          : `https://web-chess.pockethost.io/?session=${sessionCode}`);
     });
   }
 

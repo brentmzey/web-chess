@@ -1,5 +1,12 @@
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test';
-import { PocketBaseChessClient, POCKETHOST_URL } from '../src/realtime/pocketbaseClient';
+import { some, none } from '../src/utils/fp';
+import {
+  PocketBaseChessClient,
+  POCKETHOST_URL,
+  sanitizeTextInput,
+  sanitizeSessionCode
+} from '../src/realtime/pocketbaseClient';
+import { setDevModeOverride } from '../src/utils/env';
 
 describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () => {
   let originalFetch: typeof globalThis.fetch;
@@ -13,6 +20,7 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
   afterEach(() => {
     globalThis.fetch = originalFetch;
     globalThis.EventSource = originalEventSource;
+    setDevModeOverride(none());
   });
 
   it('initializes with default PocketHost URL and tracks connection and sequence', () => {
@@ -622,5 +630,108 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     expect(moveRes.isSuccess()).toBe(true);
     expect(capturedBody).not.toBeNull();
     expect(capturedBody.payload.uci).toBe('e7e8q');
+  });
+
+  it('sanitizes text input and session code strings', () => {
+    expect(sanitizeTextInput('<script>alert("hack")</script>Player')).toBe('alert("hack")Player');
+    expect(sanitizeTextInput('   Trimmed User   ')).toBe('Trimmed User');
+    expect(sanitizeTextInput('A'.repeat(50), 10)).toHaveLength(10);
+
+    expect(sanitizeSessionCode('sanct-7k9p')).toBe('SANCT-7K9P');
+    expect(sanitizeSessionCode('sanct_invalid!@#$')).toBe('SANCTINVALID');
+  });
+
+  it('rejects joining when session code is too short', async () => {
+    const res = await PocketBaseChessClient.joinSession('', {
+      sessionCode: 'abc'
+    });
+    expect(res.isFailure()).toBe(true);
+    expect(res.match({ Ok: () => '', Err: e => e.message })).toContain('valid match session code');
+  });
+
+  it('enforces rate limiting and input validation on move submission', async () => {
+    globalThis.fetch = mock(async () => new Response(JSON.stringify({ id: 'rec' }), { status: 200 })) as any;
+    const client = new PocketBaseChessClient({
+      sessionId: 'sess-rate',
+      participantId: 'part-rate',
+      token: 'tok-rate'
+    });
+
+    // Invalid missing coordinates
+    const invalidRes = await client.submitMove('', {
+      ply: 1,
+      color: 'w',
+      from: '',
+      to: '',
+      fenAfter: 'fen'
+    });
+    expect(invalidRes.isFailure()).toBe(true);
+
+    // First valid move succeeds
+    const firstMove = await client.submitMove('e4', {
+      ply: 1,
+      color: 'w',
+      from: 'e2',
+      to: 'e4',
+      fenAfter: 'fen'
+    });
+    expect(firstMove.isSuccess()).toBe(true);
+
+    // Duplicate move on the same ply triggers duplicate rejection
+    const duplicateMove = await client.submitMove('e4', {
+      ply: 1,
+      color: 'w',
+      from: 'e2',
+      to: 'e4',
+      fenAfter: 'fen'
+    });
+    expect(duplicateMove.isFailure()).toBe(true);
+    expect(duplicateMove.match({ Ok: () => '', Err: e => e.message })).toContain('Duplicate move submission');
+  });
+
+  it('exercises production mode logging branches', async () => {
+    setDevModeOverride(some(false));
+    let capturedSseUrl = '';
+    const listeners: Record<string, Function> = {};
+    class MockProdES {
+      public onerror: Function | null = null;
+      constructor(public url: string) {
+        capturedSseUrl = url;
+      }
+      addEventListener(type: string, cb: any) {
+        listeners[type] = cb;
+      }
+      close() {}
+    }
+    (globalThis as any).EventSource = MockProdES;
+    globalThis.fetch = mock(async () => new Response(JSON.stringify({ id: 'rec' }), { status: 200 })) as any;
+
+    const client = new PocketBaseChessClient({
+      sessionId: 'prod-sess',
+      participantId: 'prod-part',
+      token: 'prod-tok'
+    });
+
+    const connRes = await client.connect();
+    expect(connRes.isSuccess()).toBe(true);
+    expect(capturedSseUrl).toContain('/api/realtime');
+
+    // Trigger PB_CONNECT in prod mode
+    if (listeners['PB_CONNECT']) {
+      await listeners['PB_CONNECT']({
+        data: JSON.stringify({ clientId: 'prod-client' })
+      });
+      expect(client.getIsConnected()).toBe(true);
+    }
+
+    // Trigger onerror in prod mode
+    const esInstance = (client as any).eventSource;
+    if (esInstance?.onerror) {
+      esInstance.onerror(new Error('Prod net error'));
+      expect(client.getIsConnected()).toBe(false);
+    }
+
+    client.disconnect();
+    setDevModeOverride(none());
   });
 });

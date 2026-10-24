@@ -53,50 +53,20 @@ interface StoredCryptoKeyRecord {
  * ZERO hardcoded key material exists anywhere in the source code or bundle.
  */
 let fallbackMasterKeyOpt: Option<CryptoKey> = none();
-let devModeOverrideOpt: Option<boolean> = none();
 
-/**
- * Explicitly sets or resets a development mode override (primarily for automated testing).
- * Passing `none()` restores automated environment detection.
- */
-export function setDevModeOverride(overrideOpt: Option<boolean>): void {
-  devModeOverrideOpt = overrideOpt;
-}
+import {
+  type DevModeEnvProbe,
+  detectDevMode,
+  isDevMode,
+  setDevModeOverride
+} from '../utils/env';
 
-export interface DevModeEnvProbe {
-  viteDev?: boolean;
-  nodeEnv?: string;
-}
-
-/**
- * Pure environment probe for dev mode (Vite client DEV flag or local development NODE_ENV).
- */
-export function detectDevMode(probe?: DevModeEnvProbe): boolean {
-  return fromNullable(probe).fold(
-    () => {
-      const isViteDev =
-        typeof import.meta !== 'undefined' &&
-        Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV);
-      return isViteDev || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
-    },
-    p =>
-      matchBool(Boolean(p.viteDev), {
-        true: () => true,
-        false: () => p.nodeEnv === 'development'
-      })
-  );
-}
-
-/**
- * Returns whether client storage is operating in "dev mode" (local/non-deployed environment).
- * Evaluates `devModeOverrideOpt` first, falling back to `detectDevMode(probe)`.
- */
-export function isDevMode(probe?: DevModeEnvProbe): boolean {
-  return devModeOverrideOpt.fold(
-    () => detectDevMode(probe),
-    forced => forced
-  );
-}
+export {
+  type DevModeEnvProbe,
+  detectDevMode,
+  isDevMode,
+  setDevModeOverride
+};
 
 export function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';

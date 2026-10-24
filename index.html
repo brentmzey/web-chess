@@ -666,35 +666,61 @@
                 </button>
 
                 <!-- Created Session Feedback (Initially Hidden) -->
-                <div id="live-created-info" class="hidden p-3.5 rounded-2xl bg-sky-950/60 border border-sky-400/40 space-y-2.5">
-                    <div class="flex items-center justify-between">
-                        <span class="text-[10px] uppercase font-bold text-sky-300 tracking-wider">Shareable Session Code</span>
-                        <span class="text-[10px] text-emerald-300 flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                            Waiting for opponent...
+                <div id="live-created-info" class="hidden p-4 rounded-2xl bg-sky-950/70 border border-sky-400/40 space-y-3.5">
+                    <!-- Status Header -->
+                    <div class="flex items-center justify-between border-b border-sky-400/20 pb-2">
+                        <span class="text-xs font-bold text-sky-200 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span>Session Active • Awaiting Opponent</span>
                         </span>
+                        <span class="text-[10px] text-stone-300">Invite a friend to start</span>
                     </div>
-                    <div class="flex items-center justify-between gap-2 bg-black/60 p-2.5 rounded-xl border border-white/10">
-                        <span id="live-created-code" class="font-mono text-lg font-bold tracking-widest text-amber-200">SANCT-XXXX</span>
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" id="btn-copy-code" class="px-2.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/30 text-sky-200 text-[10px] font-semibold flex items-center gap-1 transition">
-                                <span class="material-symbols-rounded text-xs">content_copy</span>
-                                <span>Copy Code</span>
-                            </button>
-                            <button type="button" id="btn-copy-link" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-stone-200 text-[10px] font-semibold flex items-center gap-1 transition">
-                                <span class="material-symbols-rounded text-xs">share</span>
-                                <span>Invite Link</span>
+
+                    <!-- Primary: Direct Invite Link (URL) -->
+                    <div class="space-y-1.5">
+                        <label for="live-created-url" class="text-[11px] font-semibold text-sky-300 flex items-center justify-between">
+                            <span class="flex items-center gap-1">
+                                <span class="material-symbols-rounded text-xs">link</span>
+                                <span>1. Share Match Link (Recommended)</span>
+                            </span>
+                            <span class="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-400/20 text-emerald-300 font-bold">Opens Instantly</span>
+                        </label>
+                        <div class="flex items-center gap-1.5 bg-black/70 p-1.5 rounded-xl border border-sky-400/30">
+                            <input type="text" id="live-created-url" readonly class="w-full bg-transparent px-2 text-xs font-mono text-emerald-300 select-all focus:outline-none truncate" />
+                            <button type="button" id="btn-copy-link" class="shrink-0 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold flex items-center gap-1 shadow-md shadow-sky-500/30 transition">
+                                <span class="material-symbols-rounded text-sm">content_copy</span>
+                                <span>Copy Link</span>
                             </button>
                         </div>
+                        <p class="text-[10px] text-stone-400">Send this URL to your opponent. When they open it, they will connect to your match automatically.</p>
                     </div>
-                    <button type="button" id="btn-enter-live-match" class="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition">
-                        Enter Sanctuary Board
+
+                    <!-- Secondary: Manual Session Code -->
+                    <div class="flex items-center justify-between gap-3 bg-white/5 p-2.5 rounded-xl border border-white/10">
+                        <div>
+                            <span class="block text-[10px] uppercase font-bold text-stone-400 tracking-wider">2. Or Share Match Code</span>
+                            <span id="live-created-code" class="font-mono text-sm sm:text-base font-bold tracking-widest text-amber-200">SANCT-XXXX</span>
+                        </div>
+                        <button type="button" id="btn-copy-code" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-stone-200 text-xs font-semibold flex items-center gap-1 transition">
+                            <span class="material-symbols-rounded text-xs">pin</span>
+                            <span>Copy Code</span>
+                        </button>
+                    </div>
+
+                    <!-- Enter Board Action -->
+                    <button type="button" id="btn-enter-live-match" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-700/30 transition">
+                        <span class="material-symbols-rounded text-sm">play_arrow</span>
+                        <span>Enter Sanctuary Board & Wait</span>
                     </button>
                 </div>
             </div>
 
             <!-- Tab 2: Join Session -->
             <div id="panel-join-live" class="hidden space-y-3.5">
+                <div class="p-2.5 rounded-xl bg-sky-950/40 border border-sky-400/20 text-[11px] text-sky-200">
+                    <span>Have an invite from a friend? Enter their match code or open their invite link to play.</span>
+                </div>
+
                 <div class="space-y-1">
                     <label for="live-join-code" class="text-xs font-semibold text-stone-200">Session Code</label>
                     <input type="text" id="live-join-code" placeholder="e.g. SANCT-W4T9" maxlength="15" class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono uppercase text-sky-200 tracking-wider focus:outline-none focus:border-sky-400/60" />
@@ -708,9 +734,9 @@
                 <div class="space-y-1">
                     <label for="live-join-role" class="text-xs font-semibold text-stone-200">Desired Role</label>
                     <select id="live-join-role" class="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-stone-200 focus:outline-none focus:border-sky-400/60">
-                        <option value="">Auto-Assign Open Seat</option>
-                        <option value="black">Black Obsidian</option>
-                        <option value="white">White Marble</option>
+                        <option value="">Auto-Assign Open Seat (Recommended)</option>
+                        <option value="black">Black Obsidian (Opponent)</option>
+                        <option value="white">White Marble (Opponent)</option>
                         <option value="spectator">Spectator Only</option>
                     </select>
                 </div>
@@ -718,6 +744,10 @@
                 <div id="live-join-error" class="hidden p-2.5 rounded-xl bg-red-950/50 border border-red-500/40 text-red-200 text-xs font-medium"></div>
 
                 <button type="button" id="btn-join-live-session" class="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/30 transition">
+                    <span class="material-symbols-rounded text-sm">login</span>
+                    <span>Connect & Join Match</span>
+                </button>
+            </div>
                     <span class="material-symbols-rounded text-sm">login</span>
                     <span>Connect & Join Sanctuary Match</span>
                 </button>

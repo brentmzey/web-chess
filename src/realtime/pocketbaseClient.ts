@@ -1,13 +1,23 @@
 import {
   fromNullable,
   match,
+  matchBool,
   tryCatchAsync,
   type Result
 } from '../utils/fp';
 import { logger } from '../utils/logger';
+import { isDevMode } from '../utils/env';
 import type { RealtimeEventHandler, RealtimeClientConfig } from './realtimeClient';
 
 export const POCKETHOST_URL = 'https://web-chess.pockethost.io';
+
+export const sanitizeTextInput = (text: string, maxLen: number = 32): string => {
+  return text.replace(/<[^>]*>?/gm, '').trim().slice(0, maxLen);
+};
+
+export const sanitizeSessionCode = (code: string): string => {
+  return code.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase().trim().slice(0, 16);
+};
 
 const toError = (err: unknown): Error =>
   err instanceof Error ? err : new Error(String(err));
@@ -46,6 +56,7 @@ export class PocketBaseChessClient {
   private lastEventSeq: number = 0;
   private seenRecordIds: Set<string> = new Set();
   private eventHandlers: Map<string, Set<RealtimeEventHandler>> = new Map();
+  private lastMovePly: number = -1;
 
   constructor(private config: RealtimeClientConfig) {
     if (config.onMove) this.on('move_made', config.onMove as RealtimeEventHandler);
@@ -108,7 +119,10 @@ export class PocketBaseChessClient {
       const baseUrl = this.getBaseUrl();
       const sseUrl = `${baseUrl}/api/realtime`;
 
-      logger.info(`[PocketBase] Connecting to real-time SSE stream at ${sseUrl}...`);
+      matchBool(isDevMode(), {
+        true: () => logger.info(`[PocketBase] Connecting to real-time SSE stream at ${sseUrl}...`),
+        false: () => logger.info('Connecting to live multiplayer session...')
+      });
 
       const es = new EventSource(sseUrl);
       this.eventSource = es;
@@ -118,7 +132,10 @@ export class PocketBaseChessClient {
           const data = JSON.parse(e.data) as { clientId: string };
           this.clientId = data.clientId;
           this.isConnected = true;
-          logger.info(`[PocketBase] Connected with clientId: ${data.clientId}`);
+          matchBool(isDevMode(), {
+            true: () => logger.info(`[PocketBase] Connected with clientId: ${data.clientId}`),
+            false: () => logger.info('Live session connection active.')
+          });
 
           // Submit subscription for session events and session updates
           const subRes = await fetch(`${baseUrl}/api/realtime`, {
@@ -134,7 +151,10 @@ export class PocketBaseChessClient {
           });
 
           if (!subRes.ok) {
-            logger.warn(`[PocketBase] Subscription request returned status ${subRes.status}`);
+            matchBool(isDevMode(), {
+              true: () => logger.warn(`[PocketBase] Subscription request returned status ${subRes.status}`),
+              false: () => logger.warn('Live session connection notice.')
+            });
           }
 
           if (this.config.onOpen) {
@@ -202,6 +222,7 @@ export class PocketBaseChessClient {
     this.isConnected = false;
     this.clientId = null;
     this.seenRecordIds.clear();
+    this.lastMovePly = -1;
   }
 
   /**
@@ -221,6 +242,14 @@ export class PocketBaseChessClient {
     timeSpentMs?: number;
   }): Promise<Result<{ success: boolean; eventSeq: number }, Error>> {
     return tryCatchAsync(async () => {
+      if (!payload.san || !payload.from || !payload.to) {
+        throw new Error('Invalid move payload: missing coordinates or SAN.');
+      }
+      if (this.lastMovePly === payload.ply) {
+        throw new Error('Duplicate move submission for this turn.');
+      }
+      this.lastMovePly = payload.ply;
+
       const baseUrl = this.getBaseUrl();
       const nextSeq = Math.max(Date.now(), this.lastEventSeq + 1);
       this.lastEventSeq = nextSeq;
@@ -246,7 +275,10 @@ export class PocketBaseChessClient {
 
       if (!moveRes.ok) {
         const err = await moveRes.text();
-        logger.warn('[PocketBase] Failed recording game_moves:', err);
+        matchBool(isDevMode(), {
+          true: () => logger.warn('[PocketBase] Failed recording game_moves:', err),
+          false: () => logger.warn('Match move record notice.')
+        });
       }
 
       // 2. Publish real-time event
@@ -272,7 +304,10 @@ export class PocketBaseChessClient {
 
       if (!eventRes.ok) {
         const err = await eventRes.text();
-        logger.error('[PocketBase] Failed publishing session_events:', err);
+        matchBool(isDevMode(), {
+          true: () => logger.error('[PocketBase] Failed publishing session_events:', err),
+          false: () => logger.error('Failed to broadcast move.')
+        });
         throw new Error(`Failed publishing move event: ${err}`);
       }
 
@@ -292,7 +327,10 @@ export class PocketBaseChessClient {
 
       if (!patchRes.ok) {
         const err = await patchRes.text();
-        logger.warn('[PocketBase] Failed patching game_sessions:', err);
+        matchBool(isDevMode(), {
+          true: () => logger.warn('[PocketBase] Failed patching game_sessions:', err),
+          false: () => logger.warn('Match state update notice.')
+        });
       }
 
       return { success: true, eventSeq: nextSeq };
@@ -431,7 +469,8 @@ export class PocketBaseChessClient {
         rand: () => (Math.random() < 0.5 ? ('w' as const) : ('b' as const))
       });
 
-      const playerName = options.playerName || (assignedRole === 'w' ? 'Host (White)' : 'Host (Black)');
+      const cleanPlayerName = sanitizeTextInput(options.playerName || '', 32);
+      const playerName = cleanPlayerName || (assignedRole === 'w' ? 'Host (White)' : 'Host (Black)');
       const hostToken = generateSecureToken();
       const hostTokenHash = hashToken(hostToken);
 
@@ -505,7 +544,11 @@ export class PocketBaseChessClient {
   }, Error>> {
     return tryCatchAsync(async () => {
       const url = (baseUrl || POCKETHOST_URL).replace(/\/+$/, '');
-      const code = options.sessionCode.trim().toUpperCase();
+      const cleanCode = sanitizeSessionCode(options.sessionCode || '');
+      if (cleanCode.length < 4) {
+        throw new Error('Please enter a valid match session code.');
+      }
+      const code = cleanCode;
 
       // 1. Query session by code
       const queryRes = await fetch(
@@ -527,7 +570,7 @@ export class PocketBaseChessClient {
 
       // Determine available role
       let role: 'white' | 'black' | 'spectator' = 'spectator';
-      const cleanDisplayName = (options.displayName || '').trim();
+      const cleanDisplayName = sanitizeTextInput(options.displayName || '', 32);
 
       if (cleanDisplayName && cleanDisplayName === blackName) {
         role = 'black';

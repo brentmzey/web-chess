@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.6] - 2026-10-25
+### Added
+- **Streamlined Live 1v1 Match Setup UX & URL-First Sharing (`index.html`, `src/ui/uiController.ts`, `src/main.ts`, `tests/uiController.test.ts`)**:
+  - Re-architected `#live-created-info` in the Live Match Setup modal to present the **Full Match Invite Link (URL)** first and foremost as the primary, recommended option (`1. Share Match Link (Recommended)` with `#btn-copy-link`), providing instant one-click connection for opponents.
+  - Positioned the manual 6-character match code as a secondary option (`2. Or Share Match Code` with `#btn-copy-code`) for players joining across separate devices or tabs.
+  - Added a dedicated `#btn-enter-live-match` ("Enter Sanctuary Board & Wait") button to dismiss the setup modal and enter the board view immediately.
+- **Backdrop Click & Escape Key Dismissal for Modals (`src/main.ts`)**:
+  - Added backdrop click detection to `#pregame-modal`, `#live-session-modal`, and `#storage-audit-modal`, closing dialogs when clicking anywhere on the darkened backdrop outside modal cards.
+  - Added global `Escape` key listener to dismiss active dialog overlays cleanly.
+- **PocketHost API Rules & Immutability Hardening (`src/server/pocketbase/schema.json`, `scripts/pb-migrate.ts`)**:
+  - Enforced schema API security rules on PocketHost collections: rejecting requests without valid session codes or FENs, requiring monotonic plies and event sequences.
+  - Enforced append-only immutability on `game_moves` and `session_events` (`updateRule: null`, `deleteRule: null`), preventing tampering or public deletion of match history.
+- **Client Security, Input Sanitization & Production Console Obfuscation (`src/realtime/pocketbaseClient.ts`, `src/utils/env.ts`, `tests/pocketbaseClient.test.ts`, `tests/env.test.ts`)**:
+  - Added text and session code sanitization helpers (`sanitizeTextInput`, `sanitizeSessionCode`) to neutralize HTML injection and malformed query strings.
+  - Added duplicate turn move guard (`this.lastMovePly === payload.ply`), rejecting duplicate submissions without breaking legitimate consecutive turns.
+  - Isolated environment detection into `src/utils/env.ts`: in production mode (`!isDevMode()`), suppresses internal collection names, raw SSE topic routes, and client IDs from browser console inspection.
+
+### Fixed
+- **Circular Module Loading & Dev Mode Override Normalization (`src/utils/env.ts`, `src/storage/indexedDbStore.ts`)**:
+  - Extracted dev mode probe and override state into `src/utils/env.ts`, resolving circular module dependency between storage and realtime clients.
+  - Hardened `setDevModeOverride` to accept `Option<boolean>`, booleans, null, or undefined, eliminating runtime `TypeError` exceptions.
+
 ## [1.2.0-rc.5] - 2026-10-25
 ### Added
 - **Encrypted Live Session Persistence & Automatic Reconnection (`src/store/chessStore.ts`, `src/types/index.ts`, `src/main.ts`, `tests/chessStore.test.ts`)**:

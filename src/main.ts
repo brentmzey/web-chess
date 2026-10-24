@@ -56,6 +56,7 @@ import {
 import { UIController } from './ui/uiController';
 import { fromNullable, match, matchBool } from './utils/fp';
 import { logExecutionContext, logger } from './utils/logger';
+import { isDevMode } from './utils/env';
 
 // Entry point initialization
 function main(): void {
@@ -1416,7 +1417,10 @@ function main(): void {
       participantId,
       token,
       onOpen: () => {
-        logger.info('[LIVE] Connected to PocketHost Live Session SSE stream', { sessionId });
+        matchBool(isDevMode(), {
+          true: () => logger.info('[LIVE] Connected to PocketHost Live Session SSE stream', { sessionId }),
+          false: () => logger.info('Connected to live multiplayer match stream.')
+        });
         ui.showTemporaryBanner('🟢 Connected to Live Session SSE stream', 2500);
       },
       onPlayerJoined: data => {
@@ -1456,7 +1460,10 @@ function main(): void {
     activeRealtimeClient.on('session_updated', data => {
       const s = data as { fen?: string; last_move_san?: string; status?: string };
       if (s?.fen && s.fen !== chess.fen()) {
-        logger.info('[LIVE] Synchronizing authoritative board state from session_updated FEN:', s.fen);
+        matchBool(isDevMode(), {
+          true: () => logger.info('[LIVE] Synchronizing authoritative board state from session_updated FEN:', s.fen),
+          false: () => logger.info('Synchronizing board state from live match.')
+        });
         chess.load(s.fen);
         syncBoardPiecesWithChessState();
         updateHighlights();
@@ -1519,10 +1526,11 @@ function main(): void {
             camController.camState.theta = 0;
           }
           syncAllControlsUI();
-          ui.showLiveCreatedSession(session.sessionCode);
+          const inviteUrl = `${window.location.origin}${window.location.pathname}?session=${session.sessionCode}`;
+          ui.showLiveCreatedSession(session.sessionCode, inviteUrl);
           ui.showTemporaryBanner(
-            `Session ${session.sessionCode} created! Waiting for opponent.`,
-            3000
+            `Session ${session.sessionCode} ready! Copy and share the match invite link.`,
+            3500
           );
           window.history.replaceState(null, '', `?session=${session.sessionCode}`);
           chessStore.setState({
@@ -1651,14 +1659,56 @@ function main(): void {
 
   fromNullable(document.getElementById('btn-copy-link')).map(btn =>
     btn.addEventListener('click', async () => {
+      const urlInput = document.getElementById('live-created-url') as HTMLInputElement | null;
       const codeEl = document.getElementById('live-created-code');
-      if (codeEl?.textContent) {
-        const url = `${window.location.origin}${window.location.pathname}?session=${codeEl.textContent.trim()}`;
+      const url =
+        urlInput?.value ||
+        (codeEl?.textContent
+          ? `${window.location.origin}${window.location.pathname}?session=${codeEl.textContent.trim()}`
+          : '');
+      if (url) {
         await navigator.clipboard.writeText(url);
-        ui.showTemporaryBanner('Invite Link copied to clipboard!', 2000);
+        ui.showTemporaryBanner('Match Invite Link copied to clipboard! Share it with your opponent.', 3000);
       }
     })
   );
+
+  // Close dialog modals on clicking outside their modal card (backdrop click)
+  [
+    {
+      id: 'pregame-modal',
+      close: () => {
+        modalOpenedFromReset = false;
+        ui.hidePreGameModal();
+      }
+    },
+    {
+      id: 'live-session-modal',
+      close: () => ui.hideLiveSessionModal()
+    },
+    {
+      id: 'storage-audit-modal',
+      close: () => ui.hideStorageAuditModal()
+    }
+  ].forEach(({ id, close }) => {
+    fromNullable(document.getElementById(id)).map(modalEl => {
+      modalEl.addEventListener('click', (e: MouseEvent) => {
+        if (e.target === modalEl) {
+          close();
+        }
+      });
+    });
+  });
+
+  // Also support Escape key to dismiss any open setup modal
+  window.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      modalOpenedFromReset = false;
+      ui.hidePreGameModal();
+      ui.hideLiveSessionModal();
+      ui.hideStorageAuditModal();
+    }
+  });
 
 
   const audioIcon = document.getElementById('audio-icon');
