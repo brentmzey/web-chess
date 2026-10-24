@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.7] - 2026-10-25
+### Added
+- **ECMAScript Temporal API with Day.js Fallback for All DateTime Operations (`src/utils/dateTime.ts`, `tests/dateTime.test.ts`, `package.json`)**:
+  - Implemented unified, functional date/datetime utility (`src/utils/dateTime.ts`) conforming to the modern ECMAScript `Temporal` specification with seamless fallback to `Day.js` (with UTC, timezone, and advancedFormat plugins) when Temporal is unsupported or throws an engine exception.
+  - Migrated 100% of date and time operations across client storage (`src/storage/indexedDbStore.ts`), reactive state persistence (`src/store/chessStore.ts`), real-time multiplayer synchronization (`src/realtime/pocketbaseClient.ts`), execution logger (`src/utils/logger.ts`), SSE stream manager (`src/server/sse/sseManager.ts`), and database persistence layers (`src/server/db/sessionRepository.ts`, `src/server/services/realtimeChessService.ts`) to use `currentEpochMs()`, `nowIso()`, `epochMsToIso()`, `isoToEpochMs()`, and `formatDateTime()`.
+  - Added test coverage in `tests/dateTime.test.ts` exercising both the native Temporal engine and the Day.js fallback paths, maintaining 100% function and line coverage.
+
 ## [1.2.0-rc.6] - 2026-10-25
 ### Added
 - **Streamlined Live 1v1 Match Setup UX & URL-First Sharing (`index.html`, `src/ui/uiController.ts`, `src/main.ts`, `tests/uiController.test.ts`)**:

@@ -21,6 +21,7 @@ import {
   type Result
 } from '../utils/fp';
 import { logger } from '../utils/logger';
+import { currentEpochMs, nowIso } from '../utils/dateTime';
 
 export const DB_NAME = 'WizardChessSessionDB';
 export const DB_VERSION = 1;
@@ -164,7 +165,7 @@ function persistStoredCryptoKey(
         const record: StoredCryptoKeyRecord = {
           id: CRYPTO_KEY_RECORD_ID,
           cryptoKey,
-          createdAt: Date.now()
+          createdAt: currentEpochMs()
         };
         const request = db
           .transaction([STORE_NAME], 'readwrite')
@@ -437,7 +438,7 @@ export async function saveSessionState(
         writeEncryptedRecord(db, {
           id: SESSION_KEY,
           envelope,
-          updatedAt: Date.now()
+          updatedAt: currentEpochMs()
         })
       )
     )
@@ -553,13 +554,13 @@ export async function setPersistencePreference(
 ): Promise<Result<void, string>> {
   const dbResult = await openSessionDatabase();
   return dbResult.flatMapAsync(db =>
-    encryptPayload<PreferencePayload>({ enabled, updatedAt: Date.now() }, PREFERENCE_KEY).then(
+    encryptPayload<PreferencePayload>({ enabled, updatedAt: currentEpochMs() }, PREFERENCE_KEY).then(
       envResult =>
         envResult.flatMapAsync(envelope =>
           writeEncryptedRecord(db, {
             id: PREFERENCE_KEY,
             envelope,
-            updatedAt: Date.now()
+            updatedAt: currentEpochMs()
           })
         )
     )
@@ -625,7 +626,7 @@ export async function auditEncryptedStorage(): Promise<
               aadContextBound: true as const,
               localStorageUsed: false as const,
               plaintextExposed: false as const,
-              auditedAt: new Date().toISOString(),
+              auditedAt: nowIso(),
               recordCount: records.length,
               records
             };

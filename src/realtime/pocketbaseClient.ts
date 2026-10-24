@@ -7,6 +7,7 @@ import {
 } from '../utils/fp';
 import { logger } from '../utils/logger';
 import { isDevMode } from '../utils/env';
+import { currentEpochMs } from '../utils/dateTime';
 import type { RealtimeEventHandler, RealtimeClientConfig } from './realtimeClient';
 
 export const POCKETHOST_URL = 'https://web-chess.pockethost.io';
@@ -175,7 +176,7 @@ export class PocketBaseChessClient {
               this.seenRecordIds.add(recordId);
             }
             const eventType = String(msg.record.event_type);
-            const eventSeq = Number(msg.record.event_seq) || Math.max(Date.now(), this.lastEventSeq + 1);
+            const eventSeq = Number(msg.record.event_seq) || Math.max(currentEpochMs(), this.lastEventSeq + 1);
             if (eventSeq > this.lastEventSeq) {
               this.lastEventSeq = eventSeq;
             }
@@ -251,7 +252,7 @@ export class PocketBaseChessClient {
       this.lastMovePly = payload.ply;
 
       const baseUrl = this.getBaseUrl();
-      const nextSeq = Math.max(Date.now(), this.lastEventSeq + 1);
+      const nextSeq = Math.max(currentEpochMs(), this.lastEventSeq + 1);
       this.lastEventSeq = nextSeq;
 
       // 1. Record move in game_moves
@@ -376,7 +377,7 @@ export class PocketBaseChessClient {
   public async changeTheme(theme: string): Promise<Result<{ success: boolean; eventSeq: number }, Error>> {
     return tryCatchAsync(async () => {
       const baseUrl = this.getBaseUrl();
-      const nextSeq = Math.max(Date.now(), this.lastEventSeq + 1);
+      const nextSeq = Math.max(currentEpochMs(), this.lastEventSeq + 1);
       this.lastEventSeq = nextSeq;
 
       await fetch(`${baseUrl}/api/collections/session_events/records`, {
@@ -406,7 +407,7 @@ export class PocketBaseChessClient {
   public async resign(): Promise<Result<{ success: boolean; eventSeq: number }, Error>> {
     return tryCatchAsync(async () => {
       const baseUrl = this.getBaseUrl();
-      const nextSeq = Math.max(Date.now(), this.lastEventSeq + 1);
+      const nextSeq = Math.max(currentEpochMs(), this.lastEventSeq + 1);
       this.lastEventSeq = nextSeq;
 
       await fetch(`${baseUrl}/api/collections/session_events/records`, {
@@ -635,7 +636,7 @@ export class PocketBaseChessClient {
         body: JSON.stringify({
           session: sessionId,
           event_type: 'player_joined',
-          event_seq: Date.now(),
+          event_seq: currentEpochMs(),
           payload: {
             participantId: participantData.id,
             displayName: playerName,

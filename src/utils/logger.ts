@@ -1,6 +1,7 @@
 import { Logger, type ILogObj } from 'tslog';
 import { ExecutionSideEnum } from '../types';
 import { fromNullable, match } from './fp';
+import { nowIso } from './dateTime';
 
 export interface ExecutionProbeInput {
   hasWindow?: boolean;
@@ -75,7 +76,7 @@ export function getExecutionContextInfo(probe?: ExecutionProbeInput): ExecutionC
     runtimeLabel,
     isClient: side === ExecutionSideEnum.ClientSide,
     isServer: side === ExecutionSideEnum.ServerSide,
-    timestamp: new Date().toISOString()
+    timestamp: nowIso()
   };
 }
 

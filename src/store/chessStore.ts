@@ -26,6 +26,7 @@ import {
   type Option,
   type Result
 } from '../utils/fp';
+import { currentEpochMs } from '../utils/dateTime';
 
 export const INITIAL_BOARD_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' as const;
 
@@ -168,7 +169,7 @@ export class ChessStore {
           contrast: this.state.contrast,
           brightness: this.state.brightness,
           deviceTier: this.state.deviceTier,
-          timestamp: Date.now(),
+          timestamp: currentEpochMs(),
           gameStarted: this.state.gameStarted,
           useActionCam: this.state.useActionCam,
           liveSession: this.state.liveSession
@@ -231,7 +232,7 @@ export class ChessStore {
       brightness: typeof saved.brightness === 'number' ? saved.brightness : this.state.brightness,
       useActionCam: fromNullable(saved.useActionCam).getOrElse(this.state.useActionCam),
       gameStarted: hasStarted,
-      lastPersistedTimestamp: saved.timestamp || Date.now(),
+      lastPersistedTimestamp: saved.timestamp || currentEpochMs(),
       liveSession: saved.liveSession
     });
   }

@@ -6,6 +6,7 @@ import {
   type Option,
   type Result
 } from '../../utils/fp';
+import { currentEpochMs } from '../../utils/dateTime';
 import type { SanctuaryDatabase } from './database';
 import type {
   GameMoveRecord,
@@ -86,7 +87,7 @@ export class SessionRepository {
   }): Result<GameSessionRecord, string> {
     return tryCatch(() => {
       const id = session.id || randomUUID();
-      const now = Date.now();
+      const now = currentEpochMs();
       const insert = this.db.prepare(`
         INSERT INTO game_sessions (
           id, session_code, status, current_fen, turn, move_count,
@@ -137,7 +138,7 @@ export class SessionRepository {
   ): Result<void, string> {
     return tryCatch(() => {
       const column = role === 'white' ? 'white_participant_id' : 'black_participant_id';
-      const now = Date.now();
+      const now = currentEpochMs();
       this.db
         .prepare(`UPDATE game_sessions SET ${column} = ?, updated_at = ? WHERE id = ?`)
         .run(participantId, now, sessionId);
@@ -151,7 +152,7 @@ export class SessionRepository {
     endedAt: number | null = null
   ): Result<void, string> {
     return tryCatch(() => {
-      const now = Date.now();
+      const now = currentEpochMs();
       this.db
         .prepare(
           'UPDATE game_sessions SET status = ?, winner = ?, ended_at = ?, updated_at = ? WHERE id = ?'
@@ -169,7 +170,7 @@ export class SessionRepository {
     blackTimeRemainingMs: number | null = null
   ): Result<void, string> {
     return tryCatch(() => {
-      const now = Date.now();
+      const now = currentEpochMs();
       this.db
         .prepare(`
           UPDATE game_sessions
@@ -185,7 +186,7 @@ export class SessionRepository {
 
   public updateSessionTheme(sessionId: string, theme: string): Result<void, string> {
     return tryCatch(() => {
-      const now = Date.now();
+      const now = currentEpochMs();
       this.db
         .prepare('UPDATE game_sessions SET theme = ?, updated_at = ? WHERE id = ?')
         .run(theme, now, sessionId);
@@ -204,7 +205,7 @@ export class SessionRepository {
   }): Result<SessionParticipantRecord, string> {
     return tryCatch(() => {
       const id = randomUUID();
-      const now = Date.now();
+      const now = currentEpochMs();
       this.db
         .prepare(`
           INSERT INTO session_participants (
@@ -254,7 +255,7 @@ export class SessionRepository {
     isConnected: boolean = true
   ): Result<void, string> {
     return tryCatch(() => {
-      const now = Date.now();
+      const now = currentEpochMs();
       this.db
         .prepare(
           'UPDATE session_participants SET is_connected = ?, last_heartbeat_at = ? WHERE id = ?'
@@ -265,7 +266,7 @@ export class SessionRepository {
 
   public disconnectParticipant(participantId: string): Result<void, string> {
     return tryCatch(() => {
-      const now = Date.now();
+      const now = currentEpochMs();
       this.db
         .prepare(
           'UPDATE session_participants SET is_connected = 0, disconnected_at = ? WHERE id = ?'
@@ -288,7 +289,7 @@ export class SessionRepository {
     return tryCatch(() => {
       const id = randomUUID();
       const tokenHash = this.hashToken(rawToken);
-      const now = Date.now();
+      const now = currentEpochMs();
       const expiresAt = now + ttlMs;
 
       this.db
@@ -312,7 +313,7 @@ export class SessionRepository {
 
   public verifyToken(rawToken: string): Option<SessionTokenRecord> {
     const tokenHash = this.hashToken(rawToken);
-    const now = Date.now();
+    const now = currentEpochMs();
     const row = this.stmtGetTokenByHash.get(tokenHash, now) as
       | SessionTokenRecord
       | null
@@ -338,7 +339,7 @@ export class SessionRepository {
   }): Result<GameMoveRecord, string> {
     return tryCatch(() => {
       const id = randomUUID();
-      const now = Date.now();
+      const now = currentEpochMs();
 
       this.db
         .prepare(`
@@ -396,7 +397,7 @@ export class SessionRepository {
       const row = this.stmtGetMaxEventSeq.get(sessionId) as { max_seq: number } | undefined;
       const nextSeq = (row?.max_seq ?? 0) + 1;
       const id = randomUUID();
-      const now = Date.now();
+      const now = currentEpochMs();
       const payloadJson = JSON.stringify(payload);
 
       this.db

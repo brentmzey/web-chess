@@ -325,7 +325,7 @@ describe('Encrypted IndexedDB Session Persistence (AES-GCM-256, Functional Monad
     const serializedAudit = JSON.stringify(report);
     // Guarantee zero plaintext is present anywhere in the audit report
     expect(serializedAudit).not.toContain(secretFen);
-    expect(serializedAudit).not.toContain('Nf3');
+    expect(serializedAudit).not.toContain('"history"');
     expect(serializedAudit).not.toContain('micro-neural');
 
     for (const rec of report.records) {

@@ -1,5 +1,6 @@
 import { fromNullable, matchBool } from '../../utils/fp';
 import { logger } from '../../utils/logger';
+import { currentEpochMs } from '../../utils/dateTime';
 import type { SessionRepository } from '../db/sessionRepository';
 import type { SSEEnvelope, SessionEventRecord } from './sseTypes';
 
@@ -54,7 +55,7 @@ export class SSEManager {
     const connection: SSEConnection = {
       participantId,
       controller,
-      connectedAt: Date.now()
+      connectedAt: currentEpochMs()
     };
     room.set(participantId, connection);
 

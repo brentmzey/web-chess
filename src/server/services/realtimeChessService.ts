@@ -7,6 +7,7 @@ import {
   toResult,
   type Result
 } from '../../utils/fp';
+import { currentEpochMs } from '../../utils/dateTime';
 import type { SessionRepository } from '../db/sessionRepository';
 import type { SSEManager } from '../sse/sseManager';
 import type {
@@ -252,11 +253,11 @@ export class RealtimeChessService {
         if (chess.in_checkmate()) {
           nextStatus = 'checkmate';
           winner = session.turn; // Current player delivered checkmate
-          endedAt = Date.now();
+          endedAt = currentEpochMs();
         } else if (chess.in_draw()) {
           nextStatus = chess.in_stalemate() ? 'stalemate' : 'draw_agreement';
           winner = 'draw';
-          endedAt = Date.now();
+          endedAt = currentEpochMs();
         } else if (chess.in_check()) {
           nextStatus = 'check';
         }
@@ -347,7 +348,7 @@ export class RealtimeChessService {
 
       return sessionRes.flatMap(() => {
         const winner: 'w' | 'b' = tokenRecord.role === 'white' ? 'b' : 'w';
-        const endedAt = Date.now();
+        const endedAt = currentEpochMs();
 
         this.repository.updateSessionStatus(sessionId, 'resigned', winner, endedAt);
 
