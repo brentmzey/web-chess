@@ -60,5 +60,9 @@ When operating in this repository, agents must adhere to the following without e
 7. **High Code Coverage, Unit & Integration Testing Before Merging / Pushing**:
    - Always maintain high levels of code coverage (**100% Line & Branch Coverage**, **>99% Function Coverage**) backed by comprehensive unit tests and end-to-end integration tests (`tests/*.test.ts` and `tests/integration.test.ts`).
    - Always run `bun run test:coverage && bun run typecheck && bun run build` prior to finalizing a turn or pushing commits.
+8. **Mandatory Universal Credential & Vulnerability Pre-Commit/Pre-Push Scanning**:
+   - In accordance with `/Users/brentzey/personal/AGENTS.md`, agents must ALWAYS globally scan and search for vulnerabilities, exposed credentials, API keys, and sensitive tokens in the repository prior to finalizing any turn or pushing to remote.
+   - NEVER commit or push real secrets, admin credentials, database tokens, or PocketHost superuser passwords to git or remote. Always inject via environment variables (`PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD` sourced from `~/.zshrc`).
+   - Always verify that `.env` files and local secrets are excluded via `.gitignore`, inspect `git diff`, and confirm zero sensitive leaks before pushing to remote.
 
 
