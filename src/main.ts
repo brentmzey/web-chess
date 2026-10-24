@@ -915,6 +915,14 @@ function main(): void {
     }
 
     currentMode = nextMode;
+    if (activeRealtimeClient) {
+      activeRealtimeClient.disconnect();
+      activeRealtimeClient = null;
+    }
+    chessStore.setState({ liveSession: undefined });
+    if (window.location.search) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
     logger.info('Opponent style selected', {
       mode: currentMode,
       difficulty: currentDifficulty,
@@ -1044,6 +1052,12 @@ function main(): void {
       if (currentMode !== GameModeEnum.Live && activeRealtimeClient) {
         activeRealtimeClient.disconnect();
         activeRealtimeClient = null;
+      }
+      if (currentMode !== GameModeEnum.Live) {
+        chessStore.setState({ liveSession: undefined });
+        if (window.location.search) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
       }
       chess.reset();
       allowUndo = pendingAllowUndo;
@@ -1206,6 +1220,13 @@ function main(): void {
     result.match({
       Ok: () => {
         chess.reset();
+        if (activeRealtimeClient) {
+          activeRealtimeClient.disconnect();
+          activeRealtimeClient = null;
+        }
+        if (window.location.search) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
         selectedSquare = null;
         legalMovesForSelected = [];
         matchStarted = false;
@@ -1503,6 +1524,21 @@ function main(): void {
             `Session ${session.sessionCode} created! Waiting for opponent.`,
             3000
           );
+          window.history.replaceState(null, '', `?session=${session.sessionCode}`);
+          chessStore.setState({
+            mode: GameModeEnum.Live,
+            fen: chess.fen(),
+            history: chess.history(),
+            liveSession: {
+              sessionCode: session.sessionCode,
+              sessionId: session.sessionId,
+              participantId: session.participantId,
+              token: session.token,
+              role: session.assignedRole as 'white' | 'black',
+              playerName: hostNameInput?.value || 'White Marble Host'
+            }
+          });
+          void persistCurrentSession();
           initRealtimeClient(session.sessionId, session.participantId, session.token);
         },
         Err: err => {
@@ -1569,6 +1605,21 @@ function main(): void {
             `Joined Live Match ${code} as ${session.assignedRole.toUpperCase()}!`,
             3500
           );
+          window.history.replaceState(null, '', `?session=${code}`);
+          chessStore.setState({
+            mode: GameModeEnum.Live,
+            fen: chess.fen(),
+            history: chess.history(),
+            liveSession: {
+              sessionCode: code,
+              sessionId: session.sessionId,
+              participantId: session.participantId,
+              token: session.token,
+              role: session.assignedRole,
+              playerName: name
+            }
+          });
+          void persistCurrentSession();
 
           initRealtimeClient(session.sessionId, session.participantId, session.token);
         },
@@ -1609,17 +1660,6 @@ function main(): void {
     })
   );
 
-  // URL search parameter auto-join
-  const urlParams = new URLSearchParams(window.location.search);
-  const sessionParam = urlParams.get('session');
-  if (sessionParam) {
-    ui.showLiveSessionModal();
-    ui.switchLiveSessionTab('join');
-    const joinCodeInput = document.getElementById('live-join-code') as HTMLInputElement | null;
-    if (joinCodeInput) {
-      joinCodeInput.value = sessionParam.toUpperCase();
-    }
-  }
 
   const audioIcon = document.getElementById('audio-icon');
   fromNullable(document.getElementById('btn-audio')).map(btnAudio =>
@@ -1788,25 +1828,74 @@ function main(): void {
       applyDisplaySettings(displaySettings, renderer, hemiLight, boardKeyLight, container);
       syncDisplayInputs();
 
-      // Replay move history so full algebraic chronicle & captured pieces restore
-      chess.reset();
-      if (storeState.history.length > 0) {
-        for (const san of storeState.history) {
-          const moved = chess.move(san);
-          if (!moved) {
-            chess.load(storeState.fen);
-            break;
-          }
+      // Check if restoring a Live session
+      if (storeState.mode === GameModeEnum.Live && storeState.liveSession) {
+        const live = storeState.liveSession;
+        liveUserRole = live.role;
+        if (liveUserRole === 'black') {
+          camController.camState.theta = Math.PI;
+        } else {
+          camController.camState.theta = 0;
         }
+        ui.hideLiveSessionModal();
         ui.hidePreGameModal();
-        ui.showTemporaryBanner('Sanctuary Session Restored from IndexedDB', 2800);
-      } else {
-        if (storeState.fen && storeState.fen !== INITIAL_BOARD_FEN) {
-          chess.load(storeState.fen);
+        initRealtimeClient(live.sessionId, live.participantId, live.token);
+
+        // Fetch latest authoritative FEN from PocketHost
+        try {
+          const sRes = await fetch(
+            `${PocketBaseChessClient.getEndpoint()}/api/collections/game_sessions/records/${live.sessionId}`
+          );
+          if (sRes.ok) {
+            const sData = (await sRes.json()) as { fen?: string };
+            if (sData?.fen && sData.fen.trim()) {
+              chess.load(sData.fen);
+            }
+          }
+        } catch (e) {
+          logger.warn('[LIVE] Could not fetch remote session FEN on restore:', e);
         }
-        if (matchStarted) {
+
+        ui.showTemporaryBanner(
+          `Reconnected to Live Session ${live.sessionCode} as ${liveUserRole.toUpperCase()}!`,
+          3200
+        );
+      } else {
+        // Replay move history so full algebraic chronicle & captured pieces restore
+        chess.reset();
+        if (storeState.history.length > 0) {
+          for (const san of storeState.history) {
+            const moved = chess.move(san);
+            if (!moved) {
+              chess.load(storeState.fen);
+              break;
+            }
+          }
           ui.hidePreGameModal();
           ui.showTemporaryBanner('Sanctuary Session Restored from IndexedDB', 2800);
+        } else {
+          if (storeState.fen && storeState.fen !== INITIAL_BOARD_FEN) {
+            chess.load(storeState.fen);
+          }
+          if (matchStarted) {
+            ui.hidePreGameModal();
+            ui.showTemporaryBanner('Sanctuary Session Restored from IndexedDB', 2800);
+          }
+        }
+      }
+    }
+
+    // URL search parameter handling after hydration
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionParam = urlParams.get('session');
+    if (sessionParam) {
+      const activeLiveCode = chessStore.getState().liveSession?.sessionCode;
+      if (!activeLiveCode || activeLiveCode.toUpperCase() !== sessionParam.toUpperCase()) {
+        ui.showLiveSessionModal();
+        ui.switchLiveSessionTab('join');
+        const joinCodeInput = document.getElementById('live-join-code') as HTMLInputElement | null;
+        if (joinCodeInput) {
+          joinCodeInput.value = sessionParam.toUpperCase();
         }
       }
     }
@@ -1814,7 +1903,7 @@ function main(): void {
     syncBoardPiecesWithChessState();
     updateHighlights();
     syncAllControlsUI();
-    if (chess.history().length > 0) {
+    if (chess.history().length > 0 && currentMode !== GameModeEnum.Live) {
       triggerTurnOrAI();
     }
   }

@@ -23,6 +23,8 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     });
 
     expect(client.getBaseUrl()).toBe(POCKETHOST_URL);
+    expect(PocketBaseChessClient.getEndpoint()).toBe(POCKETHOST_URL);
+    expect(PocketBaseChessClient.getEndpoint('https://custom.pockethost.io/')).toBe('https://custom.pockethost.io');
     expect(client.getIsConnected()).toBe(false);
     expect(client.getClientId()).toBe(null);
     expect(client.getLastEventSeq()).toBe(0);
@@ -533,23 +535,23 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     expect(rejoinWhite.isSuccess()).toBe(true);
     expect(rejoinWhite.match({ Ok: (j) => j.assignedRole, Err: () => null })).toBe('white');
 
-    // 6. Requesting 'w' when White seat is occupied throws error
-    const failWhite = await PocketBaseChessClient.joinSession('', {
+    // 6. Requesting 'w' explicitly assigns white seat
+    const joinExplicitWhite = await PocketBaseChessClient.joinSession('', {
       sessionCode: 'SANCT-FULL',
       displayName: 'NewPlayer',
       preferredRole: 'w'
     });
-    expect(failWhite.isFailure()).toBe(true);
-    expect(failWhite.match({ Ok: () => '', Err: (e) => e.message })).toContain('White Marble seat is already occupied');
+    expect(joinExplicitWhite.isSuccess()).toBe(true);
+    expect(joinExplicitWhite.match({ Ok: (j) => j.assignedRole, Err: () => null })).toBe('white');
 
-    // 7. Requesting 'b' when Black seat is occupied throws error
-    const failBlack = await PocketBaseChessClient.joinSession('', {
+    // 7. Requesting 'b' explicitly assigns black seat
+    const joinExplicitBlack = await PocketBaseChessClient.joinSession('', {
       sessionCode: 'SANCT-FULL',
       displayName: 'NewPlayer',
       preferredRole: 'b'
     });
-    expect(failBlack.isFailure()).toBe(true);
-    expect(failBlack.match({ Ok: () => '', Err: (e) => e.message })).toContain('Black Obsidian seat is already occupied');
+    expect(joinExplicitBlack.isSuccess()).toBe(true);
+    expect(joinExplicitBlack.match({ Ok: (j) => j.assignedRole, Err: () => null })).toBe('black');
 
     // 8. Joining explicitly as spectator
     const joinSpectator = await PocketBaseChessClient.joinSession('', {

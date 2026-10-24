@@ -1,14 +1,19 @@
 import { runPocketBaseMigration } from '../src/server/pocketbase/migrator';
 
-const url = process.env.POCKETBASE_URL || 'https://web-chess.pockethost.io';
-const email = process.env.POCKETBASE_SUPERUSER_EMAIL;
-const password = process.env.POCKETBASE_SUPERUSER_PASSWORD;
+const rawUrl = process.env.POCKETBASE_URL;
+const url = rawUrl && !rawUrl.startsWith('${') ? rawUrl : 'https://web-chess.pockethost.io';
+
+const rawEmail = process.env.PB_ADMIN_EMAIL || process.env.POCKETBASE_SUPERUSER_EMAIL;
+const email = rawEmail && !rawEmail.startsWith('${') ? rawEmail : process.env.PB_ADMIN_EMAIL;
+
+const rawPassword = process.env.PB_ADMIN_PASSWORD || process.env.POCKETBASE_SUPERUSER_PASSWORD;
+const password = rawPassword && !rawPassword.startsWith('${') ? rawPassword : process.env.PB_ADMIN_PASSWORD;
 
 if (!email || !password) {
   console.error(
-    'Error: POCKETBASE_SUPERUSER_EMAIL and POCKETBASE_SUPERUSER_PASSWORD environment variables are required.'
+    'Error: PB_ADMIN_EMAIL and PB_ADMIN_PASSWORD (or POCKETBASE_SUPERUSER_EMAIL/PASSWORD) environment variables are required.'
   );
-  console.error('Usage: POCKETBASE_SUPERUSER_EMAIL=... POCKETBASE_SUPERUSER_PASSWORD=... bun run pb:migrate');
+  console.error('Usage: Ensure PB_ADMIN_EMAIL and PB_ADMIN_PASSWORD exist in ~/.zshrc or .env, then run: bun run pb:migrate');
   process.exit(1);
 }
 

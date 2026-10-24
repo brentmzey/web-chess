@@ -54,6 +54,10 @@ export class PocketBaseChessClient {
     if (config.onGameOver) this.on('game_over', config.onGameOver as RealtimeEventHandler);
   }
 
+  public static getEndpoint(baseUrl?: string): string {
+    return (baseUrl || POCKETHOST_URL).replace(/\/+$/, '');
+  }
+
   public getBaseUrl(): string {
     return (this.config.baseUrl || POCKETHOST_URL).replace(/\/+$/, '');
   }
@@ -530,17 +534,9 @@ export class PocketBaseChessClient {
       } else if (cleanDisplayName && cleanDisplayName === whiteName) {
         role = 'white';
       } else if (options.preferredRole === 'w') {
-        if (!whiteName) {
-          role = 'white';
-        } else {
-          throw new Error(`The White Marble seat is already occupied by ${whiteName}.`);
-        }
+        role = 'white';
       } else if (options.preferredRole === 'b') {
-        if (!blackName) {
-          role = 'black';
-        } else {
-          throw new Error(`The Black Obsidian seat is already occupied by ${blackName}.`);
-        }
+        role = 'black';
       } else if (options.preferredRole === 'spectator') {
         role = 'spectator';
       } else {

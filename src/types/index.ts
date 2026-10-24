@@ -180,6 +180,15 @@ export interface GameModeConfig {
   desktopOnly?: boolean;
 }
 
+export interface StoredLiveSessionInfo {
+  sessionCode: string;
+  sessionId: string;
+  participantId: string;
+  token: string;
+  role: 'white' | 'black' | 'spectator';
+  playerName?: string;
+}
+
 export interface StoredSessionState {
   id: string;
   enabled: boolean;
@@ -195,6 +204,7 @@ export interface StoredSessionState {
   timestamp: number;
   gameStarted?: boolean;
   useActionCam?: boolean;
+  liveSession?: StoredLiveSessionInfo;
 }
 
 

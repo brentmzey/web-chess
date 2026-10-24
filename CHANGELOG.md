@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.5] - 2026-10-25
+### Added
+- **Encrypted Live Session Persistence & Automatic Reconnection (`src/store/chessStore.ts`, `src/types/index.ts`, `src/main.ts`, `tests/chessStore.test.ts`)**:
+  - Added `StoredLiveSessionInfo` schema to `StoredSessionState` and `ChessStoreState`, securely persisting active multiplayer session credentials (`sessionCode`, `sessionId`, `participantId`, `token`, `role`, `playerName`) into AES-GCM-256 encrypted client storage (`IndexedDB`).
+  - Implemented automatic live session rehydration on tab reload (`restoreSessionIfEnabled`): re-establishes the real-time SSE stream (`initRealtimeClient`), restores player seat assignment (`liveUserRole`), aligns 3D perspective orientation (`camController.camState.theta`), and synchronizes the latest authoritative position from PocketHost.
+  - Synchronized browser URL history state with `?session=${sessionCode}` on live match creation and join, automatically cleaning URL queries upon exiting live multiplayer or resetting.
+
+### Fixed
+- **Host & Guest Re-Join Seat Reclamation & Join Modal Dismissal (`src/realtime/pocketbaseClient.ts`, `src/main.ts`, `tests/pocketbaseClient.test.ts`)**:
+  - Removed occupied seat exception in `PocketBaseChessClient.joinSession` when selecting `'w'` or `'b'`, allowing returning players to reclaim their seat upon reload without being blocked.
+  - Eliminated premature pop-up of the Join Match dialog on page reload when an active matching live session is already restored from encrypted storage.
+  - Added static endpoint resolution helper `PocketBaseChessClient.getEndpoint()`.
+- **PocketHost Environment Variable Migration Tooling (`scripts/pb-migrate.ts`, `package.json`, `.env.example`)**:
+  - Updated `pb:migrate` script to automatically source `~/.zshrc` to pick up global `PB_ADMIN_EMAIL` and `PB_ADMIN_PASSWORD` credentials without logging or exposing secrets.
+  - Added robust fallback parsing in `scripts/pb-migrate.ts` preventing unexpanded shell variable templates from causing URL or authentication exceptions.
+
 ## [1.2.0-rc.4] - 2026-10-25
 ### Fixed
 - **Host SSE Event Reception & Unique Record ID Deduplication (`src/realtime/pocketbaseClient.ts`, `src/main.ts`, `tests/pocketbaseClient.test.ts`)**:

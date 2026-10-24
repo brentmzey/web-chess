@@ -14,6 +14,7 @@ import {
   OpponentDifficultyEnum,
   StorageLoadStatusEnum,
   type StorageLoadOutcome,
+  type StoredLiveSessionInfo,
   type StoredSessionState
 } from '../types';
 import {
@@ -49,6 +50,7 @@ export interface ChessStoreState {
   gameOverTitle: Option<string>;
   gameOverSubtitle: Option<string>;
   lastPersistedTimestamp: number;
+  liveSession?: StoredLiveSessionInfo;
 }
 
 export const DEFAULT_CHESS_STORE_STATE: ChessStoreState = {
@@ -71,7 +73,8 @@ export const DEFAULT_CHESS_STORE_STATE: ChessStoreState = {
   isGameOver: false,
   gameOverTitle: none(),
   gameOverSubtitle: none(),
-  lastPersistedTimestamp: 0
+  lastPersistedTimestamp: 0,
+  liveSession: undefined
 };
 
 export type StoreListener = (
@@ -167,7 +170,8 @@ export class ChessStore {
           deviceTier: this.state.deviceTier,
           timestamp: Date.now(),
           gameStarted: this.state.gameStarted,
-          useActionCam: this.state.useActionCam
+          useActionCam: this.state.useActionCam,
+          liveSession: this.state.liveSession
         };
 
         const res = await saveSessionState(payload);
@@ -227,7 +231,8 @@ export class ChessStore {
       brightness: typeof saved.brightness === 'number' ? saved.brightness : this.state.brightness,
       useActionCam: fromNullable(saved.useActionCam).getOrElse(this.state.useActionCam),
       gameStarted: hasStarted,
-      lastPersistedTimestamp: saved.timestamp || Date.now()
+      lastPersistedTimestamp: saved.timestamp || Date.now(),
+      liveSession: saved.liveSession
     });
   }
 

@@ -188,6 +188,36 @@ describe('ChessStore: Centralized Reactive State Store & Tab-Refresh Persistence
     expect(state.gameStarted).toBe(true);
   });
 
+  it('hydrates live session credentials and role across tab reload', async () => {
+    const originalStore = new ChessStore({
+      mode: GameModeEnum.Live,
+      fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+      history: ['e4'],
+      gameStarted: true,
+      liveSession: {
+        sessionCode: 'SANCT-TEST',
+        sessionId: 'rec_session_123',
+        participantId: 'rec_part_456',
+        token: 'sec_tok_789',
+        role: 'white',
+        playerName: 'White Host'
+      }
+    });
+    await originalStore.saveToStorage();
+
+    const reloadedStore = new ChessStore();
+    const outcome = await reloadedStore.hydrate();
+    expect(outcome.status).toBe(StorageLoadStatusEnum.Restored);
+    const state = reloadedStore.getState();
+    expect(state.mode).toBe(GameModeEnum.Live);
+    expect(state.liveSession).toBeDefined();
+    expect(state.liveSession?.sessionCode).toBe('SANCT-TEST');
+    expect(state.liveSession?.sessionId).toBe('rec_session_123');
+    expect(state.liveSession?.participantId).toBe('rec_part_456');
+    expect(state.liveSession?.token).toBe('sec_tok_789');
+    expect(state.liveSession?.role).toBe('white');
+  });
+
   it('adapts GeminiNano to MicroNeural when restoring on MobileLite tier', async () => {
     const originalStore = new ChessStore({
       mode: GameModeEnum.GeminiNano,
