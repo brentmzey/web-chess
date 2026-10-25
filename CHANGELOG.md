@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.9] - 2026-10-25
+### Added
+- **Optimized B-Tree Indexing Architecture across all PocketHost Collections (`src/server/pocketbase/schema.json`)**:
+  - Expanded and applied high-performance single-column and compound indices across all four PocketHost collections:
+    - `game_sessions`: `idx_game_sessions_code` (unique), `idx_game_sessions_status`, `idx_game_sessions_created`, `idx_game_sessions_updated`, `idx_game_sessions_status_created`.
+    - `session_participants`: `idx_participants_session`, `idx_participants_session_role`, `idx_participants_created`.
+    - `game_moves`: `idx_moves_session_ply` (unique), `idx_moves_session`, `idx_moves_session_created`.
+    - `session_events`: `idx_events_session_seq` (unique), `idx_events_session`, `idx_events_session_type`, `idx_events_created`.
+  - Added explicit `autodate` schema fields (`created`, `updated`) to all PocketBase collections conforming to PocketBase v0.23+ specifications, enabling rapid date-based range queries and sub-millisecond retrieval.
+- **Automated Cascade Pruning & Anti-Bloat Maintenance System (`src/server/pocketbase/pruner.ts`, `scripts/pb-cleanup.ts`, `tests/pruner.test.ts`, `package.json`)**:
+  - Engineered functional cascade pruner ([`src/server/pocketbase/pruner.ts`](file:///Users/brentzey/personal/web-chess/src/server/pocketbase/pruner.ts)) using Rust/Scala pattern matching and ECMAScript `Temporal` / `Day.js` date arithmetic.
+  - Deletes stale or abandoned game sessions older than 3 days (`created < cutoff`), taking full advantage of PocketBase's `cascadeDelete: true` to automatically purge all associated participants, moves, and SSE events in a single operation.
+  - Added CLI task `bun run pb:cleanup` (`scripts/pb-cleanup.ts`) with custom `--days=N` threshold support and structured audit reporting.
+  - Added local SQLite cascade deletion support to `SessionRepository.pruneStaleSessions` in [`src/server/db/sessionRepository.ts`](file:///Users/brentzey/personal/web-chess/src/server/db/sessionRepository.ts).
+- **Automated Scheduled Daily GitHub Actions Cron (`.github/workflows/cleanup-stale-sessions.yml`)**:
+  - Created automated daily cron workflow running at **03:00 AM UTC** (`0 3 * * *`) that executes `bun run scripts/pb-cleanup.ts` with zero manual overhead.
+- **Native PocketBase JavaScript Hook Cron (`pb_hooks/cleanup.pb.js`)**:
+  - Created standalone Goja cron job utilizing PocketBase's `cronAdd` API for native server-side scheduled execution.
+
 ## [1.2.0-rc.8] - 2026-10-25
 ### Added
 - **Live Match Opponent Mode Lock & State Preservation (`index.html`, `src/ui/uiController.ts`, `src/main.ts`, `tests/uiController.test.ts`)**:

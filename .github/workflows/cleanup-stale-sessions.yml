@@ -1,0 +1,37 @@
+name: Cleanup Stale Game Sessions
+
+on:
+  schedule:
+    # Run daily at 03:00 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Age threshold in days for stale session pruning'
+        required: false
+        default: '3'
+
+jobs:
+  prune-stale-sessions:
+    name: Prune Stale PocketHost Sessions (> 3 days)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun Environment
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run PocketBase Cascade Pruning Job
+        env:
+          PB_ADMIN_EMAIL: ${{ secrets.PB_ADMIN_EMAIL }}
+          PB_ADMIN_PASSWORD: ${{ secrets.PB_ADMIN_PASSWORD }}
+          POCKETBASE_URL: https://web-chess.pockethost.io
+        run: |
+          DAYS="${{ github.event.inputs.days || '3' }}"
+          bun run scripts/pb-cleanup.ts --days=$DAYS

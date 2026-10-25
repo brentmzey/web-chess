@@ -1,12 +1,13 @@
 {
   "name": "wizard-chess-3d",
-  "version": "1.2.0-rc.8",
+  "version": "1.2.0-rc.9",
   "description": "High Gothic Basilica 3D Wizard's Chess with procedural Web Audio, Three.js and AI engine",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "server": "bun run src/server/index.ts",
     "pb:migrate": "zsh -c 'source ~/.zshrc 2>/dev/null; bun run scripts/pb-migrate.ts'",
+    "pb:cleanup": "zsh -c 'source ~/.zshrc 2>/dev/null; bun run scripts/pb-cleanup.ts'",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "bun test",

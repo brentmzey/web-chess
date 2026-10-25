@@ -102,6 +102,52 @@ The PocketHost schema is protected by defense-in-depth security policies:
 
 ---
 
+## ⚡ Indexing Architecture & Query Optimization
+
+To guarantee sub-millisecond query latency and sub-10ms real-time event distribution under high concurrent duels, all PocketHost collections feature dedicated compound and single-column B-tree indices:
+
+| Collection | Index Name | Expression / Columns | Query Optimization Purpose |
+|---|---|---|---|
+| `game_sessions` | `idx_game_sessions_code` | `UNIQUE(session_code)` | Instant O(1) room lookup by code or invite link. |
+| `game_sessions` | `idx_game_sessions_status` | `(status)` | Fast filtering of active vs. concluded matches. |
+| `game_sessions` | `idx_game_sessions_created` | `(created)` | Range scans for stale session detection and pruning. |
+| `game_sessions` | `idx_game_sessions_updated` | `(updated)` | Fast retrieval of recently active boards. |
+| `game_sessions` | `idx_game_sessions_status_created` | `(status, created)` | Compound query optimization for active session sweeps. |
+| `session_participants` | `idx_participants_session` | `(session)` | Foreign key relational joins and session fanout. |
+| `session_participants` | `idx_participants_session_role` | `(session, role)` | Rapid seat assignment checks (`white` / `black` occupancy). |
+| `session_participants` | `idx_participants_created` | `(created)` | Participant join ordering and chronological audits. |
+| `game_moves` | `idx_moves_session_ply` | `UNIQUE(session, ply)` | Monotonic ply integrity and ordered move log retrieval. |
+| `game_moves` | `idx_moves_session` | `(session)` | Fast aggregation of move count and game length. |
+| `game_moves` | `idx_moves_session_created` | `(session, created)` | Chronological move timing analysis and catch-up streams. |
+| `session_events` | `idx_events_session_seq` | `UNIQUE(session, event_seq)` | W3C `Last-Event-ID` SSE catch-up replay. |
+| `session_events` | `idx_events_session` | `(session)` | Foreign key event lifecycle cascade joins. |
+| `session_events` | `idx_events_session_type` | `(session, event_type)` | Selective event type queries (e.g. moves, resignations). |
+| `session_events` | `idx_events_created` | `(created)` | SSE event emission ordering and telemetry. |
+
+---
+
+## 🧹 Automated Cascade Pruning & Anti-Bloat Maintenance
+
+To prevent database bloat over time while keeping PocketHost lightning-fast and responsive, stale and abandoned game sessions older than **3 days** are automatically cascade-deleted:
+
+1. **Relational Cascade Deletions (`cascadeDelete: true`)**:
+   - `session_participants.session`, `game_moves.session`, and `session_events.session` are configured with `cascadeDelete: true`.
+   - Deleting a stale record in `game_sessions` automatically triggers PocketBase's internal cascade engine to purge all child participant seats, moves, and SSE events in a single atomic transaction.
+2. **On-Demand & CI/CD CLI Pruning (`scripts/pb-cleanup.ts`)**:
+   - Run anytime via Bun:
+     ```bash
+     bun run pb:cleanup
+     bun run pb:cleanup --days=3
+     ```
+   - Automatically computes cutoff timestamps using modern ECMAScript `Temporal` / `Day.js`, authenticates with superuser privileges, and outputs a formatted pruning audit report.
+3. **Automated Daily GitHub Actions Cron (`.github/workflows/cleanup-stale-sessions.yml`)**:
+   - Runs daily at **03:00 AM UTC** (`0 3 * * *`) via GitHub Actions.
+   - Executes `scripts/pb-cleanup.ts` using injected GitHub Secrets (`PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`), ensuring continuous zero-maintenance database cleanliness.
+4. **Native PocketBase JavaScript Cron (`pb_hooks/cleanup.pb.js`)**:
+   - Native PocketBase Goja cron script provided in `pb_hooks/cleanup.pb.js` for standalone or self-hosted PocketBase deployments.
+
+---
+
 ## 🛠️ Schema Migrations Tooling
 
 To apply or update PocketHost schema rules without exposing administrative credentials:

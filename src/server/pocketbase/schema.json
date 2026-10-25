@@ -83,10 +83,26 @@
         "type": "text",
         "hidden": true,
         "required": false
+      },
+      {
+        "name": "created",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": false
+      },
+      {
+        "name": "updated",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": true
       }
     ],
     "indexes": [
-      "CREATE UNIQUE INDEX `idx_game_sessions_code` ON `game_sessions` (`session_code`)"
+      "CREATE UNIQUE INDEX `idx_game_sessions_code` ON `game_sessions` (`session_code`)",
+      "CREATE INDEX `idx_game_sessions_status` ON `game_sessions` (`status`)",
+      "CREATE INDEX `idx_game_sessions_created` ON `game_sessions` (`created`)",
+      "CREATE INDEX `idx_game_sessions_updated` ON `game_sessions` (`updated`)",
+      "CREATE INDEX `idx_game_sessions_status_created` ON `game_sessions` (`status`, `created`)"
     ]
   },
   {
@@ -126,10 +142,24 @@
         "name": "status",
         "type": "text",
         "required": true
+      },
+      {
+        "name": "created",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": false
+      },
+      {
+        "name": "updated",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": true
       }
     ],
     "indexes": [
-      "CREATE INDEX `idx_participants_session` ON `session_participants` (`session`)"
+      "CREATE INDEX `idx_participants_session` ON `session_participants` (`session`)",
+      "CREATE INDEX `idx_participants_session_role` ON `session_participants` (`session`, `role`)",
+      "CREATE INDEX `idx_participants_created` ON `session_participants` (`created`)"
     ]
   },
   {
@@ -198,10 +228,24 @@
         "name": "time_spent_ms",
         "type": "number",
         "required": false
+      },
+      {
+        "name": "created",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": false
+      },
+      {
+        "name": "updated",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": true
       }
     ],
     "indexes": [
-      "CREATE UNIQUE INDEX `idx_moves_session_ply` ON `game_moves` (`session`, `ply`)"
+      "CREATE UNIQUE INDEX `idx_moves_session_ply` ON `game_moves` (`session`, `ply`)",
+      "CREATE INDEX `idx_moves_session` ON `game_moves` (`session`)",
+      "CREATE INDEX `idx_moves_session_created` ON `game_moves` (`session`, `created`)"
     ]
   },
   {
@@ -235,10 +279,25 @@
         "name": "payload",
         "type": "json",
         "required": true
+      },
+      {
+        "name": "created",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": false
+      },
+      {
+        "name": "updated",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": true
       }
     ],
     "indexes": [
-      "CREATE UNIQUE INDEX `idx_events_session_seq` ON `session_events` (`session`, `event_seq`)"
+      "CREATE UNIQUE INDEX `idx_events_session_seq` ON `session_events` (`session`, `event_seq`)",
+      "CREATE INDEX `idx_events_session` ON `session_events` (`session`)",
+      "CREATE INDEX `idx_events_session_type` ON `session_events` (`session`, `event_type`)",
+      "CREATE INDEX `idx_events_created` ON `session_events` (`created`)"
     ]
   }
 ]

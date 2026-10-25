@@ -440,4 +440,18 @@ export class SessionRepository {
       };
     });
   }
+
+  /**
+   * Cascade-deletes all sessions created prior to the cutoff timestamp.
+   * Foreign keys with ON DELETE CASCADE automatically purge associated participants,
+   * tokens, moves, and events.
+   */
+  public pruneStaleSessions(olderThanTimestamp: number): Result<{ deletedSessions: number }, string> {
+    return this.sanctuaryDb.transaction(() => {
+      const info = this.db
+        .prepare('DELETE FROM game_sessions WHERE created_at < ?')
+        .run(olderThanTimestamp);
+      return { deletedSessions: info.changes };
+    });
+  }
 }

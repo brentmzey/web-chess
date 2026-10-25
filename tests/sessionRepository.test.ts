@@ -225,6 +225,55 @@ describe('SessionRepository Functional Data Access & Cross-References', () => {
     expect(audit.session.id).toBe(session.id);
   });
 
+  it('prunes stale sessions and cascade-deletes related participants, tokens, moves, and events', () => {
+    // Create an old session (simulated created_at in the past)
+    const oldSession = repo.createSession({ sessionCode: 'SANCT-OLD' }).getOrThrow();
+    db.getRawDb()
+      .prepare('UPDATE game_sessions SET created_at = ? WHERE id = ?')
+      .run(1000, oldSession.id);
+
+    // Create participant, move, token, event attached to old session
+    const part = repo.createParticipant({
+      sessionId: oldSession.id,
+      userId: 'u-old',
+      role: 'white',
+      displayName: 'OldPlayer'
+    }).getOrThrow();
+
+    repo.createToken(oldSession.id, part.id, 'white', 'token-old', 3600000);
+
+    repo.recordMove({
+      sessionId: oldSession.id,
+      participantId: part.id,
+      moveNumber: 1,
+      ply: 1,
+      color: 'w',
+      san: 'e4',
+      uci: 'e2e4',
+      fenBefore: 'start',
+      fenAfter: 'after'
+    });
+
+    repo.recordEvent(oldSession.id, 'session_created', { code: 'SANCT-OLD' });
+
+    // Create a fresh session
+    const freshSession = repo.createSession({ sessionCode: 'SANCT-FRESH' }).getOrThrow();
+
+    // Cutoff between old (1000) and fresh (now)
+    const pruneRes = repo.pruneStaleSessions(2000);
+    expect(pruneRes.isSuccess()).toBe(true);
+    expect(pruneRes.getOrThrow().deletedSessions).toBe(1);
+
+    // Verify old session and children are gone
+    expect(repo.getSessionById(oldSession.id).isNone()).toBe(true);
+    expect(repo.getParticipantsBySession(oldSession.id).length).toBe(0);
+    expect(repo.getMovesBySession(oldSession.id).length).toBe(0);
+    expect(repo.getEventsSince(oldSession.id, 0).length).toBe(0);
+
+    // Verify fresh session still exists
+    expect(repo.getSessionById(freshSession.id).isSome()).toBe(true);
+  });
+
   it('converts error types accurately with toErrorString', () => {
     const { toErrorString } = require('../src/server/db/sessionRepository');
     expect(toErrorString(new Error('Sample error'))).toBe('Sample error');
