@@ -229,8 +229,8 @@ describe('SessionRepository Functional Data Access & Cross-References', () => {
     // Create an old session (simulated created_at in the past)
     const oldSession = repo.createSession({ sessionCode: 'SANCT-OLD' }).getOrThrow();
     db.getRawDb()
-      .prepare('UPDATE game_sessions SET created_at = ? WHERE id = ?')
-      .run(1000, oldSession.id);
+      .prepare('UPDATE game_sessions SET created_at = ?, updated_at = ? WHERE id = ?')
+      .run(1000, 1000, oldSession.id);
 
     // Create participant, move, token, event attached to old session
     const part = repo.createParticipant({

@@ -90,8 +90,8 @@ export async function prunePocketBaseSessions(
     'Content-Type': 'application/json'
   };
 
-  // 2. Fetch Stale Sessions
-  const filter = `created < "${cutoffPocketBase}"`;
+  // 2. Fetch Stale Sessions (no moves or updates in the last N days)
+  const filter = `updated < "${cutoffPocketBase}"`;
   const listUrl = `${url}/api/collections/game_sessions/records?filter=${encodeURIComponent(
     filter
   )}&perPage=${batchSize}&sort=+created`;

@@ -449,7 +449,7 @@ export class SessionRepository {
   public pruneStaleSessions(olderThanTimestamp: number): Result<{ deletedSessions: number }, string> {
     return this.sanctuaryDb.transaction(() => {
       const info = this.db
-        .prepare('DELETE FROM game_sessions WHERE created_at < ?')
+        .prepare('DELETE FROM game_sessions WHERE updated_at < ?')
         .run(olderThanTimestamp);
       return { deletedSessions: info.changes };
     });

@@ -1,9 +1,10 @@
-name: Cleanup Stale Game Sessions
+name: Cleanup Stale Game Sessions (Manual Dispatch Only)
 
+# INACTIVE / MANUAL ONLY:
+# Automated schedule is disabled to avoid consuming GitHub Actions run time.
+# Stale session cleanup is handled server-side via PocketBase JS Hook (`pb_hooks/cleanup.pb.js`)
+# or locally via `bun run pb:cleanup`.
 on:
-  schedule:
-    # Run daily at 03:00 AM UTC
-    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       days:

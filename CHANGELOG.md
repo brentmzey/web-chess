@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.10] - 2026-10-26
+### Changed
+- **Semi-Daily Goja Hook Pruning for Games Inactive for 3 Days (`pb_hooks/cleanup.pb.js`, `src/server/pocketbase/pruner.ts`, `src/server/db/sessionRepository.ts`)**:
+  - Configured PocketBase Goja cron hook to run **twice daily** (`0 3,15 * * *` at 03:00 and 15:00 UTC) to cascade delete game sessions that haven't had a move made in 3 days (`updated < cutoff`).
+  - Switched pruning filters from `created` to `updated` across both PocketBase and SQLite persistence layers, preserving actively contested games while removing abandoned matches.
+- **Deactivated GitHub Actions Cron Schedule (`.github/workflows/cleanup-stale-sessions.yml`)**:
+  - Removed automated cron schedule from GitHub Actions to prevent consuming account minutes; workflow is set to manual `workflow_dispatch` only.
+
 ## [1.2.0-rc.9] - 2026-10-25
 ### Added
 - **Optimized B-Tree Indexing Architecture across all PocketHost Collections (`src/server/pocketbase/schema.json`)**:
