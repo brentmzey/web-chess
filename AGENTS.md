@@ -64,5 +64,13 @@ When operating in this repository, agents must adhere to the following without e
    - In accordance with `/Users/brentzey/personal/AGENTS.md`, agents must ALWAYS globally scan and search for vulnerabilities, exposed credentials, API keys, and sensitive tokens in the repository prior to finalizing any turn or pushing to remote.
    - NEVER commit or push real secrets, admin credentials, database tokens, or PocketHost superuser passwords to git or remote. Always inject via environment variables (`PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD` sourced from `~/.zshrc`).
    - Always verify that `.env` files and local secrets are excluded via `.gitignore`, inspect `git diff`, and confirm zero sensitive leaks before pushing to remote.
+9. **Persistent Pre-Approved Command Permissions & Operational Guardrails**:
+   - The user has granted persistent standing permission for agents operating in this workspace to automatically run the following commands without requiring repeated turn-by-turn interactive confirmation (unless explicitly revoked or restricted in a subsequent user request):
+     - **Testing & Quality Assurance**: `bun test`, `bun run test:coverage`, `bun run typecheck`, `bun run build`.
+     - **Environment Variable Sourcing**: Sourcing `~/.zshrc` in zsh subshells (`source ~/.zshrc 2>/dev/null; ...`) to securely access environment-injected credentials (`PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`) without exposing secrets in files or terminal logs.
+     - **PocketHost Database Maintenance**: `bun run pb:migrate` (schema and index migrations) and `bun run pb:cleanup` (stale session cascade pruning and observability logging).
+     - **Security & Secret Scanning**: `git diff`, `git grep`, and regex scans to audit for sensitive tokens, passwords, and API keys.
+     - **Automated Versioning, Git Commits & Remote Push**: Staging verified files, bumping `RC#` in `package.json` and `CHANGELOG.md`, committing with descriptive semantic messages, and pushing to `origin/main` to trigger production deployment once all tests pass with 100% line/branch coverage and zero type errors.
+   - **Revocation Rule**: If the user explicitly specifies in a prompt to refrain from an action (e.g., *"do not commit"*, *"do not push"*, *"only show diff"*, *"pause before deploy"*), agents MUST immediately prioritize and adhere to that specific instruction over these pre-approved defaults.
 
 

@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.12] - 2026-10-26
+### Added
+- **Partitioned Historical Audit Architecture (`tbl_audit_cleanup_logs_history`, `src/server/pocketbase/schema.json`, `src/server/db/schema.sql`, `src/server/db/sessionRepository.ts`, `src/server/pocketbase/pruner.ts`, `pb_hooks/cleanup.pb.js`)**:
+  - Implemented automatic partition rollover from the active Hungarian-notated audit table (`tbl_audit_cleanup_logs`) into a dedicated cold storage history table (`tbl_audit_cleanup_logs_history`).
+  - Added schema specification with matching Hungarian-prefixed columns (`txt_trace_id`, `txt_trigger_source`, `int_deleted_sessions`, `txt_cutoff_timestamp`, `txt_pruned_codes_json`, `int_duration_ms`, `bln_success`, `txt_error_message`, `created`, `updated`) and performance indices (`idx_tbl_audit_hist_trace`, `idx_tbl_audit_hist_created`, `idx_tbl_audit_hist_source`).
+  - Created and applied live PocketHost migration for collection `tbl_audit_cleanup_logs_history` (`pbc_2694825927`).
+  - Implemented automated 30-day archival threshold: audit entries older than 30 days are automatically archived to the history table and evicted from the primary table, keeping the primary active table lean and sub-millisecond fast.
+  - Added `SessionRepository.archiveCleanupAudits` and `SessionRepository.getHistoricalCleanupAudits` to the SQLite persistence layer.
+- **Persistent Pre-Approved Command Permissions (`AGENTS.md`)**:
+  - Documented Rule 9 in `AGENTS.md` explicitly defining persistent user-approved operational permissions (Bun testing and building, shell credential sourcing via `~/.zshrc`, automated migrations, security scans, and committing/pushing upon verification) to maintain autonomous velocity without breaking guardrails.
+
 ## [1.2.0-rc.11] - 2026-10-26
 ### Added
 - **Hungarian-Prefixed Namespaced Audit & Observability Table (`tbl_audit_cleanup_logs`, `src/server/pocketbase/schema.json`, `src/server/db/schema.sql`, `src/server/pocketbase/pruner.ts`, `pb_hooks/cleanup.pb.js`)**:

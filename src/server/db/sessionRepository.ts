@@ -517,4 +517,42 @@ export class SessionRepository {
       .prepare('SELECT * FROM tbl_audit_cleanup_logs ORDER BY created_at DESC LIMIT ?')
       .all(limit) || []) as any;
   }
+
+  /**
+   * Partitions and moves audit logs older than the threshold into tbl_audit_cleanup_logs_history,
+   * keeping the active tbl_audit_cleanup_logs table lean and fast.
+   */
+  public archiveCleanupAudits(olderThanTimestamp: number): Result<{ archivedLogs: number }, string> {
+    return this.sanctuaryDb.transaction(() => {
+      this.db
+        .prepare(`
+          INSERT INTO tbl_audit_cleanup_logs_history
+          SELECT * FROM tbl_audit_cleanup_logs WHERE created_at < ?
+        `)
+        .run(olderThanTimestamp);
+
+      const info = this.db
+        .prepare('DELETE FROM tbl_audit_cleanup_logs WHERE created_at < ?')
+        .run(olderThanTimestamp);
+
+      return { archivedLogs: info.changes };
+    });
+  }
+
+  public getHistoricalCleanupAudits(limit: number = 20): Array<{
+    id: string;
+    txt_trace_id: string;
+    txt_trigger_source: string;
+    int_deleted_sessions: number;
+    txt_cutoff_timestamp: string;
+    txt_pruned_codes_json: string;
+    int_duration_ms: number;
+    bln_success: number;
+    txt_error_message: string | null;
+    created_at: number;
+  }> {
+    return (this.db
+      .prepare('SELECT * FROM tbl_audit_cleanup_logs_history ORDER BY created_at DESC LIMIT ?')
+      .all(limit) || []) as any;
+  }
 }

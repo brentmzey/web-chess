@@ -126,6 +126,9 @@ To guarantee sub-millisecond query latency and sub-10ms real-time event distribu
 | `tbl_audit_cleanup_logs` | `idx_tbl_audit_trace` | `UNIQUE(txt_trace_id)` | Instant lookup by cleanup trace correlation ID. |
 | `tbl_audit_cleanup_logs` | `idx_tbl_audit_created` | `(created)` | Chronological audit queries and maintenance retention. |
 | `tbl_audit_cleanup_logs` | `idx_tbl_audit_source` | `(txt_trigger_source)` | Performance metrics by trigger source (hook vs. CLI). |
+| `tbl_audit_cleanup_logs_history` | `idx_tbl_audit_hist_trace` | `UNIQUE(txt_trace_id)` | Fast historical trace correlation lookup. |
+| `tbl_audit_cleanup_logs_history` | `idx_tbl_audit_hist_created` | `(created)` | Cold-storage time-series queries and compliance reporting. |
+| `tbl_audit_cleanup_logs_history` | `idx_tbl_audit_hist_source` | `(txt_trigger_source)` | Historical origin segmentation across pruning cycles. |
 
 ---
 
@@ -146,7 +149,9 @@ To prevent database bloat over time while keeping PocketHost lightning-fast and 
      - `int_duration_ms`: Execution duration in milliseconds.
      - `bln_success`: Execution status flag.
      - `txt_error_message`: Error diagnostics (if any).
-   - **Self-Trimming Anti-Bloat**: Each prune run automatically trims audit log entries older than 90 days, guaranteeing that the audit table itself remains tiny (<100KB) and highly searchable.
+   - **Partition Rollover & Cold-Storage Archival (`tbl_audit_cleanup_logs_history`)**:
+     - To keep the active `tbl_audit_cleanup_logs` table lean (under 50 rows) and guarantee lightning-fast writes, records older than **30 days** are automatically archived to `tbl_audit_cleanup_logs_history` during each pruning run.
+     - The history table retains the full indexed schema and Hungarian-notated attributes for long-term historical tracing, compliance, and auditing without degrading the performance of active operations.
 3. **On-Demand & Maintenance CLI Pruning (`scripts/pb-cleanup.ts`)**:
    - Run anytime via Bun:
      ```bash

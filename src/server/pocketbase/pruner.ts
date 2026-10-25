@@ -196,16 +196,32 @@ export async function prunePocketBaseSessions(
     }
   });
 
-  // 5. Self-maintenance: prune audit logs older than 90 days to prevent audit table bloat
+  // 5. Partitioned Archival Maintenance: move audit logs older than retention cutoff (30 days) to tbl_audit_cleanup_logs_history
   await tryCatchAsync(async () => {
-    const auditRetentionCutoff = epochMsToIso(startTime - 90 * 86_400_000).replace('T', ' ').replace('Z', '');
+    const auditRetentionCutoff = epochMsToIso(startTime - 30 * 86_400_000).replace('T', ' ').replace('Z', '');
     const oldAuditRes = await fetch(
       `${url}/api/collections/tbl_audit_cleanup_logs/records?filter=${encodeURIComponent(`created < "${auditRetentionCutoff}"`)}&perPage=50`,
       { headers }
     );
     if (oldAuditRes.ok) {
-      const oldLogs = (await oldAuditRes.json()) as { items: Array<{ id: string }> };
+      const oldLogs = (await oldAuditRes.json()) as { items: Array<Record<string, any>> };
       for (const log of oldLogs.items) {
+        // Copy to history partition table
+        await fetch(`${url}/api/collections/tbl_audit_cleanup_logs_history/records`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            txt_trace_id: log.txt_trace_id,
+            txt_trigger_source: log.txt_trigger_source,
+            int_deleted_sessions: log.int_deleted_sessions,
+            txt_cutoff_timestamp: log.txt_cutoff_timestamp,
+            txt_pruned_codes_json: log.txt_pruned_codes_json,
+            int_duration_ms: log.int_duration_ms,
+            bln_success: log.bln_success,
+            txt_error_message: log.txt_error_message || ''
+          })
+        });
+        // Remove from active table so active table stays completely lean
         await fetch(`${url}/api/collections/tbl_audit_cleanup_logs/records/${log.id}`, {
           method: 'DELETE',
           headers

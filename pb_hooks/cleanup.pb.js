@@ -64,10 +64,23 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
             auditRec.set("txt_error_message", errorMessage);
             $app.save(auditRec);
 
-            // Maintain audit table: trim audit logs older than 90 days
-            const ninetyDaysAgo = new Date(startTime - (90 * 24 * 60 * 60 * 1000)).toISOString().replace("T", " ");
-            const oldLogs = $app.findRecordsByFilter("tbl_audit_cleanup_logs", "created < {:cutoff}", "-created", 50, 0, { cutoff: ninetyDaysAgo });
+            // Partitioned Archival Maintenance: move audit logs older than 30 days to tbl_audit_cleanup_logs_history
+            const thirtyDaysAgo = new Date(startTime - (30 * 24 * 60 * 60 * 1000)).toISOString().replace("T", " ");
+            const histCol = $app.findCollectionByNameOrId("tbl_audit_cleanup_logs_history");
+            const oldLogs = $app.findRecordsByFilter("tbl_audit_cleanup_logs", "created < {:cutoff}", "-created", 50, 0, { cutoff: thirtyDaysAgo });
             for (const oldLog of oldLogs) {
+                if (histCol) {
+                    const histRec = new Record(histCol);
+                    histRec.set("txt_trace_id", oldLog.getString("txt_trace_id"));
+                    histRec.set("txt_trigger_source", oldLog.getString("txt_trigger_source"));
+                    histRec.set("int_deleted_sessions", oldLog.getInt("int_deleted_sessions"));
+                    histRec.set("txt_cutoff_timestamp", oldLog.getString("txt_cutoff_timestamp"));
+                    histRec.set("txt_pruned_codes_json", oldLog.get("txt_pruned_codes_json"));
+                    histRec.set("int_duration_ms", oldLog.getInt("int_duration_ms"));
+                    histRec.set("bln_success", oldLog.getBool("bln_success"));
+                    histRec.set("txt_error_message", oldLog.getString("txt_error_message"));
+                    $app.save(histRec);
+                }
                 $app.delete(oldLog);
             }
         }

@@ -298,6 +298,19 @@ describe('SessionRepository Functional Data Access & Cross-References', () => {
     expect(first.int_deleted_sessions).toBe(3);
     expect(first.bln_success).toBe(1);
     expect(JSON.parse(first.txt_pruned_codes_json)).toEqual(['SANCT-1', 'SANCT-2', 'SANCT-3']);
+
+    // Partition rollover test: move logs older than future cutoff to history table
+    const archiveRes = repo.archiveCleanupAudits(Date.now() + 100000);
+    expect(archiveRes.isSuccess()).toBe(true);
+    expect(archiveRes.getOrThrow().archivedLogs).toBeGreaterThanOrEqual(1);
+
+    // Active table should now be empty
+    expect(repo.getCleanupAudits(10).length).toBe(0);
+
+    // History table should hold the archived log
+    const histLogs = repo.getHistoricalCleanupAudits(10);
+    expect(histLogs.length).toBeGreaterThanOrEqual(1);
+    expect(histLogs[0]!.txt_trace_id).toBe('trc_test_123');
   });
 
   it('converts error types accurately with toErrorString', () => {

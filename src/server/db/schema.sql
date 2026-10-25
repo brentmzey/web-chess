@@ -120,6 +120,20 @@ CREATE TABLE IF NOT EXISTS tbl_audit_cleanup_logs (
     created_at INTEGER NOT NULL
 );
 
+-- 7. Partitioned Audit Cleanup History Table (Long-term historical archive)
+CREATE TABLE IF NOT EXISTS tbl_audit_cleanup_logs_history (
+    id TEXT PRIMARY KEY,
+    txt_trace_id TEXT NOT NULL UNIQUE,
+    txt_trigger_source TEXT NOT NULL CHECK (txt_trigger_source IN ('cron_hook', 'cli_manual', 'api_maintenance')),
+    int_deleted_sessions INTEGER NOT NULL,
+    txt_cutoff_timestamp TEXT NOT NULL,
+    txt_pruned_codes_json TEXT NOT NULL,
+    int_duration_ms INTEGER NOT NULL,
+    bln_success INTEGER NOT NULL CHECK (bln_success IN (0, 1)),
+    txt_error_message TEXT,
+    created_at INTEGER NOT NULL
+);
+
 -- ============================================================================
 -- Indices for High-Throughput Relational Queries, Lookups and Joins
 -- ============================================================================
@@ -153,3 +167,8 @@ CREATE INDEX IF NOT EXISTS ix_session_events_created ON session_events(created_a
 CREATE UNIQUE INDEX IF NOT EXISTS uq_tbl_audit_trace ON tbl_audit_cleanup_logs(txt_trace_id);
 CREATE INDEX IF NOT EXISTS ix_tbl_audit_created ON tbl_audit_cleanup_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_tbl_audit_source ON tbl_audit_cleanup_logs(txt_trigger_source);
+
+-- Partitioned Audit History Indices
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tbl_audit_hist_trace ON tbl_audit_cleanup_logs_history(txt_trace_id);
+CREATE INDEX IF NOT EXISTS ix_tbl_audit_hist_created ON tbl_audit_cleanup_logs_history(created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_tbl_audit_hist_source ON tbl_audit_cleanup_logs_history(txt_trigger_source);
