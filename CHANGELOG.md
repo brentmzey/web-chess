@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.8] - 2026-10-25
+### Added
+- **Live Match Opponent Mode Lock & State Preservation (`index.html`, `src/ui/uiController.ts`, `src/main.ts`, `tests/uiController.test.ts`)**:
+  - Locked the opponent mode selection whenever a live 1v1 multiplayer match is active (`currentMode === GameModeEnum.Live`), preventing accidental corruption of active peer sessions:
+    - Disabled non-live opponent mode cards (`data-mode-select !== 'live'`) in the Game Settings / Pre-Game modal (`#pregame-modal`) with visual lock indicators (`#pregame-mode-lock-notice`), muted styling (`opacity-30`, `cursor-not-allowed`, `pointer-events-none`), and explicit `disabled` attributes.
+    - Locked the bottom bar mode cycling chip (`#btn-mode`), displaying a notification banner explaining that the live multiplayer match is locked to the remote peer.
+    - Added programmatic guards in `selectGameMode` and `.mode-select-card` click listeners to reject any transitions away from `GameModeEnum.Live` while connected to a live session.
+  - Added a prominent `#live-active-banner` within the Live Session modal displaying the active session code (`#live-active-code`) and a dedicated `#btn-leave-live-session` ("Leave Match") action.
+  - Implemented clean exit workflow in `#btn-leave-live-session`: safely disconnects the active PocketHost SSE client, clears encrypted live session persistence, cleans URL query parameters, resets the local board, restores Minimax engine mode, and displays a confirmation notification.
+
 ## [1.2.0-rc.7] - 2026-10-25
 ### Added
 - **Comprehensive Documentation Suite & Architecture Overhaul (`README.md`, `docs/`, `CONTRIBUTING.md`)**:

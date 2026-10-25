@@ -296,10 +296,16 @@
 
             <!-- 1. Select Style of Play (Opponent Engine) -->
             <div class="space-y-2">
-                <label class="text-xs font-cathedral font-bold text-amber-200 uppercase tracking-wider flex items-center gap-1.5">
-                    <span class="material-symbols-rounded text-sm">psychology</span>
-                    <span>1. Opponent Style of Play</span>
-                </label>
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-cathedral font-bold text-amber-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="material-symbols-rounded text-sm">psychology</span>
+                        <span>1. Opponent Style of Play</span>
+                    </label>
+                    <span id="pregame-mode-lock-notice" class="hidden text-[10px] text-sky-300 font-sans font-semibold flex items-center gap-1">
+                        <span class="material-symbols-rounded text-xs">lock</span>
+                        <span>Locked in Live Match</span>
+                    </span>
+                </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="pregame-mode-grid">
                     <button type="button" data-mode-select="minimax" class="mode-select-card text-left p-3 rounded-2xl bg-white/5 hover:bg-amber-400/15 border border-amber-400/60 transition flex flex-col gap-1">
                         <div class="flex items-center justify-between">
@@ -613,6 +619,21 @@
                 </div>
                 <button type="button" id="close-live-session-btn" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Live Match Modal">
                     <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+
+            <!-- Active Session Status & Leave Option (Visible only when in Live Match) -->
+            <div id="live-active-banner" class="hidden p-3 rounded-2xl bg-sky-950/80 border border-sky-400/50 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-sky-300 block tracking-wider">Live Match Active</span>
+                        <span class="text-xs text-stone-200">Session: <span id="live-active-code" class="font-mono text-amber-200 font-bold">SANCT-XXXX</span></span>
+                    </div>
+                </div>
+                <button type="button" id="btn-leave-live-session" class="px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-400/40 text-red-200 text-xs font-bold flex items-center gap-1 transition shrink-0">
+                    <span class="material-symbols-rounded text-sm">logout</span>
+                    <span>Leave Match</span>
                 </button>
             </div>
 

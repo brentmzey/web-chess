@@ -226,7 +226,16 @@ function main(): void {
       el.textContent = modeCfg.icon;
     });
     fromNullable(document.getElementById('btn-mode')).map(btn => {
-      btn.title = `${modeCfg.label}: ${modeCfg.description} (Click to cycle)`;
+      matchBool(currentMode === GameModeEnum.Live, {
+        true: () => {
+          btn.title = 'Live Multiplayer Match Active: Opponent mode locked to remote peer';
+          btn.classList.add('opacity-75', 'cursor-not-allowed', 'border-sky-400/50');
+        },
+        false: () => {
+          btn.title = `${modeCfg.label}: ${modeCfg.description} (Click to cycle)`;
+          btn.classList.remove('opacity-75', 'cursor-not-allowed', 'border-sky-400/50');
+        }
+      });
     });
 
     fromNullable(document.getElementById('theme-label')).map(el => {
@@ -309,13 +318,60 @@ function main(): void {
       }
     );
 
-    // Pre-game mode selection cards highlight
+    // Active Live Session lock state & banner toggle
+    const isLiveActive = currentMode === GameModeEnum.Live;
+    ui.setLiveMatchActive(isLiveActive, chessStore.getState().liveSession?.sessionCode);
+
+    // Pre-game mode selection cards highlight & lock
     document.querySelectorAll('.mode-select-card').forEach(card => {
       const cardMode = card.getAttribute('data-mode-select');
       const isSelected = cardMode === currentMode;
-      card.classList.toggle('border-amber-400/70', isSelected);
-      card.classList.toggle('bg-amber-400/15', isSelected);
-      card.classList.toggle('border-white/10', !isSelected);
+
+      matchBool(isLiveActive, {
+        true: () => {
+          matchBool(cardMode === 'live', {
+            true: () => {
+              card.classList.add('border-sky-400/80', 'bg-sky-400/20');
+              card.classList.remove(
+                'border-white/10',
+                'border-amber-400/70',
+                'bg-amber-400/15',
+                'opacity-30',
+                'cursor-not-allowed',
+                'pointer-events-none'
+              );
+              (card as HTMLButtonElement).disabled = false;
+            },
+            false: () => {
+              card.classList.remove(
+                'border-amber-400/70',
+                'bg-amber-400/15',
+                'border-sky-400/80',
+                'bg-sky-400/20'
+              );
+              card.classList.add(
+                'border-white/10',
+                'opacity-30',
+                'cursor-not-allowed',
+                'pointer-events-none'
+              );
+              (card as HTMLButtonElement).disabled = true;
+              card.setAttribute(
+                'title',
+                'Opponent mode locked during active Live Multiplayer Match'
+              );
+            }
+          });
+        },
+        false: () => {
+          card.classList.remove('opacity-30', 'cursor-not-allowed', 'pointer-events-none');
+          (card as HTMLButtonElement).disabled = false;
+          card.removeAttribute('title');
+          card.classList.toggle('border-amber-400/70', isSelected);
+          card.classList.toggle('bg-amber-400/15', isSelected);
+          card.classList.toggle('border-white/10', !isSelected);
+        }
+      });
     });
 
     // Pre-game difficulty buttons highlight & tailored description
@@ -899,6 +955,14 @@ function main(): void {
 
   // Mode Selection Logic
   async function selectGameMode(nextMode: GameModeEnum): Promise<void> {
+    if (currentMode === GameModeEnum.Live && nextMode !== GameModeEnum.Live) {
+      ui.showTemporaryBanner(
+        'Live Multiplayer Match active. Opponent mode is locked to preserve session integrity.',
+        3200
+      );
+      return;
+    }
+
     if (nextMode === GameModeEnum.Live) {
       ui.showLiveSessionModal();
       return;
@@ -1108,6 +1172,13 @@ function main(): void {
   document.querySelectorAll('.mode-select-card').forEach(card => {
     card.addEventListener('click', () => {
       fromNullable(card.getAttribute('data-mode-select') as GameModeEnum | null).map(modeAttr => {
+        if (currentMode === GameModeEnum.Live && modeAttr !== GameModeEnum.Live) {
+          ui.showTemporaryBanner(
+            'Live Multiplayer Match active. Opponent mode is locked to preserve session integrity.',
+            3200
+          );
+          return;
+        }
         soundFX.playSelect();
         void selectGameMode(modeAttr);
       });
@@ -1276,6 +1347,13 @@ function main(): void {
   // Cycle Game Mode from Bottom Bar
   fromNullable(document.getElementById('btn-mode')).map(btn =>
     btn.addEventListener('click', async () => {
+      if (currentMode === GameModeEnum.Live) {
+        ui.showTemporaryBanner(
+          'Live Multiplayer Match active. Conclude or exit match before changing opponent mode.',
+          3000
+        );
+        return;
+      }
       const availableModes = GAME_MODES.filter(
         m => !(deviceProfile.tier === DeviceTierEnum.MobileLite && m.desktopOnly)
       );
@@ -1644,6 +1722,29 @@ function main(): void {
       syncAllControlsUI();
       ui.hideLiveSessionModal();
       ui.showTemporaryBanner('Entered Live Sanctuary. Awaiting opponent move/connection.', 3000);
+    })
+  );
+
+  fromNullable(document.getElementById('btn-leave-live-session')).map(btn =>
+    btn.addEventListener('click', () => {
+      if (activeRealtimeClient) {
+        activeRealtimeClient.disconnect();
+        activeRealtimeClient = null;
+      }
+      currentMode = GameModeEnum.Minimax;
+      liveUserRole = 'white';
+      chessStore.setState({ mode: GameModeEnum.Minimax, liveSession: undefined });
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+      chess.reset();
+      syncBoardPiecesWithChessState();
+      updateHighlights();
+      syncAllControlsUI();
+      void persistCurrentSession();
+      ui.hideLiveSessionModal();
+      soundFX.playSelect();
+      ui.showTemporaryBanner('Exited Live Match. Opponent mode restored to Minimax Engine.', 3500);
     })
   );
 

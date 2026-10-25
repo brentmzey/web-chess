@@ -72,6 +72,16 @@ The Live Match Setup dialog ([`index.html`](file:///Users/brentzey/personal/web-
 
 ---
 
+## 🛡️ Session Integrity & Opponent Mode Locking
+
+To prevent accidental corruption of active live matches (such as local AI engines evaluating and overriding peer moves, or wiping the session state mid-game):
+* **Bottom Bar Mode Locking (`#btn-mode`)**: The mode chip is visually locked (`cursor-not-allowed`) and guarded against cycling away from Live Mode. Clicking it displays a notification that the match is locked to the remote peer.
+* **Pre-Game Settings Locking (`#pregame-modal`)**: In the match settings modal, all non-live opponent mode options (Pass & Play, Minimax Engine, Micro-Neural, and Gemini Nano) are disabled (`disabled = true`, `opacity-30`, `pointer-events-none`) with a visual `Locked in Live Match` badge (`#pregame-mode-lock-notice`).
+* **Programmatic Mode Guards**: `selectGameMode` enforces that mode transitions away from `GameModeEnum.Live` are rejected while an active session exists.
+* **Deliberate Match Exit (`#btn-leave-live-session`)**: Players who wish to conclude or exit an active match can do so cleanly via the "Leave Match" action in the Live Session modal (`#live-active-banner`), which disconnects the SSE client, clears encrypted live session data, purges URL parameters, and safely restores solo Minimax play.
+
+---
+
 ## 🔒 Security Rules & Abuse Prevention
 
 The PocketHost schema is protected by defense-in-depth security policies:

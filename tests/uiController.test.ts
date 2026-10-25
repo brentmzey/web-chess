@@ -79,7 +79,11 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'live-created-info': new MockElement(),
       'live-created-code': new MockElement(),
       'live-created-url': new MockElement(),
-      'live-join-error': new MockElement()
+      'live-join-error': new MockElement(),
+      'live-active-banner': new MockElement(),
+      'live-active-code': new MockElement(),
+      'btn-leave-live-session': new MockElement(),
+      'pregame-mode-lock-notice': new MockElement()
     };
 
     (globalThis as any).document = {
@@ -340,6 +344,17 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     ui.clearLiveJoinError();
     expect(domElements['live-join-error']?.textContent).toBe('');
     expect(domElements['live-join-error']?.classList.contains('hidden')).toBe(true);
+
+    // Live Match Active locks & banner toggle
+    ui.setLiveMatchActive(true, 'SANCT-ACTIVE');
+    expect(domElements['live-active-banner']?.classList.contains('hidden')).toBe(false);
+    expect(domElements['live-active-code']?.textContent).toBe('SANCT-ACTIVE');
+    expect(domElements['pregame-mode-lock-notice']?.classList.contains('hidden')).toBe(false);
+
+    ui.setLiveMatchActive(false);
+    expect(domElements['live-active-banner']?.classList.contains('hidden')).toBe(true);
+    expect(domElements['live-active-code']?.textContent).toBe('');
+    expect(domElements['pregame-mode-lock-notice']?.classList.contains('hidden')).toBe(true);
   });
 });
 

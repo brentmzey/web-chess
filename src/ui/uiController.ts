@@ -73,6 +73,10 @@ export interface UIControllerElements {
   liveCreatedCode: HTMLElement | null;
   liveCreatedUrl: HTMLInputElement | null;
   liveJoinError: HTMLElement | null;
+  liveActiveBanner: HTMLElement | null;
+  liveActiveCode: HTMLElement | null;
+  btnLeaveLiveSession: HTMLButtonElement | null;
+  pregameModeLockNotice: HTMLElement | null;
 }
 
 export class UIController {
@@ -119,7 +123,11 @@ export class UIController {
       liveCreatedInfo: document.getElementById('live-created-info'),
       liveCreatedCode: document.getElementById('live-created-code'),
       liveCreatedUrl: document.getElementById('live-created-url') as HTMLInputElement | null,
-      liveJoinError: document.getElementById('live-join-error')
+      liveJoinError: document.getElementById('live-join-error'),
+      liveActiveBanner: document.getElementById('live-active-banner'),
+      liveActiveCode: document.getElementById('live-active-code'),
+      btnLeaveLiveSession: document.getElementById('btn-leave-live-session') as HTMLButtonElement | null,
+      pregameModeLockNotice: document.getElementById('pregame-mode-lock-notice')
     };
   }
 
@@ -491,6 +499,18 @@ export class UIController {
     fromNullable(this.el.liveJoinError).map(errEl => {
       errEl.textContent = '';
       errEl.classList.add('hidden');
+    });
+  }
+
+  public setLiveMatchActive(active: boolean, sessionCode?: string): void {
+    fromNullable(this.el.liveActiveBanner).map(banner => {
+      banner.classList.toggle('hidden', !active);
+    });
+    fromNullable(this.el.liveActiveCode).map(codeEl => {
+      codeEl.textContent = sessionCode || '';
+    });
+    fromNullable(this.el.pregameModeLockNotice).map(notice => {
+      notice.classList.toggle('hidden', !active);
     });
   }
 }
