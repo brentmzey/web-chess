@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.13] - 2026-10-26
+### Added
+- **PocketBase Goja Cron Hook Sandboxed Unit Testing (`tests/cleanupHook.test.ts`)**:
+  - Engineered unit testing suite executing `pb_hooks/cleanup.pb.js` inside an emulated PocketBase Goja VM context with mock `$app` and `cronAdd` APIs.
+  - Verified schedule registration (`0 3,15 * * *`), stale session cascade deletion, structured audit logging into `tbl_audit_cleanup_logs`, 30-day partition rollover into `tbl_audit_cleanup_logs_history`, and non-crashing error resilience.
+- **End-to-End Pruning & Partitioned Archival Integration Testing (`tests/integration.test.ts`, `tests/pruner.test.ts`)**:
+  - Added end-to-end integration test verifying complete lifecycle: creating stale sessions with participants, moves, and events, executing cascade pruning, recording Hungarian trace logs, and archiving older records to cold-storage history.
+  - Expanded `tests/pruner.test.ts` to assert partition rollover payloads and verified live execution against PocketHost via `bun run pb:cleanup`.
+
 ## [1.2.0-rc.12] - 2026-10-26
 ### Added
 - **Partitioned Historical Audit Architecture (`tbl_audit_cleanup_logs_history`, `src/server/pocketbase/schema.json`, `src/server/db/schema.sql`, `src/server/db/sessionRepository.ts`, `src/server/pocketbase/pruner.ts`, `pb_hooks/cleanup.pb.js`)**:

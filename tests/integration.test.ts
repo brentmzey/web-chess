@@ -671,4 +671,90 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
 
     await clearSessionState();
   });
+
+  it('verifies end-to-end cascade pruning and partitioned historical audit lifecycle', () => {
+    const { SanctuaryDatabase } = require('../src/server/db/database');
+    const { SessionRepository } = require('../src/server/db/sessionRepository');
+
+    const db = new SanctuaryDatabase(':memory:');
+    const repo = new SessionRepository(db);
+
+    // 1. Create stale and active sessions with participants, moves, and events
+    const staleSession = repo.createSession({ sessionCode: 'SANCT-PRUNE1' }).getOrThrow();
+    db.getRawDb()
+      .prepare('UPDATE game_sessions SET created_at = ?, updated_at = ? WHERE id = ?')
+      .run(1000, 1000, staleSession.id);
+
+    const partStale = repo
+      .createParticipant({
+        sessionId: staleSession.id,
+        userId: 'u-host',
+        role: 'white',
+        displayName: 'HostPlayer'
+      })
+      .getOrThrow();
+
+    repo.recordMove({
+      sessionId: staleSession.id,
+      participantId: partStale.id,
+      moveNumber: 1,
+      ply: 1,
+      color: 'w',
+      san: 'e4',
+      uci: 'e2e4',
+      fenBefore: 'start',
+      fenAfter: 'after'
+    });
+    repo.recordEvent(staleSession.id, 'move_made', { san: 'e4' });
+
+    const activeSession = repo.createSession({ sessionCode: 'SANCT-ACTIVE1' }).getOrThrow();
+    repo.createParticipant({
+      sessionId: activeSession.id,
+      userId: 'u-guest',
+      role: 'white',
+      displayName: 'GuestPlayer'
+    });
+
+    // 2. Perform cascade pruning for sessions inactive for 3 days
+    const cutoffMs = Date.now() - 3 * 86_400_000;
+    const pruneRes = repo.pruneStaleSessions(cutoffMs);
+    expect(pruneRes.isSuccess()).toBe(true);
+    expect(pruneRes.getOrThrow().deletedSessions).toBe(1);
+
+    // 3. Verify cascade cleanup purged all associated child records
+    expect(repo.getSessionById(staleSession.id).isNone()).toBe(true);
+    expect(repo.getParticipantsBySession(staleSession.id).length).toBe(0);
+    expect(repo.getMovesBySession(staleSession.id).length).toBe(0);
+    expect(repo.getEventsSince(staleSession.id, 0).length).toBe(0);
+
+    // 4. Verify active session remains untouched
+    expect(repo.getSessionById(activeSession.id).isSome()).toBe(true);
+    expect(repo.getParticipantsBySession(activeSession.id).length).toBe(1);
+
+    // 5. Write structured Hungarian-prefixed audit record
+    const auditRes = repo.recordCleanupAudit({
+      traceId: 'trc_e2e_cleanup_999',
+      triggerSource: 'cron_hook',
+      deletedSessions: 1,
+      cutoffTimestamp: '2026-10-23 12:00:00',
+      prunedCodes: ['SANCT-PRUNE1'],
+      durationMs: 42,
+      success: true
+    });
+    expect(auditRes.isSuccess()).toBe(true);
+
+    // 6. Partition rollover: archive audit records older than threshold to history table
+    const archiveRes = repo.archiveCleanupAudits(Date.now() + 60_000);
+    expect(archiveRes.isSuccess()).toBe(true);
+    expect(archiveRes.getOrThrow().archivedLogs).toBe(1);
+
+    // 7. Verify active table is clean and history table holds the archived audit log
+    expect(repo.getCleanupAudits(10).length).toBe(0);
+    const hist = repo.getHistoricalCleanupAudits(10);
+    expect(hist.length).toBe(1);
+    expect(hist[0]!.txt_trace_id).toBe('trc_e2e_cleanup_999');
+    expect(hist[0]!.txt_trigger_source).toBe('cron_hook');
+    expect(hist[0]!.int_deleted_sessions).toBe(1);
+    expect(hist[0]!.bln_success).toBe(1);
+  });
 });

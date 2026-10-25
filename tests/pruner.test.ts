@@ -11,6 +11,8 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
   it('authenticates with _superusers, queries stale sessions, cascade deletes them, and writes audit record', async () => {
     const deletedIds: string[] = [];
     let auditBody: any = null;
+    let historyBody: any = null;
+    const deletedOldAuditLogs: string[] = [];
 
     globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       const urlStr = url.toString();
@@ -47,13 +49,38 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
         return new Response(JSON.stringify({ id: 'audit_rec_123' }), { status: 200 });
       }
 
-      // 5. Query old audit logs for self-trimming
+      // 5. Query old audit logs for partition archival
       if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records?filter=')) {
-        return new Response(JSON.stringify({ items: [{ id: 'old_log_1' }] }), { status: 200 });
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'old_log_1',
+                txt_trace_id: 'trc_old_001',
+                txt_trigger_source: 'cron_hook',
+                int_deleted_sessions: 3,
+                txt_cutoff_timestamp: '2026-09-01 00:00:00',
+                txt_pruned_codes_json: ['SANCT-OLD1'],
+                int_duration_ms: 120,
+                bln_success: true,
+                txt_error_message: ''
+              }
+            ]
+          }),
+          { status: 200 }
+        );
       }
 
-      // 6. Delete old audit log
+      // 6. Partition rollover: copy to tbl_audit_cleanup_logs_history
+      if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs_history/records') && init?.method === 'POST') {
+        historyBody = JSON.parse(init.body as string);
+        return new Response(JSON.stringify({ id: 'hist_rec_123' }), { status: 200 });
+      }
+
+      // 7. Delete old audit log from active tbl_audit_cleanup_logs
       if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records/') && init?.method === 'DELETE') {
+        const id = urlStr.split('/').pop()!;
+        deletedOldAuditLogs.push(id);
         return new Response('', { status: 204 });
       }
 
@@ -79,6 +106,12 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     expect(report.triggerSource).toBe('cli_manual');
     expect(auditBody.int_deleted_sessions).toBe(2);
     expect(auditBody.bln_success).toBe(true);
+
+    // Verify partition archival
+    expect(historyBody).not.toBeNull();
+    expect(historyBody.txt_trace_id).toBe('trc_old_001');
+    expect(historyBody.int_deleted_sessions).toBe(3);
+    expect(deletedOldAuditLogs).toEqual(['old_log_1']);
   });
 
   it('falls back to admin authentication if _superusers endpoint is unavailable', async () => {
