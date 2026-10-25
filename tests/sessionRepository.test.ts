@@ -274,6 +274,32 @@ describe('SessionRepository Functional Data Access & Cross-References', () => {
     expect(repo.getSessionById(freshSession.id).isSome()).toBe(true);
   });
 
+  it('records and queries Hungarian-prefixed audit logs in tbl_audit_cleanup_logs', () => {
+    const auditRes = repo.recordCleanupAudit({
+      traceId: 'trc_test_123',
+      triggerSource: 'cli_manual',
+      deletedSessions: 3,
+      cutoffTimestamp: '2026-10-23 00:00:00.000',
+      prunedCodes: ['SANCT-1', 'SANCT-2', 'SANCT-3'],
+      durationMs: 450,
+      success: true
+    });
+
+    expect(auditRes.isSuccess()).toBe(true);
+    const rec = auditRes.getOrThrow();
+    expect(rec.txt_trace_id).toBe('trc_test_123');
+    expect(rec.int_deleted_sessions).toBe(3);
+
+    const logs = repo.getCleanupAudits(10);
+    expect(logs.length).toBeGreaterThanOrEqual(1);
+    const first = logs[0]!;
+    expect(first.txt_trace_id).toBe('trc_test_123');
+    expect(first.txt_trigger_source).toBe('cli_manual');
+    expect(first.int_deleted_sessions).toBe(3);
+    expect(first.bln_success).toBe(1);
+    expect(JSON.parse(first.txt_pruned_codes_json)).toEqual(['SANCT-1', 'SANCT-2', 'SANCT-3']);
+  });
+
   it('converts error types accurately with toErrorString', () => {
     const { toErrorString } = require('../src/server/db/sessionRepository');
     expect(toErrorString(new Error('Sample error'))).toBe('Sample error');

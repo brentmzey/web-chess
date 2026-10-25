@@ -123,28 +123,41 @@ To guarantee sub-millisecond query latency and sub-10ms real-time event distribu
 | `session_events` | `idx_events_session` | `(session)` | Foreign key event lifecycle cascade joins. |
 | `session_events` | `idx_events_session_type` | `(session, event_type)` | Selective event type queries (e.g. moves, resignations). |
 | `session_events` | `idx_events_created` | `(created)` | SSE event emission ordering and telemetry. |
+| `tbl_audit_cleanup_logs` | `idx_tbl_audit_trace` | `UNIQUE(txt_trace_id)` | Instant lookup by cleanup trace correlation ID. |
+| `tbl_audit_cleanup_logs` | `idx_tbl_audit_created` | `(created)` | Chronological audit queries and maintenance retention. |
+| `tbl_audit_cleanup_logs` | `idx_tbl_audit_source` | `(txt_trigger_source)` | Performance metrics by trigger source (hook vs. CLI). |
 
 ---
 
-## 🧹 Automated Cascade Pruning & Anti-Bloat Maintenance
+## 🧹 Automated Cascade Pruning & Observability Logging
 
-To prevent database bloat over time while keeping PocketHost lightning-fast and responsive, stale and abandoned game sessions older than **3 days** are automatically cascade-deleted:
+To prevent database bloat over time while keeping PocketHost lightning-fast and responsive, stale and abandoned game sessions without moves for **3 days** (`updated < cutoff`) are automatically cascade-deleted:
 
 1. **Relational Cascade Deletions (`cascadeDelete: true`)**:
    - `session_participants.session`, `game_moves.session`, and `session_events.session` are configured with `cascadeDelete: true`.
    - Deleting a stale record in `game_sessions` automatically triggers PocketBase's internal cascade engine to purge all child participant seats, moves, and SSE events in a single atomic transaction.
-2. **On-Demand & CI/CD CLI Pruning (`scripts/pb-cleanup.ts`)**:
+2. **Hungarian-Prefixed Namespaced Audit Table (`tbl_audit_cleanup_logs`)**:
+   - Every prune operation records a lightweight, structured audit trail:
+     - `txt_trace_id`: Unique correlation ID (`trc_cln_<timestamp>_<hash>` or `trc_hook_<timestamp>_<hash>`).
+     - `txt_trigger_source`: Originating trigger (`cron_hook`, `cli_manual`, or `api_maintenance`).
+     - `int_deleted_sessions`: Total count of purged matches.
+     - `txt_cutoff_timestamp`: ISO cutoff date threshold.
+     - `txt_pruned_codes_json`: Compact JSON array of session codes purged (e.g. `["SANCT-1EVP", ...]`).
+     - `int_duration_ms`: Execution duration in milliseconds.
+     - `bln_success`: Execution status flag.
+     - `txt_error_message`: Error diagnostics (if any).
+   - **Self-Trimming Anti-Bloat**: Each prune run automatically trims audit log entries older than 90 days, guaranteeing that the audit table itself remains tiny (<100KB) and highly searchable.
+3. **On-Demand & Maintenance CLI Pruning (`scripts/pb-cleanup.ts`)**:
    - Run anytime via Bun:
      ```bash
      bun run pb:cleanup
      bun run pb:cleanup --days=3
      ```
-   - Automatically computes cutoff timestamps using modern ECMAScript `Temporal` / `Day.js`, authenticates with superuser privileges, and outputs a formatted pruning audit report.
-3. **Automated Daily GitHub Actions Cron (`.github/workflows/cleanup-stale-sessions.yml`)**:
-   - Runs daily at **03:00 AM UTC** (`0 3 * * *`) via GitHub Actions.
-   - Executes `scripts/pb-cleanup.ts` using injected GitHub Secrets (`PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`), ensuring continuous zero-maintenance database cleanliness.
+   - Automatically computes cutoff timestamps using modern ECMAScript `Temporal` / `Day.js`, authenticates with superuser privileges, writes the audit log record, and outputs a formatted pruning report.
 4. **Native PocketBase JavaScript Cron (`pb_hooks/cleanup.pb.js`)**:
-   - Native PocketBase Goja cron script provided in `pb_hooks/cleanup.pb.js` for standalone or self-hosted PocketBase deployments.
+   - Native PocketBase Goja cron script configured in `pb_hooks/cleanup.pb.js` running **semi-daily** (`0 3,15 * * *`) inside PocketBase, recording full telemetry into `tbl_audit_cleanup_logs`.
+5. **Inactive GitHub Actions Cron ([`.github/workflows/cleanup-stale-sessions.yml`](file:///Users/brentzey/personal/web-chess/.github/workflows/cleanup-stale-sessions.yml))**:
+   - Automated schedule deactivated to preserve account compute minutes; available on-demand via manual `workflow_dispatch`.
 
 ---
 

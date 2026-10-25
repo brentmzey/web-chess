@@ -299,5 +299,73 @@
       "CREATE INDEX `idx_events_session_type` ON `session_events` (`session`, `event_type`)",
       "CREATE INDEX `idx_events_created` ON `session_events` (`created`)"
     ]
+  },
+  {
+    "name": "tbl_audit_cleanup_logs",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "fields": [
+      {
+        "name": "txt_trace_id",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "txt_trigger_source",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "int_deleted_sessions",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "txt_cutoff_timestamp",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "txt_pruned_codes_json",
+        "type": "json",
+        "required": false
+      },
+      {
+        "name": "int_duration_ms",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "bln_success",
+        "type": "bool",
+        "required": false
+      },
+      {
+        "name": "txt_error_message",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "created",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": false
+      },
+      {
+        "name": "updated",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": true
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_tbl_audit_trace` ON `tbl_audit_cleanup_logs` (`txt_trace_id`)",
+      "CREATE INDEX `idx_tbl_audit_created` ON `tbl_audit_cleanup_logs` (`created`)",
+      "CREATE INDEX `idx_tbl_audit_source` ON `tbl_audit_cleanup_logs` (`txt_trigger_source`)"
+    ]
   }
 ]

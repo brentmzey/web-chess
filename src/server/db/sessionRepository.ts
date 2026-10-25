@@ -454,4 +454,67 @@ export class SessionRepository {
       return { deletedSessions: info.changes };
     });
   }
+
+  /**
+   * Records a structured observability log into the Hungarian-prefixed `tbl_audit_cleanup_logs` table.
+   */
+  public recordCleanupAudit(entry: {
+    traceId: string;
+    triggerSource: 'cron_hook' | 'cli_manual' | 'api_maintenance';
+    deletedSessions: number;
+    cutoffTimestamp: string;
+    prunedCodes: string[];
+    durationMs: number;
+    success: boolean;
+    errorMessage?: string;
+  }): Result<{ id: string; txt_trace_id: string; int_deleted_sessions: number }, string> {
+    return tryCatch(() => {
+      const id = randomUUID();
+      const now = currentEpochMs();
+      const prunedCodesJson = JSON.stringify(entry.prunedCodes);
+      this.db
+        .prepare(`
+          INSERT INTO tbl_audit_cleanup_logs (
+            id, txt_trace_id, txt_trigger_source, int_deleted_sessions,
+            txt_cutoff_timestamp, txt_pruned_codes_json, int_duration_ms,
+            bln_success, txt_error_message, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          id,
+          entry.traceId,
+          entry.triggerSource,
+          entry.deletedSessions,
+          entry.cutoffTimestamp,
+          prunedCodesJson,
+          entry.durationMs,
+          entry.success ? 1 : 0,
+          entry.errorMessage || null,
+          now
+        );
+
+      return {
+        id,
+        txt_trace_id: entry.traceId,
+        int_deleted_sessions: entry.deletedSessions
+      };
+    }, toErrorString);
+  }
+
+  public getCleanupAudits(limit: number = 20): Array<{
+    id: string;
+    txt_trace_id: string;
+    txt_trigger_source: string;
+    int_deleted_sessions: number;
+    txt_cutoff_timestamp: string;
+    txt_pruned_codes_json: string;
+    int_duration_ms: number;
+    bln_success: number;
+    txt_error_message: string | null;
+    created_at: number;
+  }> {
+    return (this.db
+      .prepare('SELECT * FROM tbl_audit_cleanup_logs ORDER BY created_at DESC LIMIT ?')
+      .all(limit) || []) as any;
+  }
 }

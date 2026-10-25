@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.11] - 2026-10-26
+### Added
+- **Hungarian-Prefixed Namespaced Audit & Observability Table (`tbl_audit_cleanup_logs`, `src/server/pocketbase/schema.json`, `src/server/db/schema.sql`, `src/server/pocketbase/pruner.ts`, `pb_hooks/cleanup.pb.js`)**:
+  - Implemented Hungarian notation audit table `tbl_audit_cleanup_logs` across PocketBase and SQLite schema specifications with indexed columns: `txt_trace_id`, `txt_trigger_source`, `int_deleted_sessions`, `txt_cutoff_timestamp`, `txt_pruned_codes_json`, `int_duration_ms`, `bln_success`, `txt_error_message`.
+  - Added correlated trace IDs (`trc_cln_<timestamp>_<hash>` and `trc_hook_<timestamp>_<hash>`) tracking every pruning execution across PocketBase Goja cron hooks, manual CLI invocations, and API maintenance runs.
+  - Implemented 90-day self-trimming retention policy within the pruner to keep `tbl_audit_cleanup_logs` compact, searchable, and free of long-term bloat.
+  - Added methods `SessionRepository.recordCleanupAudit` and `SessionRepository.getCleanupAudits` to local SQLite persistence layer.
+  - Applied schema migration to live PocketHost instance creating collection `tbl_audit_cleanup_logs` (`pbc_320509512`) with validated read/write access.
+
 ## [1.2.0-rc.10] - 2026-10-26
 ### Changed
 - **Semi-Daily Goja Hook Pruning for Games Inactive for 3 Days (`pb_hooks/cleanup.pb.js`, `src/server/pocketbase/pruner.ts`, `src/server/db/sessionRepository.ts`)**:

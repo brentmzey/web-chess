@@ -8,8 +8,9 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     globalThis.fetch = originalFetch;
   });
 
-  it('authenticates with _superusers, queries stale sessions, and cascade deletes them', async () => {
+  it('authenticates with _superusers, queries stale sessions, cascade deletes them, and writes audit record', async () => {
     const deletedIds: string[] = [];
+    let auditBody: any = null;
 
     globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       const urlStr = url.toString();
@@ -24,8 +25,8 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
         return new Response(
           JSON.stringify({
             items: [
-              { id: 'sess_1', session_code: 'SANCT-OLD1', created: '2026-10-01 10:00:00.000Z' },
-              { id: 'sess_2', session_code: 'SANCT-OLD2', created: '2026-10-02 10:00:00.000Z' }
+              { id: 'sess_1', session_code: 'SANCT-OLD1', created: '2026-10-01 10:00:00.000Z', updated: '2026-10-01 10:00:00.000Z' },
+              { id: 'sess_2', session_code: 'SANCT-OLD2', created: '2026-10-02 10:00:00.000Z', updated: '2026-10-02 10:00:00.000Z' }
             ],
             totalItems: 2
           }),
@@ -40,6 +41,22 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
         return new Response('', { status: 204 });
       }
 
+      // 4. Create audit record in tbl_audit_cleanup_logs
+      if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records') && init?.method === 'POST') {
+        auditBody = JSON.parse(init.body as string);
+        return new Response(JSON.stringify({ id: 'audit_rec_123' }), { status: 200 });
+      }
+
+      // 5. Query old audit logs for self-trimming
+      if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records?filter=')) {
+        return new Response(JSON.stringify({ items: [{ id: 'old_log_1' }] }), { status: 200 });
+      }
+
+      // 6. Delete old audit log
+      if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records/') && init?.method === 'DELETE') {
+        return new Response('', { status: 204 });
+      }
+
       return new Response('Not found', { status: 404 });
     }) as any;
 
@@ -47,7 +64,9 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
       'https://test.pockethost.io',
       'admin@test.com',
       'password123',
-      3
+      3,
+      100,
+      'cli_manual'
     );
 
     expect(res.isSuccess()).toBe(true);
@@ -55,10 +74,15 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     expect(report.deletedSessionsCount).toBe(2);
     expect(report.sessionCodes).toEqual(['SANCT-OLD1', 'SANCT-OLD2']);
     expect(deletedIds).toEqual(['sess_1', 'sess_2']);
+    expect(report.auditLogId).toBe('audit_rec_123');
+    expect(report.traceId).toContain('trc_cln_');
+    expect(report.triggerSource).toBe('cli_manual');
+    expect(auditBody.int_deleted_sessions).toBe(2);
+    expect(auditBody.bln_success).toBe(true);
   });
 
   it('falls back to admin authentication if _superusers endpoint is unavailable', async () => {
-    globalThis.fetch = (async (url: string | URL | Request) => {
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       const urlStr = url.toString();
 
       if (urlStr.includes('/api/collections/_superusers/auth-with-password')) {
@@ -73,6 +97,14 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
         return new Response(JSON.stringify({ items: [], totalItems: 0 }), { status: 200 });
       }
 
+      if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'audit_rec_fallback' }), { status: 200 });
+      }
+
+      if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records?filter=')) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }
+
       return new Response('Not found', { status: 404 });
     }) as any;
 
@@ -84,6 +116,7 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
 
     expect(res.isSuccess()).toBe(true);
     expect(res.getOrThrow().deletedSessionsCount).toBe(0);
+    expect(res.getOrThrow().auditLogId).toBe('audit_rec_fallback');
   });
 
   it('fails gracefully when both superuser and admin authentication fail', async () => {
@@ -132,8 +165,8 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
         return new Response(
           JSON.stringify({
             items: [
-              { id: 'sess_fail', session_code: 'SANCT-FAIL', created: '2026-10-01 10:00:00.000Z' },
-              { id: 'sess_ok', session_code: 'SANCT-OK', created: '2026-10-02 10:00:00.000Z' }
+              { id: 'sess_fail', session_code: 'SANCT-FAIL', created: '2026-10-01 10:00:00.000Z', updated: '2026-10-01 10:00:00.000Z' },
+              { id: 'sess_ok', session_code: 'SANCT-OK', created: '2026-10-02 10:00:00.000Z', updated: '2026-10-02 10:00:00.000Z' }
             ],
             totalItems: 2
           }),
@@ -149,6 +182,14 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
         return new Response('', { status: 204 });
       }
 
+      if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records') && init?.method === 'POST') {
+        return new Response('Audit write failed', { status: 500 }); // simulate audit log warning
+      }
+
+      if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records?filter=')) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }
+
       return new Response('Not found', { status: 404 });
     }) as any;
 
@@ -162,5 +203,6 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     const report = res.getOrThrow();
     expect(report.deletedSessionsCount).toBe(1);
     expect(report.sessionCodes).toEqual(['SANCT-OK']);
+    expect(report.auditLogId).toBeUndefined(); // Handled audit failure gracefully
   });
 });

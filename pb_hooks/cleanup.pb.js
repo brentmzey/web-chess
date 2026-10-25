@@ -1,19 +1,27 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * Sanctuary Chess: Semi-Daily Stale Game Session Cleanup Cron
+ * Sanctuary Chess: Semi-Daily Stale Game Session Cleanup Cron & Observability Logger
  * 
  * Runs twice daily at 03:00 and 15:00 UTC (every 12 hours).
  * Automatically queries game_sessions that have not had a move made in 3 days (updated < 3 days ago).
  * Since cascadeDelete: true is configured on session_participants, game_moves,
  * and session_events, PocketBase automatically cascade-deletes all associated
  * records in SQLite, keeping the database lean, fast, and free of bloat.
+ * 
+ * Logs full observability, metrics, and trace IDs to `tbl_audit_cleanup_logs`.
  */
 cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
-    const threeDaysAgoMs = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    const startTime = Date.now();
+    const traceId = `trc_hook_${startTime}_${Math.random().toString(36).substring(2, 8)}`;
+    const threeDaysAgoMs = startTime - (3 * 24 * 60 * 60 * 1000);
     const cutoffDate = new Date(threeDaysAgoMs).toISOString().replace("T", " ");
 
-    console.log(`[SanctuaryChess Cron] Executing semi-daily cleanup for game sessions without moves since: ${cutoffDate}`);
+    console.log(`[SanctuaryChess Cron:${traceId}] Executing semi-daily cleanup for game sessions without moves since: ${cutoffDate}`);
+
+    let count = 0;
+    const deletedCodes = [];
+    let errorMessage = "";
 
     try {
         // Find sessions with no moves or updates in the last 3 days
@@ -26,14 +34,44 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
             { cutoff: cutoffDate }
         );
 
-        let count = 0;
         for (const record of records) {
+            const code = record.getString("session_code");
             $app.delete(record); // Triggers cascade deletion of related child records (participants, moves, events)
+            deletedCodes.push(code);
             count++;
         }
 
-        console.log(`[SanctuaryChess Cron] Cleanup completed. Cascade deleted ${count} stale game sessions.`);
+        console.log(`[SanctuaryChess Cron:${traceId}] Cleanup completed. Cascade deleted ${count} stale game sessions.`);
     } catch (err) {
-        console.error(`[SanctuaryChess Cron] Cleanup error: ${err}`);
+        errorMessage = String(err);
+        console.error(`[SanctuaryChess Cron:${traceId}] Cleanup error: ${err}`);
+    }
+
+    const durationMs = Date.now() - startTime;
+
+    // Write structured observability record to tbl_audit_cleanup_logs
+    try {
+        const auditCol = $app.findCollectionByNameOrId("tbl_audit_cleanup_logs");
+        if (auditCol) {
+            const auditRec = new Record(auditCol);
+            auditRec.set("txt_trace_id", traceId);
+            auditRec.set("txt_trigger_source", "cron_hook");
+            auditRec.set("int_deleted_sessions", count);
+            auditRec.set("txt_cutoff_timestamp", cutoffDate);
+            auditRec.set("txt_pruned_codes_json", deletedCodes);
+            auditRec.set("int_duration_ms", durationMs);
+            auditRec.set("bln_success", errorMessage === "");
+            auditRec.set("txt_error_message", errorMessage);
+            $app.save(auditRec);
+
+            // Maintain audit table: trim audit logs older than 90 days
+            const ninetyDaysAgo = new Date(startTime - (90 * 24 * 60 * 60 * 1000)).toISOString().replace("T", " ");
+            const oldLogs = $app.findRecordsByFilter("tbl_audit_cleanup_logs", "created < {:cutoff}", "-created", 50, 0, { cutoff: ninetyDaysAgo });
+            for (const oldLog of oldLogs) {
+                $app.delete(oldLog);
+            }
+        }
+    } catch (auditErr) {
+        console.warn(`[SanctuaryChess Cron:${traceId}] Could not record audit log: ${auditErr}`);
     }
 });
