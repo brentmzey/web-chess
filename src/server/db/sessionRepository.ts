@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Database, Statement } from 'bun:sqlite';
 import {
   fromNullable,
+  some,
   tryCatch,
   type Option,
   type Result
@@ -25,6 +26,21 @@ export const toErrorString = (err: unknown): string =>
 /**
  * Functional Repository for Sanctuary Real-Time Sessions, Cross-References & Events.
  */
+export interface ArchivedGameSnapshotRecord {
+  id: string;
+  txt_session_code: string;
+  txt_final_fen: string;
+  txt_white_player: string | null;
+  txt_black_player: string | null;
+  txt_winner: string | null;
+  txt_status: string;
+  int_total_plies: number;
+  txt_pgn: string | null;
+  json_snapshot_payload: string;
+  txt_pruned_reason: string;
+  created_at: number;
+}
+
 export class SessionRepository {
   private db: Database;
   private stmtGetSessionById: Statement;
@@ -448,6 +464,54 @@ export class SessionRepository {
    */
   public pruneStaleSessions(olderThanTimestamp: number): Result<{ deletedSessions: number }, string> {
     return this.sanctuaryDb.transaction(() => {
+      // 1. Snapshot all sessions about to be wiped into tbl_archived_game_snapshots
+      const staleSessions = (this.db
+        .prepare('SELECT * FROM game_sessions WHERE updated_at < ?')
+        .all(olderThanTimestamp) || []) as GameSessionRecord[];
+
+      for (const sess of staleSessions) {
+        const participants = this.getParticipantsBySession(sess.id);
+        const moves = this.getMovesBySession(sess.id);
+        const events = this.getEventsSince(sess.id, 0);
+
+        const whitePart = participants.find(p => p.role === 'white');
+        const blackPart = participants.find(p => p.role === 'black');
+
+        const pgn = moves.map(m => m.san).join(' ');
+        const payload = JSON.stringify({
+          session: sess,
+          participants,
+          moves,
+          events
+        });
+
+        const finalFen = (sess as any).current_fen || (sess as any).fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+        this.db
+          .prepare(`
+            INSERT OR REPLACE INTO tbl_archived_game_snapshots (
+              id, txt_session_code, txt_final_fen, txt_white_player, txt_black_player,
+              txt_winner, txt_status, int_total_plies, txt_pgn, json_snapshot_payload,
+              txt_pruned_reason, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `)
+          .run(
+            randomUUID(),
+            sess.session_code,
+            finalFen,
+            whitePart?.display_name || null,
+            blackPart?.display_name || null,
+            sess.winner || null,
+            sess.status,
+            moves.length,
+            pgn,
+            payload,
+            'stale_inactivity_3_days',
+            currentEpochMs()
+          );
+      }
+
+      // 2. Cascade-delete from game_sessions (foreign keys wipe child rows)
       const info = this.db
         .prepare('DELETE FROM game_sessions WHERE updated_at < ?')
         .run(olderThanTimestamp);
@@ -554,5 +618,151 @@ export class SessionRepository {
     return (this.db
       .prepare('SELECT * FROM tbl_audit_cleanup_logs_history ORDER BY created_at DESC LIMIT ?')
       .all(limit) || []) as any;
+  }
+
+  /**
+   * Look up an archived snapshot by session code across active and historical partition tables.
+   */
+  public getArchivedSnapshot(sessionCode: string): Option<ArchivedGameSnapshotRecord> {
+    const active = this.db
+      .prepare('SELECT * FROM tbl_archived_game_snapshots WHERE txt_session_code = ?')
+      .get(sessionCode) as ArchivedGameSnapshotRecord | undefined;
+
+    if (active) {
+      return some(active);
+    }
+
+    const hist = this.db
+      .prepare('SELECT * FROM tbl_archived_game_snapshots_history WHERE txt_session_code = ?')
+      .get(sessionCode) as ArchivedGameSnapshotRecord | undefined;
+
+    return fromNullable(hist);
+  }
+
+  /**
+   * Restores an archived session from its snapshot record back into active tables.
+   */
+  public restoreSessionFromSnapshot(sessionCode: string): Result<GameSessionRecord, string> {
+    return this.sanctuaryDb.transaction(() => {
+      const snap = this.getArchivedSnapshot(sessionCode).match({
+        Some: s => s,
+        None: () => {
+          throw new Error(`Archived snapshot for session code "${sessionCode}" not found.`);
+        }
+      });
+      const payload = JSON.parse(snap.json_snapshot_payload || '{}');
+      const sess = payload.session as GameSessionRecord;
+
+      if (!sess) {
+        throw new Error(`Snapshot payload does not contain valid session data.`);
+      }
+
+      // Re-create session
+      const now = currentEpochMs();
+      const restoredFen = (sess as any).current_fen || (sess as any).fen || snap.txt_final_fen;
+      this.db
+        .prepare(`
+          INSERT OR REPLACE INTO game_sessions (
+            id, session_code, status, current_fen, turn, move_count,
+            theme, allow_undo, time_control_initial_sec, time_control_increment_sec,
+            white_time_remaining_ms, black_time_remaining_ms, winner, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          sess.id,
+          sess.session_code,
+          sess.status,
+          restoredFen,
+          sess.turn || 'w',
+          (sess as any).move_count || 0,
+          sess.theme || 'gothic-basilica',
+          sess.allow_undo ? 1 : 0,
+          sess.time_control_initial_sec ?? null,
+          sess.time_control_increment_sec ?? 0,
+          sess.white_time_remaining_ms ?? null,
+          sess.black_time_remaining_ms ?? null,
+          sess.winner || null,
+          sess.created_at || now,
+          now
+        );
+
+      // Restore participants
+      if (Array.isArray(payload.participants)) {
+        for (const p of payload.participants) {
+          this.db
+            .prepare(`
+              INSERT OR REPLACE INTO session_participants (
+                id, session_id, user_id, role, display_name, is_connected, last_heartbeat_at, connected_at, disconnected_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `)
+            .run(
+              p.id,
+              p.session_id,
+              p.user_id,
+              p.role,
+              p.display_name,
+              p.is_connected ? 1 : 0,
+              p.last_heartbeat_at || now,
+              p.connected_at || now,
+              p.disconnected_at || null
+            );
+        }
+      }
+
+      // Restore moves
+      if (Array.isArray(payload.moves)) {
+        for (const m of payload.moves) {
+          this.db
+            .prepare(`
+              INSERT OR REPLACE INTO game_moves (
+                id, session_id, participant_id, move_number, ply, color, san, uci,
+                fen_before, fen_after, time_taken_ms, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `)
+            .run(
+              m.id,
+              m.session_id,
+              m.participant_id || null,
+              m.move_number,
+              m.ply,
+              m.color,
+              m.san,
+              m.uci,
+              m.fen_before,
+              m.fen_after,
+              m.time_taken_ms || 0,
+              m.created_at || now
+            );
+        }
+      }
+
+      return sess;
+    });
+  }
+
+  /**
+   * Moves archived snapshots older than the threshold into tbl_archived_game_snapshots_history.
+   */
+  public archiveOldSnapshots(olderThanTimestamp: number): Result<{ archivedSnapshots: number }, string> {
+    return this.sanctuaryDb.transaction(() => {
+      this.db
+        .prepare(`
+          INSERT INTO tbl_archived_game_snapshots_history
+          SELECT * FROM tbl_archived_game_snapshots WHERE created_at < ?
+        `)
+        .run(olderThanTimestamp);
+
+      const info = this.db
+        .prepare('DELETE FROM tbl_archived_game_snapshots WHERE created_at < ?')
+        .run(olderThanTimestamp);
+
+      return { archivedSnapshots: info.changes };
+    });
+  }
+
+  public getHistoricalSnapshots(limit: number = 20): ArchivedGameSnapshotRecord[] {
+    return (this.db
+      .prepare('SELECT * FROM tbl_archived_game_snapshots_history ORDER BY created_at DESC LIMIT ?')
+      .all(limit) || []) as ArchivedGameSnapshotRecord[];
   }
 }

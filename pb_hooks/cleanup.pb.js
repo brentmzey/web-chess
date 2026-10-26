@@ -34,8 +34,49 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
             { cutoff: cutoffDate }
         );
 
+        const snapCol = $app.findCollectionByNameOrId("tbl_archived_game_snapshots");
+
         for (const record of records) {
             const code = record.getString("session_code");
+
+            // Snapshot compact recovery state before cascade delete
+            if (snapCol) {
+                try {
+                    const snapRec = new Record(snapCol);
+                    snapRec.set("txt_session_code", code);
+                    snapRec.set("txt_final_fen", record.getString("fen"));
+                    snapRec.set("txt_white_player", record.getString("white_player_name"));
+                    snapRec.set("txt_black_player", record.getString("black_player_name"));
+                    snapRec.set("txt_winner", record.getString("winner"));
+                    snapRec.set("txt_status", record.getString("status"));
+                    snapRec.set("int_total_plies", record.getInt("ply"));
+                    snapRec.set("txt_pgn", record.getString("last_move_san"));
+                    snapRec.set("json_snapshot_payload", {
+                        session: {
+                            id: record.id,
+                            session_code: code,
+                            fen: record.getString("fen"),
+                            mode: record.getString("mode"),
+                            theme: record.getString("theme"),
+                            timer_rule: record.getString("timer_rule"),
+                            strict_mode: record.getBool("strict_mode"),
+                            status: record.getString("status"),
+                            current_turn: record.getString("current_turn"),
+                            ply: record.getInt("ply"),
+                            white_player_name: record.getString("white_player_name"),
+                            black_player_name: record.getString("black_player_name"),
+                            winner: record.getString("winner"),
+                            termination_reason: record.getString("termination_reason"),
+                            last_move_san: record.getString("last_move_san")
+                        }
+                    });
+                    snapRec.set("txt_pruned_reason", "stale_inactivity_3_days");
+                    $app.save(snapRec);
+                } catch (snapErr) {
+                    console.warn(`[SanctuaryChess Cron:${traceId}] Could not record snapshot for ${code}: ${snapErr}`);
+                }
+            }
+
             $app.delete(record); // Triggers cascade deletion of related child records (participants, moves, events)
             deletedCodes.push(code);
             count++;
@@ -82,6 +123,26 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
                     $app.save(histRec);
                 }
                 $app.delete(oldLog);
+            }
+            // Partitioned Snapshot Maintenance: move snapshots older than 30 days to tbl_archived_game_snapshots_history
+            const snapHistCol = $app.findCollectionByNameOrId("tbl_archived_game_snapshots_history");
+            const oldSnaps = $app.findRecordsByFilter("tbl_archived_game_snapshots", "created < {:cutoff}", "-created", 50, 0, { cutoff: thirtyDaysAgo });
+            for (const oldSnap of oldSnaps) {
+                if (snapHistCol) {
+                    const snapHistRec = new Record(snapHistCol);
+                    snapHistRec.set("txt_session_code", oldSnap.getString("txt_session_code"));
+                    snapHistRec.set("txt_final_fen", oldSnap.getString("txt_final_fen"));
+                    snapHistRec.set("txt_white_player", oldSnap.getString("txt_white_player"));
+                    snapHistRec.set("txt_black_player", oldSnap.getString("txt_black_player"));
+                    snapHistRec.set("txt_winner", oldSnap.getString("txt_winner"));
+                    snapHistRec.set("txt_status", oldSnap.getString("txt_status"));
+                    snapHistRec.set("int_total_plies", oldSnap.getInt("int_total_plies"));
+                    snapHistRec.set("txt_pgn", oldSnap.getString("txt_pgn"));
+                    snapHistRec.set("json_snapshot_payload", oldSnap.get("json_snapshot_payload"));
+                    snapHistRec.set("txt_pruned_reason", oldSnap.getString("txt_pruned_reason"));
+                    $app.save(snapHistRec);
+                }
+                $app.delete(oldSnap);
             }
         }
     } catch (auditErr) {

@@ -36,7 +36,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password');
     expect(res.success).toBe(true);
-    expect(res.applied.length).toBe(6);
+    expect(res.applied.length).toBe(8);
     expect(res.errors.length).toBe(0);
   });
 
@@ -57,7 +57,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password');
     expect(res.success).toBe(true);
-    expect(res.applied.length).toBe(6);
+    expect(res.applied.length).toBe(8);
   });
 
   it('handles authentication failure gracefully', async () => {
@@ -100,6 +100,6 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'pass');
     expect(res.success).toBe(false);
-    expect(res.errors.length).toBe(6);
+    expect(res.errors.length).toBe(8);
   });
 });

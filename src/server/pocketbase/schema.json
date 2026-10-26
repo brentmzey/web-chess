@@ -435,5 +435,161 @@
       "CREATE INDEX `idx_tbl_audit_hist_created` ON `tbl_audit_cleanup_logs_history` (`created`)",
       "CREATE INDEX `idx_tbl_audit_hist_source` ON `tbl_audit_cleanup_logs_history` (`txt_trigger_source`)"
     ]
+  },
+  {
+    "name": "tbl_archived_game_snapshots",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "fields": [
+      {
+        "name": "txt_session_code",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "txt_final_fen",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "txt_white_player",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "txt_black_player",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "txt_winner",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "txt_status",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "int_total_plies",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "txt_pgn",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "json_snapshot_payload",
+        "type": "json",
+        "required": false
+      },
+      {
+        "name": "txt_pruned_reason",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "created",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": false
+      },
+      {
+        "name": "updated",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": true
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_tbl_arch_code` ON `tbl_archived_game_snapshots` (`txt_session_code`)",
+      "CREATE INDEX `idx_tbl_arch_white` ON `tbl_archived_game_snapshots` (`txt_white_player`)",
+      "CREATE INDEX `idx_tbl_arch_black` ON `tbl_archived_game_snapshots` (`txt_black_player`)",
+      "CREATE INDEX `idx_tbl_arch_created` ON `tbl_archived_game_snapshots` (`created`)"
+    ]
+  },
+  {
+    "name": "tbl_archived_game_snapshots_history",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "fields": [
+      {
+        "name": "txt_session_code",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "txt_final_fen",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "txt_white_player",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "txt_black_player",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "txt_winner",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "txt_status",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "int_total_plies",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "txt_pgn",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "json_snapshot_payload",
+        "type": "json",
+        "required": false
+      },
+      {
+        "name": "txt_pruned_reason",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "created",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": false
+      },
+      {
+        "name": "updated",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": true
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX `idx_tbl_arch_hist_code` ON `tbl_archived_game_snapshots_history` (`txt_session_code`)",
+      "CREATE INDEX `idx_tbl_arch_hist_created` ON `tbl_archived_game_snapshots_history` (`created`)"
+    ]
   }
 ]

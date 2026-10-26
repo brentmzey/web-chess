@@ -134,6 +134,38 @@ CREATE TABLE IF NOT EXISTS tbl_audit_cleanup_logs_history (
     created_at INTEGER NOT NULL
 );
 
+-- 8. Archived Game Snapshots Table (Compact, indexed recovery record of wiped sessions)
+CREATE TABLE IF NOT EXISTS tbl_archived_game_snapshots (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL UNIQUE,
+    txt_final_fen TEXT NOT NULL,
+    txt_white_player TEXT,
+    txt_black_player TEXT,
+    txt_winner TEXT,
+    txt_status TEXT NOT NULL,
+    int_total_plies INTEGER,
+    txt_pgn TEXT,
+    json_snapshot_payload TEXT,
+    txt_pruned_reason TEXT,
+    created_at INTEGER NOT NULL
+);
+
+-- 9. Partitioned Archived Game Snapshots History Table (Cold storage for old snapshots)
+CREATE TABLE IF NOT EXISTS tbl_archived_game_snapshots_history (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL,
+    txt_final_fen TEXT NOT NULL,
+    txt_white_player TEXT,
+    txt_black_player TEXT,
+    txt_winner TEXT,
+    txt_status TEXT NOT NULL,
+    int_total_plies INTEGER,
+    txt_pgn TEXT,
+    json_snapshot_payload TEXT,
+    txt_pruned_reason TEXT,
+    created_at INTEGER NOT NULL
+);
+
 -- ============================================================================
 -- Indices for High-Throughput Relational Queries, Lookups and Joins
 -- ============================================================================
@@ -172,3 +204,13 @@ CREATE INDEX IF NOT EXISTS ix_tbl_audit_source ON tbl_audit_cleanup_logs(txt_tri
 CREATE UNIQUE INDEX IF NOT EXISTS uq_tbl_audit_hist_trace ON tbl_audit_cleanup_logs_history(txt_trace_id);
 CREATE INDEX IF NOT EXISTS ix_tbl_audit_hist_created ON tbl_audit_cleanup_logs_history(created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_tbl_audit_hist_source ON tbl_audit_cleanup_logs_history(txt_trigger_source);
+
+-- Archived Game Snapshots Indices (Fast lookup and recovery)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tbl_arch_code ON tbl_archived_game_snapshots(txt_session_code);
+CREATE INDEX IF NOT EXISTS ix_tbl_arch_white ON tbl_archived_game_snapshots(txt_white_player);
+CREATE INDEX IF NOT EXISTS ix_tbl_arch_black ON tbl_archived_game_snapshots(txt_black_player);
+CREATE INDEX IF NOT EXISTS ix_tbl_arch_created ON tbl_archived_game_snapshots(created_at DESC);
+
+-- Partitioned Archived Snapshots History Indices
+CREATE INDEX IF NOT EXISTS ix_tbl_arch_hist_code ON tbl_archived_game_snapshots_history(txt_session_code);
+CREATE INDEX IF NOT EXISTS ix_tbl_arch_hist_created ON tbl_archived_game_snapshots_history(created_at DESC);

@@ -313,6 +313,83 @@ describe('SessionRepository Functional Data Access & Cross-References', () => {
     expect(histLogs[0]!.txt_trace_id).toBe('trc_test_123');
   });
 
+  it('automatically snapshots wiped sessions during prune and supports restoration and partition archival', () => {
+    // 1. Create session with moves and participants
+    const session = repo.createSession({ sessionCode: 'SANCT-SNAP-RESTORE' }).getOrThrow();
+    db.getRawDb()
+      .prepare('UPDATE game_sessions SET created_at = ?, updated_at = ? WHERE id = ?')
+      .run(1000, 1000, session.id);
+
+    const part = repo
+      .createParticipant({
+        sessionId: session.id,
+        userId: 'u-w',
+        role: 'white',
+        displayName: 'MasterWhite'
+      })
+      .getOrThrow();
+
+    repo.recordMove({
+      sessionId: session.id,
+      participantId: part.id,
+      moveNumber: 1,
+      ply: 1,
+      color: 'w',
+      san: 'd4',
+      uci: 'd2d4',
+      fenBefore: 'start',
+      fenAfter: 'd4_fen'
+    });
+
+    // 2. Prune stale session
+    const pruneRes = repo.pruneStaleSessions(2000);
+    expect(pruneRes.isSuccess()).toBe(true);
+    expect(pruneRes.getOrThrow().deletedSessions).toBe(1);
+
+    // Session is deleted from active table
+    expect(repo.getSessionById(session.id).isNone()).toBe(true);
+
+    // 3. Snapshot exists in tbl_archived_game_snapshots
+    const snapOpt = repo.getArchivedSnapshot('SANCT-SNAP-RESTORE');
+    expect(snapOpt.isSome()).toBe(true);
+    const snap = snapOpt.getOrThrow();
+    expect(snap.txt_session_code).toBe('SANCT-SNAP-RESTORE');
+    expect(snap.txt_white_player).toBe('MasterWhite');
+    expect(snap.txt_pgn).toBe('d4');
+    expect(snap.int_total_plies).toBe(1);
+
+    // 4. Restore session from snapshot!
+    const restoreRes = repo.restoreSessionFromSnapshot('SANCT-SNAP-RESTORE');
+    expect(restoreRes.isSuccess()).toBe(true);
+    const restored = restoreRes.getOrThrow();
+    expect(restored.session_code).toBe('SANCT-SNAP-RESTORE');
+
+    // Verify session and moves are back in active tables
+    expect(repo.getSessionById(session.id).isSome()).toBe(true);
+    expect(repo.getMovesBySession(session.id).length).toBe(1);
+    expect(repo.getMovesBySession(session.id)[0]!.san).toBe('d4');
+
+    // 5. Partition rollover: archive snapshots older than threshold to history table
+    const archiveRes = repo.archiveOldSnapshots(Date.now() + 100000);
+    expect(archiveRes.isSuccess()).toBe(true);
+    expect(archiveRes.getOrThrow().archivedSnapshots).toBe(1);
+
+    // History table holds the snapshot
+    const histSnaps = repo.getHistoricalSnapshots(10);
+    expect(histSnaps.length).toBe(1);
+    expect(histSnaps[0]!.txt_session_code).toBe('SANCT-SNAP-RESTORE');
+
+    // Querying after partition rollover retrieves from history table
+    const fromHistory = repo.getArchivedSnapshot('SANCT-SNAP-RESTORE');
+    expect(fromHistory.isSome()).toBe(true);
+
+    // Non-existent snapshot returns None
+    expect(repo.getArchivedSnapshot('SANCT-DOES-NOT-EXIST').isNone()).toBe(true);
+
+    // Restoration error branches
+    expect(repo.restoreSessionFromSnapshot('SANCT-DOES-NOT-EXIST').isFailure()).toBe(true);
+  });
+
   it('converts error types accurately with toErrorString', () => {
     const { toErrorString } = require('../src/server/db/sessionRepository');
     expect(toErrorString(new Error('Sample error'))).toBe('Sample error');

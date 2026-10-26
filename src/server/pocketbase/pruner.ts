@@ -24,6 +24,17 @@ interface SessionListResponse {
   items: Array<{
     id: string;
     session_code: string;
+    fen?: string;
+    status?: string;
+    ply?: number;
+    white_player_name?: string;
+    black_player_name?: string;
+    winner?: string;
+    last_move_san?: string;
+    mode?: string;
+    theme?: string;
+    timer_rule?: string;
+    strict_mode?: boolean;
     created: string;
     updated: string;
   }>;
@@ -132,9 +143,49 @@ export async function prunePocketBaseSessions(
 
   const deletedCodes: string[] = [];
 
-  // 3. Cascade Delete Stale Sessions
+  // 3. Snapshot Stale Sessions into tbl_archived_game_snapshots, then Cascade Delete
   for (const session of sessionList.items) {
     const deleteRes = await tryCatchAsync(async () => {
+      // 3a. Capture moves and participants for compact snapshot
+      const [movesRes, partsRes] = await Promise.all([
+        fetch(`${url}/api/collections/game_moves/records?filter=${encodeURIComponent(`session="${session.id}"`)}&sort=ply&perPage=500`, { headers }).catch(() => null),
+        fetch(`${url}/api/collections/session_participants/records?filter=${encodeURIComponent(`session="${session.id}"`)}&perPage=20`, { headers }).catch(() => null)
+      ]);
+
+      const moves = movesRes && movesRes.ok ? ((await movesRes.json()) as any).items || [] : [];
+      const participants = partsRes && partsRes.ok ? ((await partsRes.json()) as any).items || [] : [];
+
+      const white = participants.find((p: any) => p.role === 'white')?.player_name || session.white_player_name || '';
+      const black = participants.find((p: any) => p.role === 'black')?.player_name || session.black_player_name || '';
+      const pgn = moves.map((m: any) => m.san).join(' ') || session.last_move_san || '';
+
+      const snapshotPayload = {
+        session,
+        participants,
+        moves
+      };
+
+      // 3b. Write compact snapshot record to tbl_archived_game_snapshots
+      await fetch(`${url}/api/collections/tbl_archived_game_snapshots/records`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          txt_session_code: session.session_code,
+          txt_final_fen: session.fen,
+          txt_white_player: white,
+          txt_black_player: black,
+          txt_winner: session.winner || '',
+          txt_status: session.status,
+          int_total_plies: session.ply || moves.length,
+          txt_pgn: pgn,
+          json_snapshot_payload: snapshotPayload,
+          txt_pruned_reason: 'stale_inactivity_3_days'
+        })
+      }).catch(err => {
+        logger.warn(`[PocketBase Pruner] Failed to record snapshot for ${session.session_code}: ${err}`);
+      });
+
+      // 3c. Delete session record (PocketBase automatically cascade deletes moves, participants, events)
       const res = await fetch(`${url}/api/collections/game_sessions/records/${session.id}`, {
         method: 'DELETE',
         headers
@@ -228,6 +279,37 @@ export async function prunePocketBaseSessions(
         });
       }
     }
+
+    // Move snapshots older than 30 days to tbl_archived_game_snapshots_history
+    const oldSnapRes = await fetch(
+      `${url}/api/collections/tbl_archived_game_snapshots/records?filter=${encodeURIComponent(`created < "${auditRetentionCutoff}"`)}&perPage=50`,
+      { headers }
+    );
+    if (oldSnapRes.ok) {
+      const oldSnaps = (await oldSnapRes.json()) as { items: Array<Record<string, any>> };
+      for (const snap of oldSnaps.items) {
+        await fetch(`${url}/api/collections/tbl_archived_game_snapshots_history/records`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            txt_session_code: snap.txt_session_code,
+            txt_final_fen: snap.txt_final_fen,
+            txt_white_player: snap.txt_white_player,
+            txt_black_player: snap.txt_black_player,
+            txt_winner: snap.txt_winner,
+            txt_status: snap.txt_status,
+            int_total_plies: snap.int_total_plies,
+            txt_pgn: snap.txt_pgn,
+            json_snapshot_payload: snap.json_snapshot_payload,
+            txt_pruned_reason: snap.txt_pruned_reason
+          })
+        });
+        await fetch(`${url}/api/collections/tbl_archived_game_snapshots/records/${snap.id}`, {
+          method: 'DELETE',
+          headers
+        });
+      }
+    }
   }, toError);
 
   const report: PruneReport = {
@@ -247,4 +329,76 @@ export async function prunePocketBaseSessions(
   );
 
   return success(report);
+}
+
+/**
+ * Restores an archived session from tbl_archived_game_snapshots (or history) back into PocketBase game_sessions.
+ */
+export async function restoreArchivedPocketBaseSession(
+  url: string,
+  token: string,
+  sessionCode: string
+): Promise<Result<{ session_code: string; restored: boolean }, string>> {
+  return tryCatchAsync(async () => {
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+
+    // 1. Check active snapshots
+    let snapRes = await fetch(
+      `${url}/api/collections/tbl_archived_game_snapshots/records?filter=${encodeURIComponent(`txt_session_code="${sessionCode}"`)}`,
+      { headers }
+    );
+    let items = snapRes.ok ? ((await snapRes.json()) as any).items : [];
+
+    // 2. Check history if not found in active
+    if (!items || items.length === 0) {
+      snapRes = await fetch(
+        `${url}/api/collections/tbl_archived_game_snapshots_history/records?filter=${encodeURIComponent(`txt_session_code="${sessionCode}"`)}`,
+        { headers }
+      );
+      items = snapRes.ok ? ((await snapRes.json()) as any).items : [];
+    }
+
+    if (!items || items.length === 0) {
+      throw new Error(`Archived snapshot for session code "${sessionCode}" not found.`);
+    }
+
+    const snap = items[0];
+    const payload = snap.json_snapshot_payload || {};
+    const sess = payload.session;
+
+    if (!sess) {
+      throw new Error(`Snapshot payload does not contain session data.`);
+    }
+
+    // Re-create game session
+    const createRes = await fetch(`${url}/api/collections/game_sessions/records`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        session_code: sess.session_code,
+        mode: sess.mode,
+        theme: sess.theme,
+        timer_rule: sess.timer_rule,
+        strict_mode: sess.strict_mode,
+        status: sess.status,
+        current_turn: sess.current_turn,
+        fen: sess.fen,
+        ply: sess.ply,
+        white_player_name: sess.white_player_name || '',
+        black_player_name: sess.black_player_name || '',
+        winner: sess.winner || '',
+        termination_reason: sess.termination_reason || '',
+        last_move_san: sess.last_move_san || ''
+      })
+    });
+
+    if (!createRes.ok) {
+      throw new Error(`Failed to restore session: ${createRes.statusText}`);
+    }
+
+    return { session_code: sessionCode, restored: true };
+  }, err => (err instanceof Error ? err.message : String(err)));
 }

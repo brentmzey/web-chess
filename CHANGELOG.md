@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.14] - 2026-10-26
+### Added
+- **Indexed Compact Archival Snapshots & Match Restoration Architecture (`tbl_archived_game_snapshots`, `tbl_archived_game_snapshots_history`)**:
+  - Implemented single-row compact match snapshots captured immediately prior to cascade deletion during pruner cycles across both PocketBase and SQLite schemas.
+  - Collapses entire multi-table games (sessions, participants, moves, and events) into a single optimized, indexed row containing `txt_session_code` (UNIQUE), `txt_final_fen`, `txt_white_player`, `txt_black_player`, `txt_winner`, `txt_status`, `int_total_plies`, `txt_pgn`, and `json_snapshot_payload`.
+  - Added historical partition rollover table `tbl_archived_game_snapshots_history` for cold-storage tiering of snapshots older than 30 days.
+  - Deployed live PocketHost migration creating `tbl_archived_game_snapshots` (`pbc_9090007`) and `tbl_archived_game_snapshots_history` (`pbc_4053568688`).
+  - Implemented lossless restoration functions `SessionRepository.restoreSessionFromSnapshot` (SQLite) and `restoreArchivedPocketBaseSession` (PocketBase REST API) to resurrect pruned games on demand.
+  - Added complete unit and integration tests across Goja VM, SQLite repository, and PocketBase pruner services.
+
 ## [1.2.0-rc.13] - 2026-10-26
 ### Added
 - **PocketBase Goja Cron Hook Sandboxed Unit Testing (`tests/cleanupHook.test.ts`)**:

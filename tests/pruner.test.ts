@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { prunePocketBaseSessions } from '../src/server/pocketbase/pruner';
+import { prunePocketBaseSessions, restoreArchivedPocketBaseSession } from '../src/server/pocketbase/pruner';
 
 describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => {
   const originalFetch = globalThis.fetch;
@@ -8,11 +8,12 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     globalThis.fetch = originalFetch;
   });
 
-  it('authenticates with _superusers, queries stale sessions, cascade deletes them, and writes audit record', async () => {
+  it('authenticates with _superusers, snapshots stale sessions, cascade deletes them, and writes audit record', async () => {
     const deletedIds: string[] = [];
     let auditBody: any = null;
     let historyBody: any = null;
     const deletedOldAuditLogs: string[] = [];
+    const savedSnapshots: any[] = [];
 
     globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       const urlStr = url.toString();
@@ -27,13 +28,38 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
         return new Response(
           JSON.stringify({
             items: [
-              { id: 'sess_1', session_code: 'SANCT-OLD1', created: '2026-10-01 10:00:00.000Z', updated: '2026-10-01 10:00:00.000Z' },
-              { id: 'sess_2', session_code: 'SANCT-OLD2', created: '2026-10-02 10:00:00.000Z', updated: '2026-10-02 10:00:00.000Z' }
+              { id: 'sess_1', session_code: 'SANCT-OLD1', fen: 'start', ply: 2, created: '2026-10-01 10:00:00.000Z', updated: '2026-10-01 10:00:00.000Z', status: 'in_progress' },
+              { id: 'sess_2', session_code: 'SANCT-OLD2', fen: 'start', ply: 4, created: '2026-10-02 10:00:00.000Z', updated: '2026-10-02 10:00:00.000Z', status: 'in_progress' }
             ],
             totalItems: 2
           }),
           { status: 200 }
         );
+      }
+
+      // Query child moves
+      if (urlStr.includes('/api/collections/game_moves/records?filter=')) {
+        return new Response(JSON.stringify({ items: [{ san: 'e4' }, { san: 'e5' }] }), { status: 200 });
+      }
+
+      // Query child participants
+      if (urlStr.includes('/api/collections/session_participants/records?filter=')) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              { role: 'white', player_name: 'WhiteMaster' },
+              { role: 'black', player_name: 'BlackMaster' }
+            ]
+          }),
+          { status: 200 }
+        );
+      }
+
+      // Create snapshot in tbl_archived_game_snapshots
+      if (urlStr.includes('/api/collections/tbl_archived_game_snapshots/records') && init?.method === 'POST') {
+        const body = JSON.parse(init.body as string);
+        savedSnapshots.push(body);
+        return new Response(JSON.stringify({ id: 'snap_rec_123' }), { status: 200 });
       }
 
       // 3. Delete session
@@ -84,6 +110,38 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
         return new Response('', { status: 204 });
       }
 
+      // Query old snapshots for partition archival
+      if (urlStr.includes('/api/collections/tbl_archived_game_snapshots/records?filter=')) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'old_snap_1',
+                txt_session_code: 'SANCT-OLD-ROLLOVER',
+                txt_final_fen: 'fen1',
+                txt_white_player: 'W',
+                txt_black_player: 'B',
+                txt_winner: '',
+                txt_status: 'in_progress',
+                int_total_plies: 10,
+                txt_pgn: 'e4',
+                json_snapshot_payload: {},
+                txt_pruned_reason: 'stale'
+              }
+            ]
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (urlStr.includes('/api/collections/tbl_archived_game_snapshots_history/records') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'hist_snap_1' }), { status: 200 });
+      }
+
+      if (urlStr.includes('/api/collections/tbl_archived_game_snapshots/records/') && init?.method === 'DELETE') {
+        return new Response('', { status: 204 });
+      }
+
       return new Response('Not found', { status: 404 });
     }) as any;
 
@@ -107,11 +165,19 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     expect(auditBody.int_deleted_sessions).toBe(2);
     expect(auditBody.bln_success).toBe(true);
 
+    // Verify snapshot records were created before deletion
+    expect(savedSnapshots.length).toBe(2);
+    expect(savedSnapshots[0].txt_session_code).toBe('SANCT-OLD1');
+    expect(savedSnapshots[0].txt_white_player).toBe('WhiteMaster');
+    expect(savedSnapshots[0].txt_black_player).toBe('BlackMaster');
+    expect(savedSnapshots[0].txt_pgn).toBe('e4 e5');
+
     // Verify partition archival
     expect(historyBody).not.toBeNull();
     expect(historyBody.txt_trace_id).toBe('trc_old_001');
     expect(historyBody.int_deleted_sessions).toBe(3);
     expect(deletedOldAuditLogs).toEqual(['old_log_1']);
+  });
   });
 
   it('falls back to admin authentication if _superusers endpoint is unavailable', async () => {
@@ -238,4 +304,112 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     expect(report.sessionCodes).toEqual(['SANCT-OK']);
     expect(report.auditLogId).toBeUndefined(); // Handled audit failure gracefully
   });
-});
+
+  it('restores an archived session from tbl_archived_game_snapshots', async () => {
+    let createdSessionBody: any = null;
+
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+
+      if (urlStr.includes('/tbl_archived_game_snapshots/records?filter=')) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'snap_1',
+                txt_session_code: 'SANCT-RESTORE',
+                json_snapshot_payload: {
+                  session: {
+                    session_code: 'SANCT-RESTORE',
+                    mode: 'live',
+                    theme: 'high-gothic',
+                    timer_rule: 'standard',
+                    strict_mode: false,
+                    status: 'in_progress',
+                    current_turn: 'w',
+                    fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+                    ply: 0
+                  }
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (urlStr.includes('/game_sessions/records') && init?.method === 'POST') {
+        createdSessionBody = JSON.parse(init.body as string);
+        return new Response(JSON.stringify({ id: 'restored_sess_id' }), { status: 200 });
+      }
+
+      return new Response('Not found', { status: 404 });
+    }) as any;
+
+    const res = await restoreArchivedPocketBaseSession('https://test.pockethost.io', 'token123', 'SANCT-RESTORE');
+    expect(res.isSuccess()).toBe(true);
+    expect(res.getOrThrow().session_code).toBe('SANCT-RESTORE');
+    expect(createdSessionBody.session_code).toBe('SANCT-RESTORE');
+    expect(createdSessionBody.status).toBe('in_progress');
+  });
+
+  it('returns failure when snapshot is not found during restoration', async () => {
+    globalThis.fetch = (async () => {
+      return new Response(JSON.stringify({ items: [] }), { status: 200 });
+    }) as any;
+
+    const res = await restoreArchivedPocketBaseSession('https://test.pockethost.io', 'token123', 'SANCT-UNKNOWN');
+    expect(res.isFailure()).toBe(true);
+    expect(res.match({ Ok: () => '', Err: (e: any) => e?.message || String(e) })).toContain('not found');
+  });
+
+  it('restores an archived session from tbl_archived_game_snapshots_history when not in active table', async () => {
+    let createdSessionBody: any = null;
+
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+
+      if (urlStr.includes('/tbl_archived_game_snapshots/records?filter=')) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 }); // not in active table
+      }
+
+      if (urlStr.includes('/tbl_archived_game_snapshots_history/records?filter=')) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'snap_hist_1',
+                txt_session_code: 'SANCT-FROM-HIST',
+                json_snapshot_payload: {
+                  session: {
+                    session_code: 'SANCT-FROM-HIST',
+                    mode: 'live',
+                    theme: 'high-gothic',
+                    timer_rule: 'standard',
+                    strict_mode: false,
+                    status: 'concluded',
+                    current_turn: 'b',
+                    fen: 'start',
+                    ply: 20
+                  }
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (urlStr.includes('/game_sessions/records') && init?.method === 'POST') {
+        createdSessionBody = JSON.parse(init.body as string);
+        return new Response(JSON.stringify({ id: 'restored_hist_sess' }), { status: 200 });
+      }
+
+      return new Response('Not found', { status: 404 });
+    }) as any;
+
+    const res = await restoreArchivedPocketBaseSession('https://test.pockethost.io', 'token123', 'SANCT-FROM-HIST');
+    expect(res.isSuccess()).toBe(true);
+    expect(res.getOrThrow().session_code).toBe('SANCT-FROM-HIST');
+    expect(createdSessionBody.session_code).toBe('SANCT-FROM-HIST');
+  });

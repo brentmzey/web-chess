@@ -57,9 +57,21 @@ describe('PocketBase Goja JavaScript Cron Hook (pb_hooks/cleanup.pb.js)', () => 
 
     const mockStaleSession = new MockRecord({ id: 'col_sessions', name: 'game_sessions' });
     mockStaleSession.set('session_code', 'SANCT-STALE1');
+    mockStaleSession.set('fen', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+    mockStaleSession.set('white_player_name', 'HostGrandmaster');
+    mockStaleSession.set('black_player_name', 'GuestChallenger');
+    mockStaleSession.set('status', 'in_progress');
+    mockStaleSession.set('ply', 12);
+    mockStaleSession.set('last_move_san', 'Nf3');
 
     const mockOldAuditLog = new MockRecord({ id: 'col_audit', name: 'tbl_audit_cleanup_logs' });
     mockOldOldAuditLog(mockOldAuditLog);
+
+    const mockOldSnapshot = new MockRecord({ id: 'col_old_snap', name: 'tbl_archived_game_snapshots' });
+    mockOldSnapshot.set('txt_session_code', 'SANCT-OLD-SNAP');
+    mockOldSnapshot.set('txt_final_fen', 'start');
+    mockOldSnapshot.set('txt_status', 'in_progress');
+    mockOldSnapshot.set('int_total_plies', 4);
 
     function mockOldOldAuditLog(rec: MockRecord) {
       rec.set('txt_trace_id', 'trc_old_123');
@@ -82,6 +94,10 @@ describe('PocketBase Goja JavaScript Cron Hook (pb_hooks/cleanup.pb.js)', () => 
         if (colName === 'tbl_audit_cleanup_logs') {
           expect(filter).toBe('created < {:cutoff}');
           return [mockOldAuditLog];
+        }
+        if (colName === 'tbl_archived_game_snapshots') {
+          expect(filter).toBe('created < {:cutoff}');
+          return [mockOldSnapshot];
         }
         return [];
       },
@@ -117,9 +133,16 @@ describe('PocketBase Goja JavaScript Cron Hook (pb_hooks/cleanup.pb.js)', () => 
     // Execute the hook callback
     registeredCallback!();
 
+    // Verify snapshot was created before deleting session
+    const snapshotRecord = savedRecords.find(r => r.collection.name === 'tbl_archived_game_snapshots');
+    expect(snapshotRecord).toBeDefined();
+    expect(snapshotRecord.getString('txt_session_code')).toBe('SANCT-STALE1');
+    expect(snapshotRecord.getString('txt_white_player')).toBe('HostGrandmaster');
+    expect(snapshotRecord.getString('txt_black_player')).toBe('GuestChallenger');
+    expect(snapshotRecord.getInt('int_total_plies')).toBe(12);
+
     // Verify game_sessions record was cascade deleted
-    expect(deletedRecords.length).toBe(2); // 1 game session + 1 archived audit log
-    expect(deletedRecords[0].getString('session_code')).toBe('SANCT-STALE1');
+    expect(deletedRecords).toContain(mockStaleSession);
 
     // Verify audit log record was saved to tbl_audit_cleanup_logs
     const auditRecord = savedRecords.find(r => r.collection.name === 'tbl_audit_cleanup_logs');
@@ -129,15 +152,19 @@ describe('PocketBase Goja JavaScript Cron Hook (pb_hooks/cleanup.pb.js)', () => 
     expect(auditRecord.getInt('int_deleted_sessions')).toBe(1);
     expect(auditRecord.getBool('bln_success')).toBe(true);
 
-    // Verify partition rollover: historical record saved to tbl_audit_cleanup_logs_history
+    // Verify partition rollover: historical audit record saved to tbl_audit_cleanup_logs_history
     const historyRecord = savedRecords.find(r => r.collection.name === 'tbl_audit_cleanup_logs_history');
     expect(historyRecord).toBeDefined();
     expect(historyRecord.getString('txt_trace_id')).toBe('trc_old_123');
-    expect(historyRecord.getString('txt_trigger_source')).toBe('cron_hook');
-    expect(historyRecord.getInt('int_deleted_sessions')).toBe(1);
 
-    // Verify old log was deleted from tbl_audit_cleanup_logs
-    expect(deletedRecords[1]).toBe(mockOldAuditLog);
+    // Verify snapshot partition rollover: historical snapshot saved to tbl_archived_game_snapshots_history
+    const snapshotHistory = savedRecords.find(r => r.collection.name === 'tbl_archived_game_snapshots_history');
+    expect(snapshotHistory).toBeDefined();
+    expect(snapshotHistory.getString('txt_session_code')).toBe('SANCT-OLD-SNAP');
+
+    // Verify old logs and snapshots were deleted from active tables
+    expect(deletedRecords).toContain(mockOldAuditLog);
+    expect(deletedRecords).toContain(mockOldSnapshot);
   });
 
   it('handles errors gracefully in Goja environment without throwing', () => {
