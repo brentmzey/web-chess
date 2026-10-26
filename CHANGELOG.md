@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.15] - 2026-10-26
+### Added
+- **"DO NOT DELETE" Match Pinning UI Toggle, Schema Protection & Pruner Exclusion (`do_not_delete` / `bln_do_not_delete`)**:
+  - Implemented session pinning UI with a creation-time checkbox (`#live-host-do-not-delete`) in the Match Setup modal and a real-time interactive pin badge (`#btn-toggle-do-not-delete`) in the active match banner.
+  - Added `do_not_delete` boolean column and `idx_game_sessions_do_not_delete` index to PocketBase `game_sessions` schema; deployed live migration to PocketHost.
+  - Added `bln_do_not_delete` boolean field to snapshot archival tables `tbl_archived_game_snapshots` and `tbl_archived_game_snapshots_history`.
+  - Added `do_not_delete` integer column and `ix_game_sessions_do_not_delete` index to SQLite `game_sessions` table.
+  - Updated PocketBase Goja cron hook (`pb_hooks/cleanup.pb.js`) and REST pruner service (`src/server/pocketbase/pruner.ts`) query filter to `updated < {:cutoff} && do_not_delete != true`, strictly exempting pinned matches from pruning and snapshot archival.
+  - Updated SQLite `SessionRepository.pruneStaleSessions` to filter `WHERE updated_at < ? AND (do_not_delete IS NULL OR do_not_delete = 0)`.
+  - Implemented `PocketBaseChessClient.setSessionDoNotDelete` and instance method `client.setDoNotDelete(pinned)` enabling mid-game status pinning.
+  - Added comprehensive unit and end-to-end integration tests (`tests/cleanupHook.test.ts`, `tests/pruner.test.ts`, `tests/sessionRepository.test.ts`, `tests/uiController.test.ts`, `tests/integration.test.ts`) validating pin survival across pruning cycles with >99% code coverage.
+
 ## [1.2.0-rc.14] - 2026-10-26
 ### Added
 - **Indexed Compact Archival Snapshots & Match Restoration Architecture (`tbl_archived_game_snapshots`, `tbl_archived_game_snapshots_history`)**:

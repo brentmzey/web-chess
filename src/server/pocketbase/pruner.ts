@@ -35,6 +35,7 @@ interface SessionListResponse {
     theme?: string;
     timer_rule?: string;
     strict_mode?: boolean;
+    do_not_delete?: boolean;
     created: string;
     updated: string;
   }>;
@@ -115,8 +116,8 @@ export async function prunePocketBaseSessions(
     'Content-Type': 'application/json'
   };
 
-  // 2. Fetch Stale Sessions (no moves or updates in the last N days)
-  const filter = `updated < "${cutoffPocketBase}"`;
+  // 2. Fetch Stale Sessions (no moves or updates in the last N days, excluding do_not_delete sessions)
+  const filter = `updated < "${cutoffPocketBase}" && do_not_delete != true`;
   const listUrl = `${url}/api/collections/game_sessions/records?filter=${encodeURIComponent(
     filter
   )}&perPage=${batchSize}&sort=+created`;
@@ -179,7 +180,8 @@ export async function prunePocketBaseSessions(
           int_total_plies: session.ply || moves.length,
           txt_pgn: pgn,
           json_snapshot_payload: snapshotPayload,
-          txt_pruned_reason: 'stale_inactivity_3_days'
+          txt_pruned_reason: 'stale_inactivity_3_days',
+          bln_do_not_delete: Boolean(session.do_not_delete)
         })
       }).catch(err => {
         logger.warn(`[PocketBase Pruner] Failed to record snapshot for ${session.session_code}: ${err}`);

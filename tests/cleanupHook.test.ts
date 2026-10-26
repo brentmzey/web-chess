@@ -87,7 +87,7 @@ describe('PocketBase Goja JavaScript Cron Hook (pb_hooks/cleanup.pb.js)', () => 
     const mockApp = {
       findRecordsByFilter: (colName: string, filter: string, _sort: string, _limit: number, _offset: number, params: any) => {
         if (colName === 'game_sessions') {
-          expect(filter).toBe('updated < {:cutoff}');
+          expect(filter).toBe('updated < {:cutoff} && do_not_delete != true');
           expect(params.cutoff).toBeDefined();
           return [mockStaleSession];
         }
@@ -236,5 +236,40 @@ describe('PocketBase Goja JavaScript Cron Hook (pb_hooks/cleanup.pb.js)', () => 
     vm.runInNewContext(hookSource, sandbox);
     expect(() => registeredCallback!()).not.toThrow();
     expect(loggedWarn).toContain('Disk full');
+  });
+
+  it('strictly excludes games with do_not_delete = true from being queried or pruned', () => {
+    let registeredCallback: Function | null = null;
+    let queryFilterExecuted = '';
+    const deletedRecords: any[] = [];
+
+    const mockApp = {
+      findRecordsByFilter: (colName: string, filter: string) => {
+        if (colName === 'game_sessions') {
+          queryFilterExecuted = filter;
+        }
+        return []; // Filter excluded do_not_delete records, so 0 records returned
+      },
+      findCollectionByNameOrId: (name: string) => ({ id: name, name }),
+      save: () => {},
+      delete: (rec: any) => { deletedRecords.push(rec); }
+    };
+
+    const sandbox = {
+      cronAdd: (_name: string, _cron: string, cb: Function) => {
+        registeredCallback = cb;
+      },
+      $app: mockApp,
+      Record: MockRecord,
+      console: { log: () => {}, error: () => {}, warn: () => {} },
+      Date,
+      Math
+    };
+
+    vm.runInNewContext(hookSource, sandbox);
+    registeredCallback!();
+
+    expect(queryFilterExecuted).toBe('updated < {:cutoff} && do_not_delete != true');
+    expect(deletedRecords.length).toBe(0);
   });
 });

@@ -166,6 +166,46 @@ To prevent database bloat over time while keeping PocketHost lightning-fast and 
 
 ---
 
+## 📌 "DO NOT DELETE" Match Pinning Protection
+
+Players and tournament hosts can prevent important games from ever being purged by the automated cascade cleanup cron:
+
+1. **Creation Setup Toggle**:
+   - Check **"DO NOT DELETE this session"** (`#live-host-do-not-delete`) in the Create Live Match setup dialog to persist the match indefinitely.
+2. **Interactive Mid-Game Pinning**:
+   - Pinned status can be toggled on the fly via the pin badge (`#btn-toggle-do-not-delete`) displayed directly in the live match status banner.
+3. **Database Schema & Indexing**:
+   - Schema field `do_not_delete` (boolean, default `false`) on collection `game_sessions`, indexed by `idx_game_sessions_do_not_delete` for instant filter evaluation.
+   - Pinned status is preserved in archival snapshots as `bln_do_not_delete`.
+4. **Pruner Query Guarantee**:
+   - Pruners across both the native PocketBase Goja cron hook (`pb_hooks/cleanup.pb.js`) and REST pruner service (`src/server/pocketbase/pruner.ts`) strictly query:
+     ```text
+     updated < {:cutoff} && do_not_delete != true
+     ```
+   - Matches with `do_not_delete == true` are completely excluded from deletion and archival.
+
+---
+
+## 💾 Compact Archival Snapshots & Match Restoration (`tbl_archived_game_snapshots`)
+
+Before any unpinned stale session is cascade-deleted, its complete state is collapsed into a single compact, indexed row:
+
+1. **Single-Row Archive**:
+   - `txt_session_code` (Indexed, UNIQUE): 6-character match identifier.
+   - `txt_final_fen`: Board FEN at match conclusion.
+   - `txt_white_player` / `txt_black_player`: Player display names.
+   - `txt_winner` / `txt_status`: Outcome metadata.
+   - `int_total_plies`: Total half-moves played.
+   - `txt_pgn`: Standard PGN move sequence.
+   - `bln_do_not_delete`: Retained pin status.
+   - `json_snapshot_payload`: Full compressed JSON representation of child records (participants, moves, timestamps, events).
+2. **Cold Storage Tiering (`tbl_archived_game_snapshots_history`)**:
+   - Snapshots older than 30 days are automatically migrated to the cold-storage history table during cleanup cycles.
+3. **Lossless Match Restoration**:
+   - Pruned games can be restored on demand back into active tables using `SessionRepository.restoreSessionFromSnapshot(sessionCode)` (SQLite) or `restoreArchivedPocketBaseSession(baseUrl, token, sessionCode)` (PocketBase REST API).
+
+---
+
 ## 🛠️ Schema Migrations Tooling
 
 To apply or update PocketHost schema rules without exposing administrative credentials:

@@ -42,6 +42,7 @@ export interface GameSessionRecord {
   white_time_remaining_ms: number | null;
   black_time_remaining_ms: number | null;
   winner: 'w' | 'b' | 'draw' | null;
+  do_not_delete?: number; // 0 or 1
   created_at: number;
   updated_at: number;
   ended_at: number | null;

@@ -215,6 +215,10 @@ export class PocketBaseChessClient {
     }, toError);
   }
 
+  public async setDoNotDelete(doNotDelete: boolean): Promise<Result<boolean, Error>> {
+    return PocketBaseChessClient.setSessionDoNotDelete(this.getBaseUrl(), this.config.sessionId, doNotDelete);
+  }
+
   public disconnect(): void {
     if (this.eventSource) {
       this.eventSource.close();
@@ -448,6 +452,7 @@ export class PocketBaseChessClient {
       strictMode: boolean;
       role: 'w' | 'b' | 'rand';
       playerName?: string;
+      doNotDelete?: boolean;
     }
   ): Promise<Result<{
     sessionId: string;
@@ -485,6 +490,7 @@ export class PocketBaseChessClient {
           theme: options.theme,
           timer_rule: options.timerRule,
           strict_mode: options.strictMode,
+          do_not_delete: Boolean(options.doNotDelete),
           status: 'waiting',
           current_turn: 'w',
           fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -654,6 +660,25 @@ export class PocketBaseChessClient {
         fen: String(session.fen),
         theme: String(session.theme || 'gothic-basilica')
       };
+    }, toError);
+  }
+
+  public static async setSessionDoNotDelete(
+    baseUrl: string,
+    sessionId: string,
+    doNotDelete: boolean
+  ): Promise<Result<boolean, Error>> {
+    return tryCatchAsync(async () => {
+      const url = (baseUrl || POCKETHOST_URL).replace(/\/+$/, '');
+      const res = await fetch(`${url}/api/collections/game_sessions/records/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ do_not_delete: doNotDelete })
+      });
+      if (!res.ok) {
+        throw new Error(`Failed updating do_not_delete: ${res.statusText}`);
+      }
+      return true;
     }, toError);
   }
 }

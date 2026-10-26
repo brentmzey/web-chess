@@ -259,6 +259,12 @@ describe('SessionRepository Functional Data Access & Cross-References', () => {
     // Create a fresh session
     const freshSession = repo.createSession({ sessionCode: 'SANCT-FRESH' }).getOrThrow();
 
+    // Create an old session marked with doNotDelete: true
+    const pinnedSession = repo.createSession({ sessionCode: 'SANCT-PINNED', doNotDelete: true }).getOrThrow();
+    db.getRawDb()
+      .prepare('UPDATE game_sessions SET created_at = ?, updated_at = ? WHERE id = ?')
+      .run(1000, 1000, pinnedSession.id);
+
     // Cutoff between old (1000) and fresh (now)
     const pruneRes = repo.pruneStaleSessions(2000);
     expect(pruneRes.isSuccess()).toBe(true);
@@ -270,8 +276,15 @@ describe('SessionRepository Functional Data Access & Cross-References', () => {
     expect(repo.getMovesBySession(oldSession.id).length).toBe(0);
     expect(repo.getEventsSince(oldSession.id, 0).length).toBe(0);
 
-    // Verify fresh session still exists
+    // Verify pinned and fresh sessions still exist
     expect(repo.getSessionById(freshSession.id).isSome()).toBe(true);
+    expect(repo.getSessionById(pinnedSession.id).isSome()).toBe(true);
+    expect(repo.getSessionById(pinnedSession.id).getOrThrow().do_not_delete).toBe(1);
+
+    // Test toggle via setSessionDoNotDelete
+    const toggleRes = repo.setSessionDoNotDelete(pinnedSession.id, false);
+    expect(toggleRes.isSuccess()).toBe(true);
+    expect(repo.getSessionById(pinnedSession.id).getOrThrow().do_not_delete).toBe(0);
   });
 
   it('records and queries Hungarian-prefixed audit logs in tbl_audit_cleanup_logs', () => {

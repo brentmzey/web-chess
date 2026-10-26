@@ -178,7 +178,6 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     expect(historyBody.int_deleted_sessions).toBe(3);
     expect(deletedOldAuditLogs).toEqual(['old_log_1']);
   });
-  });
 
   it('falls back to admin authentication if _superusers endpoint is unavailable', async () => {
     globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
@@ -413,3 +412,51 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     expect(res.getOrThrow().session_code).toBe('SANCT-FROM-HIST');
     expect(createdSessionBody.session_code).toBe('SANCT-FROM-HIST');
   });
+
+  it('prune query explicitly requires do_not_delete != true to protect pinned matches', async () => {
+    let capturedFilter = '';
+
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('auth-with-password')) {
+        return new Response(JSON.stringify({ token: 'mock-token' }), { status: 200 });
+      }
+      if (urlStr.includes('/api/collections/game_sessions/records?filter=')) {
+        capturedFilter = decodeURIComponent(urlStr.split('filter=')[1].split('&')[0]);
+        return new Response(JSON.stringify({ items: [], totalItems: 0 }), { status: 200 });
+      }
+      if (urlStr.includes('tbl_audit_cleanup_logs')) {
+        return new Response(JSON.stringify({ id: 'audit_1' }), { status: 200 });
+      }
+      return new Response('Not found', { status: 404 });
+    }) as any;
+
+    const res = await prunePocketBaseSessions('https://test.pockethost.io', 'admin@test.com', 'password');
+    expect(res.isSuccess()).toBe(true);
+    expect(capturedFilter).toContain('do_not_delete != true');
+  });
+
+  it('updates do_not_delete on session via PocketBaseChessClient', async () => {
+    const { PocketBaseChessClient } = require('../src/realtime/pocketbaseClient');
+    let patchedBody: any = null;
+
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('/api/collections/game_sessions/records/sess_123') && init?.method === 'PATCH') {
+        patchedBody = JSON.parse(init.body as string);
+        return new Response(JSON.stringify({ id: 'sess_123', do_not_delete: true }), { status: 200 });
+      }
+      return new Response('Not found', { status: 404 });
+    }) as any;
+
+    const res = await PocketBaseChessClient.setSessionDoNotDelete('https://test.pockethost.io', 'sess_123', true);
+    expect(res.isSuccess()).toBe(true);
+    expect(patchedBody).toEqual({ do_not_delete: true });
+
+    // Instance method test
+    const client = new PocketBaseChessClient({ sessionId: 'sess_123' });
+    const instanceRes = await client.setDoNotDelete(false);
+    expect(instanceRes.isSuccess()).toBe(true);
+    expect(patchedBody).toEqual({ do_not_delete: false });
+  });
+});

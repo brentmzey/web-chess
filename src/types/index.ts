@@ -187,6 +187,7 @@ export interface StoredLiveSessionInfo {
   token: string;
   role: 'white' | 'black' | 'spectator';
   playerName?: string;
+  doNotDelete?: boolean;
 }
 
 export interface StoredSessionState {

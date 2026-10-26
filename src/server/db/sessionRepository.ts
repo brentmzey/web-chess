@@ -38,6 +38,7 @@ export interface ArchivedGameSnapshotRecord {
   txt_pgn: string | null;
   json_snapshot_payload: string;
   txt_pruned_reason: string;
+  bln_do_not_delete?: number;
   created_at: number;
 }
 
@@ -100,6 +101,7 @@ export class SessionRepository {
     allowUndo?: boolean;
     timeControlInitialSec?: number | null;
     timeControlIncrementSec?: number;
+    doNotDelete?: boolean;
   }): Result<GameSessionRecord, string> {
     return tryCatch(() => {
       const id = session.id || randomUUID();
@@ -108,11 +110,11 @@ export class SessionRepository {
         INSERT INTO game_sessions (
           id, session_code, status, current_fen, turn, move_count,
           theme, allow_undo, time_control_initial_sec, time_control_increment_sec,
-          white_time_remaining_ms, black_time_remaining_ms, created_at, updated_at
+          white_time_remaining_ms, black_time_remaining_ms, do_not_delete, created_at, updated_at
         ) VALUES (
           ?, ?, 'pending', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 'w', 0,
           ?, ?, ?, ?,
-          ?, ?, ?, ?
+          ?, ?, ?, ?, ?
         )
       `);
 
@@ -129,11 +131,22 @@ export class SessionRepository {
         session.timeControlIncrementSec ?? 0,
         initialMs,
         initialMs,
+        session.doNotDelete ? 1 : 0,
         now,
         now
       );
 
       return this.getSessionById(id).getOrThrow('Failed to read back newly created session');
+    }, toErrorString);
+  }
+
+  public setSessionDoNotDelete(sessionId: string, doNotDelete: boolean): Result<boolean, string> {
+    return tryCatch(() => {
+      const now = currentEpochMs();
+      const res = this.db
+        .prepare('UPDATE game_sessions SET do_not_delete = ?, updated_at = ? WHERE id = ? OR session_code = ?')
+        .run(doNotDelete ? 1 : 0, now, sessionId, sessionId);
+      return res.changes > 0;
     }, toErrorString);
   }
 
@@ -464,9 +477,9 @@ export class SessionRepository {
    */
   public pruneStaleSessions(olderThanTimestamp: number): Result<{ deletedSessions: number }, string> {
     return this.sanctuaryDb.transaction(() => {
-      // 1. Snapshot all sessions about to be wiped into tbl_archived_game_snapshots
+      // 1. Snapshot all sessions about to be wiped into tbl_archived_game_snapshots (ignoring do_not_delete sessions)
       const staleSessions = (this.db
-        .prepare('SELECT * FROM game_sessions WHERE updated_at < ?')
+        .prepare('SELECT * FROM game_sessions WHERE updated_at < ? AND (do_not_delete IS NULL OR do_not_delete = 0)')
         .all(olderThanTimestamp) || []) as GameSessionRecord[];
 
       for (const sess of staleSessions) {
@@ -492,8 +505,8 @@ export class SessionRepository {
             INSERT OR REPLACE INTO tbl_archived_game_snapshots (
               id, txt_session_code, txt_final_fen, txt_white_player, txt_black_player,
               txt_winner, txt_status, int_total_plies, txt_pgn, json_snapshot_payload,
-              txt_pruned_reason, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              txt_pruned_reason, bln_do_not_delete, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `)
           .run(
             randomUUID(),
@@ -507,13 +520,14 @@ export class SessionRepository {
             pgn,
             payload,
             'stale_inactivity_3_days',
+            (sess as any).do_not_delete ? 1 : 0,
             currentEpochMs()
           );
       }
 
-      // 2. Cascade-delete from game_sessions (foreign keys wipe child rows)
+      // 2. Cascade-delete from game_sessions (foreign keys wipe child rows), preserving do_not_delete records
       const info = this.db
-        .prepare('DELETE FROM game_sessions WHERE updated_at < ?')
+        .prepare('DELETE FROM game_sessions WHERE updated_at < ? AND (do_not_delete IS NULL OR do_not_delete = 0)')
         .run(olderThanTimestamp);
       return { deletedSessions: info.changes };
     });

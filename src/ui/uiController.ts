@@ -77,6 +77,10 @@ export interface UIControllerElements {
   liveActiveCode: HTMLElement | null;
   btnLeaveLiveSession: HTMLButtonElement | null;
   pregameModeLockNotice: HTMLElement | null;
+  btnToggleDoNotDelete: HTMLButtonElement | null;
+  iconDoNotDelete: HTMLElement | null;
+  labelDoNotDelete: HTMLElement | null;
+  liveHostDoNotDelete: HTMLInputElement | null;
 }
 
 export class UIController {
@@ -127,6 +131,10 @@ export class UIController {
       liveActiveBanner: document.getElementById('live-active-banner'),
       liveActiveCode: document.getElementById('live-active-code'),
       btnLeaveLiveSession: document.getElementById('btn-leave-live-session') as HTMLButtonElement | null,
+      btnToggleDoNotDelete: document.getElementById('btn-toggle-do-not-delete') as HTMLButtonElement | null,
+      iconDoNotDelete: document.getElementById('icon-do-not-delete'),
+      labelDoNotDelete: document.getElementById('label-do-not-delete'),
+      liveHostDoNotDelete: document.getElementById('live-host-do-not-delete') as HTMLInputElement | null,
       pregameModeLockNotice: document.getElementById('pregame-mode-lock-notice')
     };
   }
@@ -502,7 +510,24 @@ export class UIController {
     });
   }
 
-  public setLiveMatchActive(active: boolean, sessionCode?: string): void {
+  public setDoNotDeleteState(pinned: boolean): void {
+    fromNullable(this.el.btnToggleDoNotDelete).map(btn => {
+      btn.classList.toggle('bg-amber-500/20', pinned);
+      btn.classList.toggle('border-amber-400/50', pinned);
+      btn.classList.toggle('text-amber-200', pinned);
+      btn.classList.toggle('bg-white/5', !pinned);
+      btn.classList.toggle('border-white/20', !pinned);
+      btn.classList.toggle('text-stone-300', !pinned);
+    });
+    fromNullable(this.el.iconDoNotDelete).map(icon => {
+      icon.classList.toggle('text-amber-300', pinned);
+    });
+    fromNullable(this.el.labelDoNotDelete).map(label => {
+      label.textContent = pinned ? 'Protected (No Prune)' : 'Do Not Delete';
+    });
+  }
+
+  public setLiveMatchActive(active: boolean, sessionCode?: string, doNotDelete?: boolean): void {
     fromNullable(this.el.liveActiveBanner).map(banner => {
       banner.classList.toggle('hidden', !active);
     });
@@ -512,6 +537,7 @@ export class UIController {
     fromNullable(this.el.pregameModeLockNotice).map(notice => {
       notice.classList.toggle('hidden', !active);
     });
+    this.setDoNotDeleteState(Boolean(doNotDelete));
   }
 }
 

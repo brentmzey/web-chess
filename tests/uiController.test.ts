@@ -83,6 +83,10 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'live-active-banner': new MockElement(),
       'live-active-code': new MockElement(),
       'btn-leave-live-session': new MockElement(),
+      'btn-toggle-do-not-delete': new MockElement(),
+      'icon-do-not-delete': new MockElement(),
+      'label-do-not-delete': new MockElement(),
+      'live-host-do-not-delete': new MockElement(),
       'pregame-mode-lock-notice': new MockElement()
     };
 
@@ -345,11 +349,17 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['live-join-error']?.textContent).toBe('');
     expect(domElements['live-join-error']?.classList.contains('hidden')).toBe(true);
 
-    // Live Match Active locks & banner toggle
-    ui.setLiveMatchActive(true, 'SANCT-ACTIVE');
+    // Live Match Active locks & banner toggle with Do Not Delete state
+    ui.setLiveMatchActive(true, 'SANCT-ACTIVE', true);
     expect(domElements['live-active-banner']?.classList.contains('hidden')).toBe(false);
     expect(domElements['live-active-code']?.textContent).toBe('SANCT-ACTIVE');
     expect(domElements['pregame-mode-lock-notice']?.classList.contains('hidden')).toBe(false);
+    expect(domElements['btn-toggle-do-not-delete']?.classList.contains('bg-amber-500/20')).toBe(true);
+    expect(domElements['label-do-not-delete']?.textContent).toBe('Protected (No Prune)');
+
+    ui.setDoNotDeleteState(false);
+    expect(domElements['btn-toggle-do-not-delete']?.classList.contains('bg-white/5')).toBe(true);
+    expect(domElements['label-do-not-delete']?.textContent).toBe('Do Not Delete');
 
     ui.setLiveMatchActive(false);
     expect(domElements['live-active-banner']?.classList.contains('hidden')).toBe(true);

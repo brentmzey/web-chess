@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
     white_time_remaining_ms INTEGER,
     black_time_remaining_ms INTEGER,
     winner TEXT CHECK (winner IN ('w', 'b', 'draw')),
+    do_not_delete INTEGER NOT NULL DEFAULT 0 CHECK (do_not_delete IN (0, 1)),
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     ended_at INTEGER
@@ -147,6 +148,7 @@ CREATE TABLE IF NOT EXISTS tbl_archived_game_snapshots (
     txt_pgn TEXT,
     json_snapshot_payload TEXT,
     txt_pruned_reason TEXT,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0 CHECK (bln_do_not_delete IN (0, 1)),
     created_at INTEGER NOT NULL
 );
 
@@ -163,6 +165,7 @@ CREATE TABLE IF NOT EXISTS tbl_archived_game_snapshots_history (
     txt_pgn TEXT,
     json_snapshot_payload TEXT,
     txt_pruned_reason TEXT,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0 CHECK (bln_do_not_delete IN (0, 1)),
     created_at INTEGER NOT NULL
 );
 
@@ -174,6 +177,7 @@ CREATE TABLE IF NOT EXISTS tbl_archived_game_snapshots_history (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_game_sessions_code ON game_sessions(session_code);
 CREATE INDEX IF NOT EXISTS ix_game_sessions_status ON game_sessions(status);
 CREATE INDEX IF NOT EXISTS ix_game_sessions_updated ON game_sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS ix_game_sessions_do_not_delete ON game_sessions(do_not_delete);
 
 -- Session Participants Indices & Partial Unique Constraints
 CREATE INDEX IF NOT EXISTS ix_session_participants_session ON session_participants(session_id);

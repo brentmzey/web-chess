@@ -24,10 +24,10 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
     let errorMessage = "";
 
     try {
-        // Find sessions with no moves or updates in the last 3 days
+        // Find sessions with no moves or updates in the last 3 days (ignoring do_not_delete sessions)
         const records = $app.findRecordsByFilter(
             "game_sessions",
-            "updated < {:cutoff}",
+            "updated < {:cutoff} && do_not_delete != true",
             "-updated",
             100, // Process in batches of 100 to avoid transaction locks
             0,
@@ -71,6 +71,7 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
                         }
                     });
                     snapRec.set("txt_pruned_reason", "stale_inactivity_3_days");
+                    snapRec.set("bln_do_not_delete", record.getBool("do_not_delete"));
                     $app.save(snapRec);
                 } catch (snapErr) {
                     console.warn(`[SanctuaryChess Cron:${traceId}] Could not record snapshot for ${code}: ${snapErr}`);

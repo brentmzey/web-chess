@@ -34,6 +34,11 @@
         "required": false
       },
       {
+        "name": "do_not_delete",
+        "type": "bool",
+        "required": false
+      },
+      {
         "name": "status",
         "type": "text",
         "required": true
@@ -102,7 +107,8 @@
       "CREATE INDEX `idx_game_sessions_status` ON `game_sessions` (`status`)",
       "CREATE INDEX `idx_game_sessions_created` ON `game_sessions` (`created`)",
       "CREATE INDEX `idx_game_sessions_updated` ON `game_sessions` (`updated`)",
-      "CREATE INDEX `idx_game_sessions_status_created` ON `game_sessions` (`status`, `created`)"
+      "CREATE INDEX `idx_game_sessions_status_created` ON `game_sessions` (`status`, `created`)",
+      "CREATE INDEX `idx_game_sessions_do_not_delete` ON `game_sessions` (`do_not_delete`)"
     ]
   },
   {
@@ -496,6 +502,11 @@
         "required": false
       },
       {
+        "name": "bln_do_not_delete",
+        "type": "bool",
+        "required": false
+      },
+      {
         "name": "created",
         "type": "autodate",
         "onCreate": true,
@@ -572,6 +583,11 @@
       {
         "name": "txt_pruned_reason",
         "type": "text",
+        "required": false
+      },
+      {
+        "name": "bln_do_not_delete",
+        "type": "bool",
         "required": false
       },
       {

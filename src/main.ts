@@ -320,7 +320,8 @@ function main(): void {
 
     // Active Live Session lock state & banner toggle
     const isLiveActive = currentMode === GameModeEnum.Live;
-    ui.setLiveMatchActive(isLiveActive, chessStore.getState().liveSession?.sessionCode);
+    const currentLiveInfo = chessStore.getState().liveSession;
+    ui.setLiveMatchActive(isLiveActive, currentLiveInfo?.sessionCode, currentLiveInfo?.doNotDelete);
 
     // Pre-game mode selection cards highlight & lock
     document.querySelectorAll('.mode-select-card').forEach(card => {
@@ -1573,6 +1574,8 @@ function main(): void {
       const hostNameInput = document.getElementById('live-host-name') as HTMLInputElement | null;
       const hostRoleSelect = document.getElementById('live-host-role') as HTMLSelectElement | null;
       const hostUndoSelect = document.getElementById('live-host-undo') as HTMLSelectElement | null;
+      const hostDoNotDeleteInput = document.getElementById('live-host-do-not-delete') as HTMLInputElement | null;
+      const isDoNotDelete = Boolean(hostDoNotDeleteInput?.checked);
       const createBtn = btn as HTMLButtonElement;
       createBtn.disabled = true;
       createBtn.textContent = 'Generating Secure Session...';
@@ -1584,6 +1587,7 @@ function main(): void {
         theme: currentTheme,
         timerRule: 'none',
         strictMode: hostUndoSelect?.value !== 'true',
+        doNotDelete: isDoNotDelete,
         mode: 'live'
       });
 
@@ -1621,7 +1625,8 @@ function main(): void {
               participantId: session.participantId,
               token: session.token,
               role: session.assignedRole as 'white' | 'black',
-              playerName: hostNameInput?.value || 'White Marble Host'
+              playerName: hostNameInput?.value || 'White Marble Host',
+              doNotDelete: isDoNotDelete
             }
           });
           void persistCurrentSession();
@@ -1722,6 +1727,38 @@ function main(): void {
       syncAllControlsUI();
       ui.hideLiveSessionModal();
       ui.showTemporaryBanner('Entered Live Sanctuary. Awaiting opponent move/connection.', 3000);
+    })
+  );
+
+  fromNullable(document.getElementById('btn-toggle-do-not-delete')).map(btn =>
+    btn.addEventListener('click', async () => {
+      const state = chessStore.getState();
+      if (!state.liveSession) return;
+      const currentPinned = Boolean(state.liveSession.doNotDelete);
+      const nextPinned = !currentPinned;
+
+      ui.setDoNotDeleteState(nextPinned);
+      soundFX.playSelect();
+
+      if (activeRealtimeClient) {
+        await activeRealtimeClient.setDoNotDelete(nextPinned);
+      } else {
+        await PocketBaseChessClient.setSessionDoNotDelete('', state.liveSession.sessionId, nextPinned);
+      }
+
+      chessStore.setState({
+        liveSession: {
+          ...state.liveSession,
+          doNotDelete: nextPinned
+        }
+      });
+      void persistCurrentSession();
+
+      if (nextPinned) {
+        ui.showTemporaryBanner('Match protected: will NOT be auto-deleted by cleanup cron.', 3500);
+      } else {
+        ui.showTemporaryBanner('Match unpinned: will follow standard 3-day cleanup.', 3500);
+      }
     })
   );
 

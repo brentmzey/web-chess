@@ -672,18 +672,26 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     await clearSessionState();
   });
 
-  it('verifies end-to-end cascade pruning and partitioned historical audit lifecycle', () => {
+  it('verifies end-to-end cascade pruning, "DO NOT DELETE" session pinning, and partitioned historical audit lifecycle', () => {
     const { SanctuaryDatabase } = require('../src/server/db/database');
     const { SessionRepository } = require('../src/server/db/sessionRepository');
 
     const db = new SanctuaryDatabase(':memory:');
     const repo = new SessionRepository(db);
 
-    // 1. Create stale and active sessions with participants, moves, and events
+    // 1. Create stale, pinned stale, and active sessions with participants, moves, and events
     const staleSession = repo.createSession({ sessionCode: 'SANCT-PRUNE1' }).getOrThrow();
     db.getRawDb()
       .prepare('UPDATE game_sessions SET created_at = ?, updated_at = ? WHERE id = ?')
       .run(1000, 1000, staleSession.id);
+
+    // Create a stale session that is pinned with doNotDelete = true
+    const pinnedSession = repo
+      .createSession({ sessionCode: 'SANCT-PINNED-E2E', doNotDelete: true })
+      .getOrThrow();
+    db.getRawDb()
+      .prepare('UPDATE game_sessions SET created_at = ?, updated_at = ? WHERE id = ?')
+      .run(1000, 1000, pinnedSession.id);
 
     const partStale = repo
       .createParticipant({
@@ -719,17 +727,35 @@ describe('End-to-End Integration Suite: Pre-Game Rules, Play Styles, Difficultie
     const cutoffMs = Date.now() - 3 * 86_400_000;
     const pruneRes = repo.pruneStaleSessions(cutoffMs);
     expect(pruneRes.isSuccess()).toBe(true);
+    // Only the unpinned stale session is deleted
     expect(pruneRes.getOrThrow().deletedSessions).toBe(1);
 
-    // 3. Verify cascade cleanup purged all associated child records
+    // 3. Verify cascade cleanup purged unpinned stale child records
     expect(repo.getSessionById(staleSession.id).isNone()).toBe(true);
     expect(repo.getParticipantsBySession(staleSession.id).length).toBe(0);
     expect(repo.getMovesBySession(staleSession.id).length).toBe(0);
     expect(repo.getEventsSince(staleSession.id, 0).length).toBe(0);
 
-    // 4. Verify active session remains untouched
+    // 4. Verify pinned session and active session remain untouched in active tables
+    expect(repo.getSessionById(pinnedSession.id).isSome()).toBe(true);
+    expect(repo.getSessionById(pinnedSession.id).getOrThrow().do_not_delete).toBe(1);
     expect(repo.getSessionById(activeSession.id).isSome()).toBe(true);
     expect(repo.getParticipantsBySession(activeSession.id).length).toBe(1);
+
+    // Verify snapshot was created for unpinned session but NOT for pinned session
+    expect(repo.getArchivedSnapshot('SANCT-PRUNE1').isSome()).toBe(true);
+    expect(repo.getArchivedSnapshot('SANCT-PINNED-E2E').isNone()).toBe(true);
+
+    // Test restoring the pruned session from its snapshot
+    const restoreRes = repo.restoreSessionFromSnapshot('SANCT-PRUNE1');
+    expect(restoreRes.isSuccess()).toBe(true);
+    expect(repo.getSessionById(staleSession.id).isSome()).toBe(true);
+
+    // Test archiving snapshots into historical partition table
+    const archiveSnapRes = repo.archiveOldSnapshots(Date.now() + 60_000);
+    expect(archiveSnapRes.isSuccess()).toBe(true);
+    expect(archiveSnapRes.getOrThrow().archivedSnapshots).toBe(1);
+    expect(repo.getHistoricalSnapshots(5).length).toBe(1);
 
     // 5. Write structured Hungarian-prefixed audit record
     const auditRes = repo.recordCleanupAudit({
