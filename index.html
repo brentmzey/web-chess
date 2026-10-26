@@ -187,6 +187,12 @@
                 <span id="undo-label" class="hidden sm:inline">Undo</span>
             </button>
 
+            <!-- Sanctuary Arcade Hub Selector -->
+            <button id="btn-arcade-hub" class="md3-chip active-chip bg-amber-500/20 text-amber-200 border-amber-400/40 hover:bg-amber-500/30" title="Open Sanctuary Arcade Hub (Chess, Blackjack, Avalon, Uno, Phase 10)">
+                <span class="material-symbols-rounded text-amber-300">grid_view</span>
+                <span class="hidden sm:inline font-bold">Arcade Hub</span>
+            </button>
+
             <!-- Reset Board / New Game -->
             <button id="btn-reset" class="md3-chip" title="Start New Game">
                 <span class="material-symbols-rounded">restart_alt</span>
@@ -787,9 +793,130 @@
                     <span>Connect & Join Match</span>
                 </button>
             </div>
-                    <span class="material-symbols-rounded text-sm">login</span>
-                    <span>Connect & Join Sanctuary Match</span>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- SANCTUARY ARCADE FRONT SCREEN / MULTI-GAME SELECTOR MODAL             -->
+    <!-- ===================================================================== -->
+    <div id="arcade-hub-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md hidden pointer-events-auto">
+        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-amber-400/40 w-full max-w-4xl max-h-[92vh] overflow-y-auto space-y-5 animate-in fade-in duration-200">
+            <!-- Hub Header -->
+            <div class="flex items-center justify-between border-b border-amber-500/20 pb-4">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-rounded text-2xl text-amber-300">grid_view</span>
+                    <div>
+                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100 tracking-wider">SANCTUARY ARCADE SUITE</h2>
+                        <p class="text-[11px] sm:text-xs text-stone-400">High Gothic Real-Time Multiplayer & Procedural Classics</p>
+                    </div>
+                </div>
+                <button id="btn-close-arcade-hub" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Arcade Hub">
+                    <span class="material-symbols-rounded text-xl">close</span>
                 </button>
+            </div>
+
+            <!-- Universal Quick Join Bar -->
+            <div class="p-3.5 sm:p-4 rounded-2xl bg-black/40 border border-amber-500/20 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div class="flex items-center gap-2 text-amber-300 text-xs font-semibold whitespace-nowrap">
+                    <span class="material-symbols-rounded text-sm">key</span>
+                    <span>Quick Join Any Match:</span>
+                </div>
+                <div class="flex-1 flex items-center gap-2">
+                    <input type="text" id="hub-quick-join-input" placeholder="Paste session link or code (e.g. SANCT-XXXX, BJK-XXXX)..." class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono uppercase text-amber-100 tracking-wider focus:outline-none focus:border-amber-400/60" />
+                    <button type="button" id="btn-hub-quick-join" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs flex items-center gap-1.5 whitespace-nowrap shadow-md transition">
+                        <span class="material-symbols-rounded text-sm">login</span>
+                        <span>Join</span>
+                    </button>
+                </div>
+            </div>
+            <div id="hub-quick-join-feedback" class="hidden text-xs px-3 py-1.5 rounded-xl font-medium"></div>
+
+            <!-- Games Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- 1. Wizard's Chess 3D -->
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-amber-950/40 via-stone-900/60 to-black/80 border-2 border-amber-400/60 shadow-lg shadow-amber-950/30 flex flex-col justify-between gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="material-symbols-rounded text-2xl text-amber-300">church</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Live & Playable</span>
+                        </div>
+                        <h3 class="font-cathedral text-base font-bold text-amber-100">Wizard's Chess 3D</h3>
+                        <p class="text-xs text-stone-300 leading-relaxed">Articulated High Gothic Cathedral Chess with 34-shard melee shatter physics, pipe organ acoustics, and Minimax / Micro-Neural / Gemini AI.</p>
+                        <div class="text-[10px] text-amber-300/80 font-mono">Prefix: SANCT- • 1-2 Players</div>
+                    </div>
+                    <button type="button" data-game-launch="chess" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-2 shadow-lg transition">
+                        <span class="material-symbols-rounded text-sm">play_arrow</span>
+                        <span>ENTER CATHEDRAL</span>
+                    </button>
+                </div>
+
+                <!-- 2. Gothic Blackjack -->
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-black/40 border border-white/10 hover:border-purple-400/40 transition flex flex-col justify-between gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="material-symbols-rounded text-2xl text-purple-300">playing_cards</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">Phase 2 Preview</span>
+                        </div>
+                        <h3 class="font-cathedral text-base font-bold text-stone-200">Gothic Blackjack</h3>
+                        <p class="text-xs text-stone-400 leading-relaxed">High-stakes sanctuary card tables against the Cathedral Dealer. Split, Double Down, insurance bets, and shoe reshuffling.</p>
+                        <div class="text-[10px] text-purple-300/80 font-mono">Prefix: BJK- • 1-7 Players</div>
+                    </div>
+                    <button type="button" data-game-launch="blackjack" class="w-full py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-2 transition">
+                        <span class="material-symbols-rounded text-sm">visibility</span>
+                        <span>VIEW TABLE SPECS</span>
+                    </button>
+                </div>
+
+                <!-- 3. The Resistance: Avalon -->
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-black/40 border border-white/10 hover:border-sky-400/40 transition flex flex-col justify-between gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="material-symbols-rounded text-2xl text-sky-300">swords</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">Phase 3 Preview</span>
+                        </div>
+                        <h3 class="font-cathedral text-base font-bold text-stone-200">The Resistance: Avalon</h3>
+                        <p class="text-xs text-stone-400 leading-relaxed">Holy Knights of Arthur vs Minions of Mordred. Secret voting, hidden roles (Merlin, Assassin, Percival), and quest deception.</p>
+                        <div class="text-[10px] text-sky-300/80 font-mono">Prefix: AVALON- • 5-10 Players</div>
+                    </div>
+                    <button type="button" data-game-launch="avalon" class="w-full py-2.5 rounded-xl bg-sky-900/60 hover:bg-sky-800/80 text-sky-200 border border-sky-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-2 transition">
+                        <span class="material-symbols-rounded text-sm">visibility</span>
+                        <span>VIEW REALM SPECS</span>
+                    </button>
+                </div>
+
+                <!-- 4. Cardinal Uno -->
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-black/40 border border-white/10 hover:border-red-400/40 transition flex flex-col justify-between gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="material-symbols-rounded text-2xl text-red-400">style</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">Phase 4 Preview</span>
+                        </div>
+                        <h3 class="font-cathedral text-base font-bold text-stone-200">Cardinal Uno</h3>
+                        <p class="text-xs text-stone-400 leading-relaxed">Cathedral stained glass color matching. Reverse the liturgical order, skip heretics, and enforce Wild Draw Four penalties.</p>
+                        <div class="text-[10px] text-red-300/80 font-mono">Prefix: UNO- • 2-8 Players</div>
+                    </div>
+                    <button type="button" data-game-launch="uno" class="w-full py-2.5 rounded-xl bg-red-950/60 hover:bg-red-900/80 text-red-200 border border-red-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-2 transition">
+                        <span class="material-symbols-rounded text-sm">visibility</span>
+                        <span>VIEW CARD SPECS</span>
+                    </button>
+                </div>
+
+                <!-- 5. Ten Rites (Phase 10) -->
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-black/40 border border-white/10 hover:border-emerald-400/40 transition flex flex-col justify-between gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="material-symbols-rounded text-2xl text-emerald-400">auto_stories</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Phase 5 Preview</span>
+                        </div>
+                        <h3 class="font-cathedral text-base font-bold text-stone-200">Ten Rites (Phase 10)</h3>
+                        <p class="text-xs text-stone-400 leading-relaxed">Complete ten consecutive liturgical phases (sets, runs, colors) before your opponents to achieve ultimate mastery.</p>
+                        <div class="text-[10px] text-emerald-300/80 font-mono">Prefix: P10- • 2-6 Players</div>
+                    </div>
+                    <button type="button" data-game-launch="phase10" class="w-full py-2.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 border border-emerald-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-2 transition">
+                        <span class="material-symbols-rounded text-sm">visibility</span>
+                        <span>VIEW RITE SPECS</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

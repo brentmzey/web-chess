@@ -81,6 +81,12 @@ export interface UIControllerElements {
   iconDoNotDelete: HTMLElement | null;
   labelDoNotDelete: HTMLElement | null;
   liveHostDoNotDelete: HTMLInputElement | null;
+  arcadeHubModal: HTMLElement | null;
+  btnCloseArcadeHub: HTMLButtonElement | null;
+  btnArcadeHub: HTMLButtonElement | null;
+  hubQuickJoinInput: HTMLInputElement | null;
+  btnHubQuickJoin: HTMLButtonElement | null;
+  hubQuickJoinFeedback: HTMLElement | null;
 }
 
 export class UIController {
@@ -135,6 +141,12 @@ export class UIController {
       iconDoNotDelete: document.getElementById('icon-do-not-delete'),
       labelDoNotDelete: document.getElementById('label-do-not-delete'),
       liveHostDoNotDelete: document.getElementById('live-host-do-not-delete') as HTMLInputElement | null,
+      arcadeHubModal: document.getElementById('arcade-hub-modal'),
+      btnCloseArcadeHub: document.getElementById('btn-close-arcade-hub') as HTMLButtonElement | null,
+      btnArcadeHub: document.getElementById('btn-arcade-hub') as HTMLButtonElement | null,
+      hubQuickJoinInput: document.getElementById('hub-quick-join-input') as HTMLInputElement | null,
+      btnHubQuickJoin: document.getElementById('btn-hub-quick-join') as HTMLButtonElement | null,
+      hubQuickJoinFeedback: document.getElementById('hub-quick-join-feedback'),
       pregameModeLockNotice: document.getElementById('pregame-mode-lock-notice')
     };
   }
@@ -538,6 +550,45 @@ export class UIController {
       notice.classList.toggle('hidden', !active);
     });
     this.setDoNotDeleteState(Boolean(doNotDelete));
+  }
+
+  public showArcadeHub(): void {
+    fromNullable(this.el.arcadeHubModal).map(modal => {
+      modal.classList.remove('hidden');
+    });
+  }
+
+  public hideArcadeHub(): void {
+    fromNullable(this.el.arcadeHubModal).map(modal => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  public isArcadeHubVisible(): boolean {
+    return fromNullable(this.el.arcadeHubModal)
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
+  public setHubQuickJoinFeedback(message: string, isError: boolean): void {
+    fromNullable(this.el.hubQuickJoinFeedback).map(feedback => {
+      feedback.textContent = message;
+      feedback.classList.remove('hidden');
+      feedback.classList.toggle('bg-red-950/60', isError);
+      feedback.classList.toggle('border', true);
+      feedback.classList.toggle('border-red-500/40', isError);
+      feedback.classList.toggle('text-red-200', isError);
+      feedback.classList.toggle('bg-emerald-950/60', !isError);
+      feedback.classList.toggle('border-emerald-500/40', !isError);
+      feedback.classList.toggle('text-emerald-200', !isError);
+    });
+  }
+
+  public clearHubQuickJoinFeedback(): void {
+    fromNullable(this.el.hubQuickJoinFeedback).map(feedback => {
+      feedback.textContent = '';
+      feedback.classList.add('hidden');
+    });
   }
 }
 

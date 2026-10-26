@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.16] - 2026-10-26
+### Added
+- **Phase 1: Sanctuary Multi-Game Arcade Hub & Universal Session Router (`src/routing/sessionRouter.ts`, `index.html`, `src/ui/uiController.ts`)**:
+  - Implemented the Sanctuary Arcade Front Screen / Game Selector Hub modal (`#arcade-hub-modal`) with cards for Wizard's Chess 3D (flagship, live & playable), Gothic Blackjack (Phase 2), The Resistance: Avalon (Phase 3), Cardinal Uno (Phase 4), and Ten Rites / Phase 10 (Phase 5).
+  - Added bottom floating `#btn-arcade-hub` button with full backdrop-blur dismiss and keyboard navigation.
+  - Implemented universal quick-join search box (`#hub-quick-join-input`) capable of parsing raw codes or full shareable links across all 5 game prefixes (`SANCT-`, `BJK-`, `AVALON-`, `UNO-`, `P10-`).
+  - Created `SessionRouter` (`src/routing/sessionRouter.ts`) with prefix detection, deep-link query parameter parsing (`?game=...&session=...` and legacy `?session=SANCT-...`), and canonical URL generation (`buildArcadeGameUrl`).
+- **Hungarian Multi-Game Database Schema Architecture (`src/server/pocketbase/multiGameSchema.json`, `src/server/db/multiGameSchema.sql`)**:
+  - Engineered Hungarian-prefixed schema specifications for Blackjack (`tbl_bjk_*`), Avalon/Resistance (`tbl_res_*`), Uno (`tbl_uno_*`), and Phase 10 (`tbl_p10_*`).
+  - Structured dedicated primary session collections with unique `session_code` and `do_not_delete` pinning flags.
+  - Designed matching single-row compact snapshot tables (`tbl_archived_<game>_snapshots`) and cold-storage history partitions (`tbl_archived_<game>_snapshots_history`) across both PocketBase and SQLite schemas.
+- **PocketHost SFTP Automated Hook Deployment (`scripts/pb-deploy-hooks.ts`, `package.json`, `AGENTS.md`)**:
+  - Implemented `bun run pb:deploy-hooks` script to automatically upload `pb_hooks/` files (including `cleanup.pb.js`) via SFTP to `ftp.pockethost.io:2222`.
+  - Verified remote deployment of `cleanup.pb.js` into `/web-chess/pb_hooks/cleanup.pb.js` on PocketHost.
+  - Added `bun run pb:deploy-hooks` to persistent pre-approved command permissions in `AGENTS.md`.
+- **Testing & Verification (`tests/sessionRouter.test.ts`, `tests/arcadeHubIntegration.test.ts`)**:
+  - Added unit test suite covering game prefix detection, URL parsing, link extraction, and game metadata.
+  - Added integration test suite verifying Hub UI modal transitions, quick-join feedback styling, PocketBase multi-game schema integrity, and in-memory SQLite schema execution with foreign key cascades.
+
 ## [1.2.0-rc.15] - 2026-10-26
 ### Added
 - **"DO NOT DELETE" Match Pinning UI Toggle, Schema Protection & Pruner Exclusion (`do_not_delete` / `bln_do_not_delete`)**:

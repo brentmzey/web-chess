@@ -54,6 +54,12 @@ import {
   type SavedCamState
 } from './types';
 import { UIController } from './ui/uiController';
+import {
+  ARCADE_GAMES,
+  extractSessionCodeOrUrl,
+  resolveRoute,
+  type ArcadeGameType
+} from './routing/sessionRouter';
 import { fromNullable, match, matchBool } from './utils/fp';
 import { logExecutionContext, logger } from './utils/logger';
 import { isDevMode } from './utils/env';
@@ -1827,6 +1833,10 @@ function main(): void {
     {
       id: 'storage-audit-modal',
       close: () => ui.hideStorageAuditModal()
+    },
+    {
+      id: 'arcade-hub-modal',
+      close: () => ui.hideArcadeHub()
     }
   ].forEach(({ id, close }) => {
     fromNullable(document.getElementById(id)).map(modalEl => {
@@ -1837,6 +1847,76 @@ function main(): void {
       });
     });
   });
+
+  // Sanctuary Arcade Hub Modal & Quick Join Controls
+  fromNullable(document.getElementById('btn-arcade-hub')).map(btn =>
+    btn.addEventListener('click', () => {
+      ui.clearHubQuickJoinFeedback();
+      ui.showArcadeHub();
+    })
+  );
+
+  fromNullable(document.getElementById('btn-close-arcade-hub')).map(btn =>
+    btn.addEventListener('click', () => ui.hideArcadeHub())
+  );
+
+  document.querySelectorAll('[data-game-launch]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetGame = btn.getAttribute('data-game-launch') as ArcadeGameType | null;
+      if (targetGame === 'chess') {
+        ui.hideArcadeHub();
+      } else if (targetGame && targetGame in ARCADE_GAMES) {
+        const gameMeta = ARCADE_GAMES[targetGame];
+        ui.setHubQuickJoinFeedback(
+          `${gameMeta.title} table specs active. Full interactive gameplay launching in Phase ${gameMeta.phaseNumber}!`,
+          false
+        );
+      }
+    });
+  });
+
+  const handleHubQuickJoin = () => {
+    const input = document.getElementById('hub-quick-join-input') as HTMLInputElement | null;
+    const rawVal = input?.value || '';
+    const parsedOpt = extractSessionCodeOrUrl(rawVal);
+    parsedOpt.match({
+      Some: ({ game, code }) => {
+        if (game === 'chess') {
+          ui.hideArcadeHub();
+          ui.showLiveSessionModal();
+          ui.switchLiveSessionTab('join');
+          const joinCodeInput = document.getElementById('live-join-code') as HTMLInputElement | null;
+          if (joinCodeInput) {
+            joinCodeInput.value = code;
+          }
+        } else {
+          const gameMeta = ARCADE_GAMES[game];
+          ui.setHubQuickJoinFeedback(
+            `Connecting to ${gameMeta.title} room ${code}... (Phase ${gameMeta.phaseNumber} multi-game server ready)`,
+            false
+          );
+        }
+      },
+      None: () => {
+        ui.setHubQuickJoinFeedback(
+          'Please enter a valid session code (e.g. SANCT-XXXX, BJK-XXXX) or shareable match link.',
+          true
+        );
+      }
+    });
+  };
+
+  fromNullable(document.getElementById('btn-hub-quick-join')).map(btn =>
+    btn.addEventListener('click', handleHubQuickJoin)
+  );
+
+  fromNullable(document.getElementById('hub-quick-join-input')).map(input =>
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        handleHubQuickJoin();
+      }
+    })
+  );
 
   // Also support Escape key to dismiss any open setup modal
   window.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -2073,20 +2153,31 @@ function main(): void {
       }
     }
 
-    // URL search parameter handling after hydration
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionParam = urlParams.get('session');
-    if (sessionParam) {
-      const activeLiveCode = chessStore.getState().liveSession?.sessionCode;
-      if (!activeLiveCode || activeLiveCode.toUpperCase() !== sessionParam.toUpperCase()) {
-        ui.showLiveSessionModal();
-        ui.switchLiveSessionTab('join');
-        const joinCodeInput = document.getElementById('live-join-code') as HTMLInputElement | null;
-        if (joinCodeInput) {
-          joinCodeInput.value = sessionParam.toUpperCase();
-        }
-      }
+    // URL search parameter & universal arcade game routing handling
+    const route = resolveRoute(window.location.search);
+    if (route.showHub) {
+      ui.showArcadeHub();
     }
+    route.sessionCode.map(sessionCode => {
+      if (route.game === 'chess') {
+        const activeLiveCode = chessStore.getState().liveSession?.sessionCode;
+        if (!activeLiveCode || activeLiveCode.toUpperCase() !== sessionCode.toUpperCase()) {
+          ui.showLiveSessionModal();
+          ui.switchLiveSessionTab('join');
+          const joinCodeInput = document.getElementById('live-join-code') as HTMLInputElement | null;
+          if (joinCodeInput) {
+            joinCodeInput.value = sessionCode.toUpperCase();
+          }
+        }
+      } else {
+        ui.showArcadeHub();
+        const gameMeta = ARCADE_GAMES[route.game];
+        ui.setHubQuickJoinFeedback(
+          `Invited to ${gameMeta.title} match: ${sessionCode} (Phase ${gameMeta.phaseNumber} preview)`,
+          false
+        );
+      }
+    });
 
     syncBoardPiecesWithChessState();
     updateHighlights();
