@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.18] - 2026-10-26
+### Added
+- **Live Chess Match Stalemate & Checkmate Exit UX (`index.html`, `src/ui/uiController.ts`, `src/main.ts`)**:
+  - Implemented `#gameover-live-actions` container inside `#gameover-modal` with dedicated **"Exit Live Match"** (`#modal-leave-live`) and **"Inspect Board"** (`#modal-inspect-live`) actions, resolving the stalemate UX trap where players were previously unable to leave due to pregame mode locks.
+  - Added persistent **"Exit"** action (`#btn-persistent-leave-live`) to the top `#live-persistent-hud`, allowing players to exit cleanly at any moment during or after a live match.
+  - Implemented dynamic stalemate subtitle formatting distinguishing between live matches with session code display and offline matches.
+  - Consolidated live exit logic into `handleLeaveLiveMatch()` across all triggers to tear down PocketBase SSE subscriptions, clear active banners, and restore standard game modes.
+- **Phase 2: Gothic Blackjack Interactive Engine & Multi-Game AI Opponent Suite (`src/games/blackjack/blackjackEngine.ts`, `index.html`, `src/main.ts`)**:
+  - Built pure functional Gothic Blackjack game engine (`BlackjackEngine`) featuring Fisher-Yates multi-deck shoe creation, card evaluation (soft/hard aces, 21, busts), relic chip bank, betting controls, hit, stand, double down, natural 3:2 payouts, and dealer AI thresholds (Cautious stands on 16, Balanced on 17, Ruthless on 18).
+  - Added interactive Gothic velvet felt table (`#blackjack-modal`) with chip betting ($10, $25, $50, $100), dynamic card flip animations, and AI opponent selector.
+  - Added dual-action buttons across all Arcade Hub cards (`data-game-ai` and `data-game-live`), allowing all arcade titles to be launched both against computer opponents (Minimax, Micro-Neural, Gemini Nano based on device tier) and as live multiplayer sessions.
+  - Implemented device tier filtering (`getAvailableBlackjackAI`) ensuring Mobile Lite devices use lightweight AI models without crashing.
+- **Testing & Verification (`tests/blackjackEngine.test.ts`, `tests/uiController.test.ts`)**:
+  - Added unit test suite `tests/blackjackEngine.test.ts` with 100% line and function coverage across all card mechanics, payouts, AI thresholds, and betting rules.
+  - Expanded `tests/uiController.test.ts` to assert live gameover action toggling, stalemate subtitle formatting, and blackjack modal visibility.
+  - Maintained 242 passing tests with 99.19% line coverage and 99.53% branch coverage.
+
 ## [1.2.0-rc.17] - 2026-10-26
 ### Added
 - **Persistent In-Game Live Match Sharing HUD & Quick Actions (`#live-persistent-hud`, `src/ui/uiController.ts`, `src/main.ts`)**:

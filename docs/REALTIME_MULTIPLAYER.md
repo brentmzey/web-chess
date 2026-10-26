@@ -211,6 +211,17 @@ Before any unpinned stale session is cascade-deleted, its complete state is coll
 
 ---
 
+## 🚪 Live Match Exit & Stalemate UX Controls
+
+When a live match concludes via checkmate, stalemate, or draw:
+1. **GameOver Modal Actions (`#gameover-live-actions`)**:
+   - **"Exit Live Match" (`#modal-leave-live`)**: Closes the match, tears down the SSE subscription, restores default game mode, and re-arms standard offline controls.
+   - **"Inspect Board" (`#modal-inspect-live`)**: Dismisses the modal so players can examine the final board state while retaining match context.
+2. **Persistent On-Screen Exit (`#btn-persistent-leave-live`)**:
+   - Positioned on the top persistent HUD bar (`#live-persistent-hud`), this button remains clickable throughout the entire match and post-match inspection, ensuring players never get stranded if a stalemate occurs.
+
+---
+
 ## 🛠️ Schema Migrations Tooling
 
 To apply or update PocketHost schema rules without exposing administrative credentials:

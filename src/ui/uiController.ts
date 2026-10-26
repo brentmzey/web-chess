@@ -53,6 +53,10 @@ export interface UIControllerElements {
   gameoverModal: HTMLElement | null;
   gameoverTitle: HTMLElement | null;
   gameoverSubtitle: HTMLElement | null;
+  gameoverStandardActions: HTMLElement | null;
+  gameoverLiveActions: HTMLElement | null;
+  modalLeaveLive: HTMLButtonElement | null;
+  modalInspectLive: HTMLButtonElement | null;
   promotionModal: HTMLElement | null;
   pregameModal: HTMLElement | null;
   storageAuditModal: HTMLElement | null;
@@ -99,6 +103,9 @@ export interface UIControllerElements {
   btnLiveBannerCopyLink: HTMLButtonElement | null;
   iconBannerCopyLink: HTMLElement | null;
   labelBannerCopyLink: HTMLElement | null;
+  btnPersistentLeaveLive: HTMLButtonElement | null;
+  blackjackModal: HTMLElement | null;
+  btnCloseBlackjack: HTMLButtonElement | null;
 }
 
 export class UIController {
@@ -126,6 +133,10 @@ export class UIController {
       gameoverModal: document.getElementById('gameover-modal'),
       gameoverTitle: document.getElementById('gameover-title'),
       gameoverSubtitle: document.getElementById('gameover-subtitle'),
+      gameoverStandardActions: document.getElementById('gameover-standard-actions'),
+      gameoverLiveActions: document.getElementById('gameover-live-actions'),
+      modalLeaveLive: document.getElementById('modal-leave-live') as HTMLButtonElement | null,
+      modalInspectLive: document.getElementById('modal-inspect-live') as HTMLButtonElement | null,
       promotionModal: document.getElementById('promotion-modal'),
       pregameModal: document.getElementById('pregame-modal'),
       storageAuditModal: document.getElementById('storage-audit-modal'),
@@ -171,6 +182,9 @@ export class UIController {
       btnLiveBannerCopyLink: document.getElementById('btn-live-banner-copy-link') as HTMLButtonElement | null,
       iconBannerCopyLink: document.getElementById('icon-banner-copy-link'),
       labelBannerCopyLink: document.getElementById('label-banner-copy-link'),
+      btnPersistentLeaveLive: document.getElementById('btn-persistent-leave-live') as HTMLButtonElement | null,
+      blackjackModal: document.getElementById('blackjack-modal'),
+      btnCloseBlackjack: document.getElementById('btn-close-blackjack') as HTMLButtonElement | null,
       pregameModeLockNotice: document.getElementById('pregame-mode-lock-notice')
     };
   }
@@ -353,7 +367,7 @@ export class UIController {
     }
   }
 
-  public showGameOver(chess: Chess): void {
+  public showGameOver(chess: Chess, isLiveMode: boolean = false, sessionCode?: string): void {
     if (!this.el.gameoverModal || !this.el.gameoverTitle || !this.el.gameoverSubtitle) return;
 
     if (chess.in_checkmate()) {
@@ -362,8 +376,19 @@ export class UIController {
       this.el.gameoverSubtitle.textContent = `${winner} triumphs inside the High Gothic Basilica!`;
     } else {
       this.el.gameoverTitle.textContent = 'STALEMATE / DRAW';
-      this.el.gameoverSubtitle.textContent = 'Neither army yields inside the sacred sanctuary.';
+      this.el.gameoverSubtitle.textContent = isLiveMode
+        ? `Stalemate reached in Live Match ${sessionCode || ''}. Both sides share sanctuary honors.`
+        : 'Neither army yields inside the sacred sanctuary.';
     }
+
+    fromNullable(this.el.gameoverLiveActions).map(actions => {
+      actions.classList.toggle('hidden', !isLiveMode);
+      actions.classList.toggle('flex', isLiveMode);
+    });
+    fromNullable(this.el.gameoverStandardActions).map(actions => {
+      actions.classList.toggle('hidden', isLiveMode);
+      actions.classList.toggle('flex', !isLiveMode);
+    });
 
     this.el.gameoverModal.classList.remove('hidden');
     this.el.gameoverModal.classList.add('flex');
@@ -652,6 +677,24 @@ export class UIController {
       feedback.textContent = '';
       feedback.classList.add('hidden');
     });
+  }
+
+  public showBlackjack(): void {
+    fromNullable(this.el.blackjackModal).map(modal => {
+      modal.classList.remove('hidden');
+    });
+  }
+
+  public hideBlackjack(): void {
+    fromNullable(this.el.blackjackModal).map(modal => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  public isBlackjackVisible(): boolean {
+    return fromNullable(this.el.blackjackModal)
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
   }
 }
 

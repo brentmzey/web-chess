@@ -85,6 +85,10 @@
                     <span class="material-symbols-rounded text-xs" id="icon-persistent-pin">push_pin</span>
                     <span id="label-persistent-pin" class="hidden sm:inline">Pin</span>
                 </button>
+                <button type="button" id="btn-persistent-leave-live" class="px-2.5 py-1 rounded-xl bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-bold flex items-center gap-1 shadow-sm transition active:scale-95 shrink-0" title="Exit Live Match and return to solo / AI mode">
+                    <span class="material-symbols-rounded text-xs">logout</span>
+                    <span>Exit</span>
+                </button>
             </div>
         </div>
 
@@ -554,7 +558,8 @@
                 <h2 id="gameover-title" class="font-cathedral text-2xl font-bold text-amber-200">CHECKMATE</h2>
                 <p id="gameover-subtitle" class="text-sm text-stone-300">White Marble triumphs inside the High Gothic Basilica!</p>
             </div>
-            <div class="flex items-center justify-center gap-3 pt-2">
+            <!-- Standard Actions (Single-Player / AI Mode) -->
+            <div id="gameover-standard-actions" class="flex items-center justify-center gap-3 pt-2">
                 <button id="modal-inspect" class="md3-chip px-5 py-2.5">
                     <span class="material-symbols-rounded">visibility</span>
                     <span>Inspect Sanctuary</span>
@@ -562,6 +567,18 @@
                 <button id="modal-new-game" class="md3-chip active-chip px-5 py-2.5">
                     <span class="material-symbols-rounded">restart_alt</span>
                     <span>New Match</span>
+                </button>
+            </div>
+
+            <!-- Live Multiplayer Actions (Displayed when Live Match concludes or reaches Stalemate) -->
+            <div id="gameover-live-actions" class="hidden flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <button id="modal-leave-live" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-950/50 transition">
+                    <span class="material-symbols-rounded text-sm">logout</span>
+                    <span>Exit Live Match</span>
+                </button>
+                <button id="modal-inspect-live" class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-stone-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition">
+                    <span class="material-symbols-rounded text-sm">visibility</span>
+                    <span>Inspect Board</span>
                 </button>
             </div>
         </div>
@@ -869,29 +886,41 @@
                         </div>
                         <h3 class="font-cathedral text-base font-bold text-amber-100">Wizard's Chess 3D</h3>
                         <p class="text-xs text-stone-300 leading-relaxed">Articulated High Gothic Cathedral Chess with 34-shard melee shatter physics, pipe organ acoustics, and Minimax / Micro-Neural / Gemini AI.</p>
-                        <div class="text-[10px] text-amber-300/80 font-mono">Prefix: SANCT- • 1-2 Players</div>
+                        <div class="text-[10px] text-amber-300/80 font-mono">Prefix: SANCT- • 1-2 Players • All AI Engines</div>
                     </div>
-                    <button type="button" data-game-launch="chess" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-2 shadow-lg transition">
-                        <span class="material-symbols-rounded text-sm">play_arrow</span>
-                        <span>ENTER CATHEDRAL</span>
-                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" data-game-ai="chess" class="py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
+                            <span class="material-symbols-rounded text-sm">smart_toy</span>
+                            <span>PLAY VS AI</span>
+                        </button>
+                        <button type="button" data-game-live="chess" class="py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
+                            <span class="material-symbols-rounded text-sm">sensors</span>
+                            <span>LIVE 1v1</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 2. Gothic Blackjack -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-black/40 border border-white/10 hover:border-purple-400/40 transition flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-purple-950/30 via-stone-900/60 to-black/80 border border-purple-400/50 hover:border-purple-400/80 shadow-lg flex flex-col justify-between gap-4">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-purple-300">playing_cards</span>
-                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">Phase 2 Preview</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">AI Table Active</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-stone-200">Gothic Blackjack</h3>
-                        <p class="text-xs text-stone-400 leading-relaxed">High-stakes sanctuary card tables against the Cathedral Dealer. Split, Double Down, insurance bets, and shoe reshuffling.</p>
-                        <div class="text-[10px] text-purple-300/80 font-mono">Prefix: BJK- • 1-7 Players</div>
+                        <h3 class="font-cathedral text-base font-bold text-purple-100">Gothic Blackjack</h3>
+                        <p class="text-xs text-stone-300 leading-relaxed">High-stakes sanctuary card tables against the Cathedral Dealer. Split, Double Down, insurance bets, and shoe reshuffling.</p>
+                        <div class="text-[10px] text-purple-300/80 font-mono">Prefix: BJK- • 1-7 Players • Minimax / Neural / Gemini</div>
                     </div>
-                    <button type="button" data-game-launch="blackjack" class="w-full py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-2 transition">
-                        <span class="material-symbols-rounded text-sm">visibility</span>
-                        <span>VIEW TABLE SPECS</span>
-                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" data-game-ai="blackjack" class="py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
+                            <span class="material-symbols-rounded text-sm">smart_toy</span>
+                            <span>PLAY VS DEALER</span>
+                        </button>
+                        <button type="button" data-game-live="blackjack" class="py-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-200 border border-purple-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-1 transition">
+                            <span class="material-symbols-rounded text-sm">sensors</span>
+                            <span>LIVE TABLE</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 3. The Resistance: Avalon -->
@@ -903,12 +932,18 @@
                         </div>
                         <h3 class="font-cathedral text-base font-bold text-stone-200">The Resistance: Avalon</h3>
                         <p class="text-xs text-stone-400 leading-relaxed">Holy Knights of Arthur vs Minions of Mordred. Secret voting, hidden roles (Merlin, Assassin, Percival), and quest deception.</p>
-                        <div class="text-[10px] text-sky-300/80 font-mono">Prefix: AVALON- • 5-10 Players</div>
+                        <div class="text-[10px] text-sky-300/80 font-mono">Prefix: AVALON- • 5-10 Players • Deduction AI</div>
                     </div>
-                    <button type="button" data-game-launch="avalon" class="w-full py-2.5 rounded-xl bg-sky-900/60 hover:bg-sky-800/80 text-sky-200 border border-sky-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-2 transition">
-                        <span class="material-symbols-rounded text-sm">visibility</span>
-                        <span>VIEW REALM SPECS</span>
-                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" data-game-ai="avalon" class="py-2 rounded-xl bg-sky-900/60 hover:bg-sky-800/80 text-sky-200 border border-sky-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-1 transition">
+                            <span class="material-symbols-rounded text-sm">smart_toy</span>
+                            <span>VS AI BOTS</span>
+                        </button>
+                        <button type="button" data-game-live="avalon" class="py-2 rounded-xl bg-white/10 hover:bg-white/20 text-stone-300 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-1 transition">
+                            <span class="material-symbols-rounded text-sm">sensors</span>
+                            <span>LIVE REALM</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 4. Cardinal Uno -->
@@ -920,12 +955,18 @@
                         </div>
                         <h3 class="font-cathedral text-base font-bold text-stone-200">Cardinal Uno</h3>
                         <p class="text-xs text-stone-400 leading-relaxed">Cathedral stained glass color matching. Reverse the liturgical order, skip heretics, and enforce Wild Draw Four penalties.</p>
-                        <div class="text-[10px] text-red-300/80 font-mono">Prefix: UNO- • 2-8 Players</div>
+                        <div class="text-[10px] text-red-300/80 font-mono">Prefix: UNO- • 2-8 Players • 3 AI Opponents</div>
                     </div>
-                    <button type="button" data-game-launch="uno" class="w-full py-2.5 rounded-xl bg-red-950/60 hover:bg-red-900/80 text-red-200 border border-red-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-2 transition">
-                        <span class="material-symbols-rounded text-sm">visibility</span>
-                        <span>VIEW CARD SPECS</span>
-                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" data-game-ai="uno" class="py-2 rounded-xl bg-red-950/60 hover:bg-red-900/80 text-red-200 border border-red-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-1 transition">
+                            <span class="material-symbols-rounded text-sm">smart_toy</span>
+                            <span>VS 3 AI BOTS</span>
+                        </button>
+                        <button type="button" data-game-live="uno" class="py-2 rounded-xl bg-white/10 hover:bg-white/20 text-stone-300 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-1 transition">
+                            <span class="material-symbols-rounded text-sm">sensors</span>
+                            <span>LIVE TABLE</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 5. Ten Rites (Phase 10) -->
@@ -937,13 +978,127 @@
                         </div>
                         <h3 class="font-cathedral text-base font-bold text-stone-200">Ten Rites (Phase 10)</h3>
                         <p class="text-xs text-stone-400 leading-relaxed">Complete ten consecutive liturgical phases (sets, runs, colors) before your opponents to achieve ultimate mastery.</p>
-                        <div class="text-[10px] text-emerald-300/80 font-mono">Prefix: P10- • 2-6 Players</div>
+                        <div class="text-[10px] text-emerald-300/80 font-mono">Prefix: P10- • 2-6 Players • Phase Contract AI</div>
                     </div>
-                    <button type="button" data-game-launch="phase10" class="w-full py-2.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 border border-emerald-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-2 transition">
-                        <span class="material-symbols-rounded text-sm">visibility</span>
-                        <span>VIEW RITE SPECS</span>
-                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" data-game-ai="phase10" class="py-2 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 border border-emerald-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-1 transition">
+                            <span class="material-symbols-rounded text-sm">smart_toy</span>
+                            <span>VS PHASE AI</span>
+                        </button>
+                        <button type="button" data-game-live="phase10" class="py-2 rounded-xl bg-white/10 hover:bg-white/20 text-stone-300 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-1 transition">
+                            <span class="material-symbols-rounded text-sm">sensors</span>
+                            <span>LIVE RITE</span>
+                        </button>
+                    </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- GOTHIC BLACKJACK SANCTUARY TABLE MODAL                                -->
+    <!-- ===================================================================== -->
+    <div id="blackjack-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md hidden pointer-events-auto">
+        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-purple-400/50 w-full max-w-2xl max-h-[94vh] overflow-y-auto space-y-4 bg-gradient-to-b from-[#0e1814] to-[#09080c]">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-purple-500/30 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-rounded text-2xl text-purple-300">playing_cards</span>
+                    <div>
+                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100">GOTHIC BLACKJACK</h2>
+                        <p class="text-[11px] text-stone-400">Cathedral High Table • 3:2 Natural Payout</p>
+                    </div>
+                </div>
+                <button id="btn-close-blackjack" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Blackjack Table">
+                    <span class="material-symbols-rounded text-xl">close</span>
+                </button>
+            </div>
+
+            <!-- Opponent AI & Difficulty Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-black/40 border border-white/10 text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="text-stone-400">Dealer AI:</span>
+                    <select id="bjk-ai-select" class="bg-black/60 border border-purple-400/30 rounded-xl px-2.5 py-1 text-xs text-purple-200 focus:outline-none">
+                        <option value="minimax">Minimax Casino Engine</option>
+                        <option value="micro-neural" selected>Micro-Neural Network AI</option>
+                        <option value="gemini-nano">Gemini Nano Local LLM</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-stone-400">Difficulty:</span>
+                    <select id="bjk-diff-select" class="bg-black/60 border border-purple-400/30 rounded-xl px-2.5 py-1 text-xs text-amber-200 focus:outline-none">
+                        <option value="cautious">Cautious (Stands 16)</option>
+                        <option value="balanced" selected>Balanced (Stands 17)</option>
+                        <option value="ruthless">Ruthless (Pushes 18)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Felt Table Board -->
+            <div class="rounded-3xl p-5 border-2 border-emerald-500/30 bg-emerald-950/40 shadow-inner space-y-6">
+                <!-- Dealer Area -->
+                <div class="space-y-1.5 text-center">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 flex items-center justify-center gap-2">
+                        <span>Cathedral Dealer</span>
+                        <span id="bjk-dealer-total" class="px-2 py-0.5 rounded-full bg-black/50 text-amber-300 font-mono text-xs border border-white/10">0</span>
+                    </div>
+                    <div id="bjk-dealer-cards" class="flex items-center justify-center gap-2 min-h-[70px]">
+                        <span class="text-xs text-stone-500 italic">Place bet to deal</span>
+                    </div>
+                </div>
+
+                <!-- Status Banner -->
+                <div id="bjk-status-banner" class="p-2 rounded-xl bg-black/60 border border-amber-400/30 text-center text-xs font-cathedral font-bold text-amber-200 tracking-wide">
+                    Place your bet and click Deal to begin.
+                </div>
+
+                <!-- Player Area -->
+                <div class="space-y-1.5 text-center">
+                    <div id="bjk-player-cards" class="flex items-center justify-center gap-2 min-h-[70px]">
+                        <span class="text-xs text-stone-500 italic">No cards in play</span>
+                    </div>
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 flex items-center justify-center gap-2">
+                        <span>Your Hand</span>
+                        <span id="bjk-player-total" class="px-2 py-0.5 rounded-full bg-black/50 text-amber-300 font-mono text-xs border border-white/10">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chip Bank & Betting Controls -->
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-black/40 border border-white/10 text-xs">
+                <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-rounded text-amber-300 text-sm">savings</span>
+                    <span class="text-stone-300">Bank:</span>
+                    <span id="bjk-bank-val" class="font-mono text-amber-200 font-bold">500 Relics</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-stone-300">Bet:</span>
+                    <span id="bjk-bet-val" class="font-mono text-amber-200 font-bold">25</span>
+                    <button type="button" data-bet="10" class="bjk-bet-btn px-2 py-1 rounded-lg bg-white/10 hover:bg-amber-400/20 text-stone-200 text-[10px]">10</button>
+                    <button type="button" data-bet="25" class="bjk-bet-btn px-2 py-1 rounded-lg bg-white/10 hover:bg-amber-400/20 text-stone-200 text-[10px]">25</button>
+                    <button type="button" data-bet="50" class="bjk-bet-btn px-2 py-1 rounded-lg bg-white/10 hover:bg-amber-400/20 text-stone-200 text-[10px]">50</button>
+                    <button type="button" data-bet="100" class="bjk-bet-btn px-2 py-1 rounded-lg bg-white/10 hover:bg-amber-400/20 text-stone-200 text-[10px]">100</button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-4 gap-2">
+                <button type="button" id="bjk-btn-deal" class="py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">play_arrow</span>
+                    <span>Deal</span>
+                </button>
+                <button type="button" id="bjk-btn-hit" disabled class="py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">add</span>
+                    <span>Hit</span>
+                </button>
+                <button type="button" id="bjk-btn-stand" disabled class="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">front_hand</span>
+                    <span>Stand</span>
+                </button>
+                <button type="button" id="bjk-btn-double" disabled class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">stars</span>
+                    <span>Double</span>
+                </button>
             </div>
         </div>
     </div>

@@ -61,6 +61,13 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'gameover-modal': new MockElement(),
       'gameover-title': new MockElement(),
       'gameover-subtitle': new MockElement(),
+      'gameover-standard-actions': new MockElement(),
+      'gameover-live-actions': new MockElement(),
+      'modal-leave-live': new MockElement(),
+      'modal-inspect-live': new MockElement(),
+      'btn-persistent-leave-live': new MockElement(),
+      'blackjack-modal': new MockElement(),
+      'btn-close-blackjack': new MockElement(),
       'promotion-modal': new MockElement(),
       'pregame-modal': new MockElement(),
       'storage-audit-modal': new MockElement(),
@@ -226,14 +233,26 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['gameover-title']?.textContent).toBe('CHECKMATE');
     expect(domElements['gameover-subtitle']?.textContent).toContain('Black Obsidian triumphs');
     expect(domElements['gameover-modal']?.classList.contains('flex')).toBe(true);
+    expect(domElements['gameover-standard-actions']?.classList.contains('flex')).toBe(true);
+    expect(domElements['gameover-live-actions']?.classList.contains('hidden')).toBe(true);
 
     ui.hideGameOver();
     expect(domElements['gameover-modal']?.classList.contains('hidden')).toBe(true);
 
-    // Stalemate / draw GameOver branch
+    // Stalemate / draw GameOver branch (standard mode)
     const stalemateChess = new Chess('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1');
     ui.showGameOver(stalemateChess);
     expect(domElements['gameover-title']?.textContent).toBe('STALEMATE / DRAW');
+    expect(domElements['gameover-subtitle']?.textContent).toContain('Neither army yields inside the sacred sanctuary');
+    expect(domElements['gameover-standard-actions']?.classList.contains('flex')).toBe(true);
+    expect(domElements['gameover-live-actions']?.classList.contains('hidden')).toBe(true);
+
+    // Stalemate / draw GameOver branch (live mode)
+    ui.showGameOver(stalemateChess, true, 'SANCT-STALEMATE');
+    expect(domElements['gameover-title']?.textContent).toBe('STALEMATE / DRAW');
+    expect(domElements['gameover-subtitle']?.textContent).toContain('Stalemate reached in Live Match SANCT-STALEMATE');
+    expect(domElements['gameover-live-actions']?.classList.contains('flex')).toBe(true);
+    expect(domElements['gameover-standard-actions']?.classList.contains('hidden')).toBe(true);
 
     // Promotion modal
     ui.showPromotionModal();
@@ -402,6 +421,21 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['live-persistent-hud']?.classList.contains('hidden')).toBe(true);
     expect(domElements['live-persistent-code']?.textContent).toBe('');
     expect(domElements['pregame-mode-lock-notice']?.classList.contains('hidden')).toBe(true);
+  });
+
+  it('controls Gothic Blackjack modal visibility and status', () => {
+    const ui = new UIController();
+    domElements['blackjack-modal'].classList.add('hidden');
+
+    expect(ui.isBlackjackVisible()).toBe(false);
+
+    ui.showBlackjack();
+    expect(domElements['blackjack-modal'].classList.contains('hidden')).toBe(false);
+    expect(ui.isBlackjackVisible()).toBe(true);
+
+    ui.hideBlackjack();
+    expect(domElements['blackjack-modal'].classList.contains('hidden')).toBe(true);
+    expect(ui.isBlackjackVisible()).toBe(false);
   });
 });
 

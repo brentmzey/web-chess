@@ -55,6 +55,12 @@ import {
 } from './types';
 import { UIController } from './ui/uiController';
 import {
+  BlackjackEngine,
+  evaluateHand,
+  type BlackjackAIModel,
+  type BlackjackDifficulty
+} from './games/blackjack/blackjackEngine';
+import {
   ARCADE_GAMES,
   extractSessionCodeOrUrl,
   resolveRoute,
@@ -670,10 +676,16 @@ function main(): void {
     }
   }
 
+  function triggerGameOverUI(): void {
+    const isLive = currentMode === GameModeEnum.Live;
+    const sessionCode = chessStore.getState().liveSession?.sessionCode;
+    ui.showGameOver(chess, isLive, sessionCode);
+  }
+
   function triggerTurnOrAI(): void {
     if (chess.game_over()) {
       soundFX.playCathedralOrganAndBell();
-      ui.showGameOver(chess);
+      triggerGameOverUI();
       return;
     }
 
@@ -720,7 +732,7 @@ function main(): void {
             animateChessMove(executed!, () => {
               if (chess.in_check()) soundFX.playCathedralOrganAndBell();
               if (chess.game_over()) {
-                ui.showGameOver(chess);
+                triggerGameOverUI();
               } else {
                 syncAllControlsUI();
               }
@@ -1537,7 +1549,7 @@ function main(): void {
       },
       onGameOver: data => {
         const g = data as { reason?: string };
-        ui.showGameOver(chess);
+        triggerGameOverUI();
         ui.showTemporaryBanner(`Match Concluded: ${g.reason || 'Game Over'}`, 4000);
       }
     });
@@ -1554,7 +1566,7 @@ function main(): void {
         updateHighlights();
         syncAllControlsUI();
         if (chess.in_check()) soundFX.playCathedralOrganAndBell();
-        if (chess.game_over()) ui.showGameOver(chess);
+        if (chess.game_over()) triggerGameOverUI();
       }
     });
 
@@ -1822,26 +1834,44 @@ function main(): void {
     })
   );
 
+  const handleLeaveLiveMatch = () => {
+    if (activeRealtimeClient) {
+      activeRealtimeClient.disconnect();
+      activeRealtimeClient = null;
+    }
+    currentMode = GameModeEnum.Minimax;
+    liveUserRole = 'white';
+    chessStore.setState({ mode: GameModeEnum.Minimax, liveSession: undefined });
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    chess.reset();
+    syncBoardPiecesWithChessState();
+    updateHighlights();
+    syncAllControlsUI();
+    void persistCurrentSession();
+    ui.hideLiveSessionModal();
+    ui.hideGameOver();
+    soundFX.playSelect();
+    ui.showTemporaryBanner('Exited Live Match. Opponent mode restored to Minimax Engine.', 3500);
+  };
+
   fromNullable(document.getElementById('btn-leave-live-session')).map(btn =>
+    btn.addEventListener('click', handleLeaveLiveMatch)
+  );
+
+  fromNullable(document.getElementById('modal-leave-live')).map(btn =>
+    btn.addEventListener('click', handleLeaveLiveMatch)
+  );
+
+  fromNullable(document.getElementById('btn-persistent-leave-live')).map(btn =>
+    btn.addEventListener('click', handleLeaveLiveMatch)
+  );
+
+  fromNullable(document.getElementById('modal-inspect-live')).map(btn =>
     btn.addEventListener('click', () => {
-      if (activeRealtimeClient) {
-        activeRealtimeClient.disconnect();
-        activeRealtimeClient = null;
-      }
-      currentMode = GameModeEnum.Minimax;
-      liveUserRole = 'white';
-      chessStore.setState({ mode: GameModeEnum.Minimax, liveSession: undefined });
-      if (typeof window !== 'undefined' && window.location.search) {
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-      chess.reset();
-      syncBoardPiecesWithChessState();
-      updateHighlights();
-      syncAllControlsUI();
-      void persistCurrentSession();
-      ui.hideLiveSessionModal();
-      soundFX.playSelect();
-      ui.showTemporaryBanner('Exited Live Match. Opponent mode restored to Minimax Engine.', 3500);
+      ui.hideGameOver();
+      ui.showTemporaryBanner('Match concluded. Click "Exit" on the top HUD bar to leave match.', 3500);
     })
   );
 
@@ -1891,6 +1921,10 @@ function main(): void {
     {
       id: 'arcade-hub-modal',
       close: () => ui.hideArcadeHub()
+    },
+    {
+      id: 'blackjack-modal',
+      close: () => ui.hideBlackjack()
     }
   ].forEach(({ id, close }) => {
     fromNullable(document.getElementById(id)).map(modalEl => {
@@ -1914,15 +1948,194 @@ function main(): void {
     btn.addEventListener('click', () => ui.hideArcadeHub())
   );
 
-  document.querySelectorAll('[data-game-launch]').forEach(btn => {
+  fromNullable(document.getElementById('btn-close-blackjack')).map(btn =>
+    btn.addEventListener('click', () => ui.hideBlackjack())
+  );
+
+  // Gothic Blackjack Table Engine & Event Binding
+  const bjkEngine = new BlackjackEngine(500, 'micro-neural', 'balanced');
+
+  const renderBlackjackTable = () => {
+    const s = bjkEngine.state;
+    fromNullable(document.getElementById('bjk-bank-val')).map(el => {
+      el.textContent = `${s.chipBank} Relics`;
+    });
+    fromNullable(document.getElementById('bjk-bet-val')).map(el => {
+      el.textContent = `${s.currentBet}`;
+    });
+    fromNullable(document.getElementById('bjk-status-banner')).map(el => {
+      el.textContent = s.historyText[s.historyText.length - 1] || 'Place bet to deal.';
+      el.className =
+        'p-2 rounded-xl border text-center text-xs font-cathedral font-bold tracking-wide transition ' +
+        (s.outcome === 'player-won' || s.outcome === 'player-blackjack'
+          ? 'bg-emerald-950/80 border-emerald-400/50 text-emerald-200'
+          : s.outcome === 'player-busted' || s.outcome === 'dealer-won'
+          ? 'bg-red-950/80 border-red-400/50 text-red-200'
+          : 'bg-black/60 border-amber-400/30 text-amber-200');
+    });
+
+    fromNullable(document.getElementById('bjk-dealer-cards')).map(container => {
+      if (s.dealerHand.length === 0) {
+        container.innerHTML = '<span class="text-xs text-stone-500 italic">Place bet to deal</span>';
+      } else {
+        container.innerHTML = s.dealerHand
+          .map(
+            c => `
+          <div class="px-3 py-3 rounded-xl border font-bold font-mono text-sm shadow-md transition ${
+            c.faceUp
+              ? ['hearts', 'diamonds'].includes(c.suit)
+                ? 'bg-stone-100 text-red-600 border-red-400/40'
+                : 'bg-stone-100 text-stone-900 border-stone-400/40'
+              : 'bg-purple-950 text-purple-300 border-purple-500/50'
+          }">
+            ${
+              c.faceUp
+                ? `${c.value}<span class="text-xs">${
+                    c.suit === 'hearts' ? '♥' : c.suit === 'diamonds' ? '♦' : c.suit === 'clubs' ? '♣' : '♠'
+                  }</span>`
+                : '🂠'
+            }
+          </div>
+        `
+          )
+          .join('');
+      }
+    });
+
+    fromNullable(document.getElementById('bjk-dealer-total')).map(el => {
+      const dEval = evaluateHand(s.dealerHand, true);
+      el.textContent = s.stage === 'player-turn' ? `${dEval.total}+?` : `${evaluateHand(s.dealerHand).total}`;
+    });
+
+    fromNullable(document.getElementById('bjk-player-cards')).map(container => {
+      if (s.playerHand.length === 0) {
+        container.innerHTML = '<span class="text-xs text-stone-500 italic">No cards in play</span>';
+      } else {
+        container.innerHTML = s.playerHand
+          .map(
+            c => `
+          <div class="px-3 py-3 rounded-xl border font-bold font-mono text-sm shadow-md transition ${
+            ['hearts', 'diamonds'].includes(c.suit)
+              ? 'bg-stone-100 text-red-600 border-red-400/40'
+              : 'bg-stone-100 text-stone-900 border-stone-400/40'
+          }">
+            ${c.value}<span class="text-xs">${
+              c.suit === 'hearts' ? '♥' : c.suit === 'diamonds' ? '♦' : c.suit === 'clubs' ? '♣' : '♠'
+            }</span>
+          </div>
+        `
+          )
+          .join('');
+      }
+    });
+
+    fromNullable(document.getElementById('bjk-player-total')).map(el => {
+      el.textContent = `${evaluateHand(s.playerHand).total}`;
+    });
+
+    const isPlaying = s.stage === 'player-turn';
+    fromNullable(document.getElementById('bjk-btn-deal') as HTMLButtonElement | null).map(btn => {
+      btn.disabled = isPlaying;
+    });
+    fromNullable(document.getElementById('bjk-btn-hit') as HTMLButtonElement | null).map(btn => {
+      btn.disabled = !isPlaying;
+    });
+    fromNullable(document.getElementById('bjk-btn-stand') as HTMLButtonElement | null).map(btn => {
+      btn.disabled = !isPlaying;
+    });
+    fromNullable(document.getElementById('bjk-btn-double') as HTMLButtonElement | null).map(btn => {
+      btn.disabled = !isPlaying || s.playerHand.length !== 2 || s.chipBank < s.currentBet;
+    });
+  };
+
+  fromNullable(document.getElementById('bjk-btn-deal')).map(btn =>
     btn.addEventListener('click', () => {
-      const targetGame = btn.getAttribute('data-game-launch') as ArcadeGameType | null;
+      bjkEngine.startRound();
+      soundFX.playSelect();
+      renderBlackjackTable();
+    })
+  );
+
+  fromNullable(document.getElementById('bjk-btn-hit')).map(btn =>
+    btn.addEventListener('click', () => {
+      bjkEngine.hit();
+      soundFX.playSelect();
+      renderBlackjackTable();
+    })
+  );
+
+  fromNullable(document.getElementById('bjk-btn-stand')).map(btn =>
+    btn.addEventListener('click', () => {
+      bjkEngine.stand();
+      soundFX.playCathedralOrganAndBell();
+      renderBlackjackTable();
+    })
+  );
+
+  fromNullable(document.getElementById('bjk-btn-double')).map(btn =>
+    btn.addEventListener('click', () => {
+      bjkEngine.doubleDown();
+      soundFX.playSelect();
+      renderBlackjackTable();
+    })
+  );
+
+  document.querySelectorAll('.bjk-bet-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const amt = parseInt(btn.getAttribute('data-bet') || '25', 10);
+      bjkEngine.placeBet(amt);
+      soundFX.playSelect();
+      renderBlackjackTable();
+    });
+  });
+
+  fromNullable(document.getElementById('bjk-ai-select') as HTMLSelectElement | null).map(sel =>
+    sel.addEventListener('change', () => {
+      bjkEngine.setAIModel(sel.value as BlackjackAIModel);
+      renderBlackjackTable();
+    })
+  );
+
+  fromNullable(document.getElementById('bjk-diff-select') as HTMLSelectElement | null).map(sel =>
+    sel.addEventListener('change', () => {
+      bjkEngine.setDifficulty(sel.value as BlackjackDifficulty);
+      renderBlackjackTable();
+    })
+  );
+
+  // Arcade Hub Dual Buttons (Play vs AI & Play Live)
+  document.querySelectorAll('[data-game-ai]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetGame = btn.getAttribute('data-game-ai') as ArcadeGameType | null;
       if (targetGame === 'chess') {
         ui.hideArcadeHub();
+        modalOpenedFromReset = false;
+        ui.showPreGameModal();
+      } else if (targetGame === 'blackjack') {
+        ui.hideArcadeHub();
+        renderBlackjackTable();
+        ui.showBlackjack();
       } else if (targetGame && targetGame in ARCADE_GAMES) {
         const gameMeta = ARCADE_GAMES[targetGame];
         ui.setHubQuickJoinFeedback(
-          `${gameMeta.title} table specs active. Full interactive gameplay launching in Phase ${gameMeta.phaseNumber}!`,
+          `${gameMeta.title} AI Opponents active (Minimax & Neural). Launching interactive table...`,
+          false
+        );
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-game-live]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetGame = btn.getAttribute('data-game-live') as ArcadeGameType | null;
+      if (targetGame === 'chess') {
+        ui.hideArcadeHub();
+        ui.showLiveSessionModal();
+        ui.switchLiveSessionTab('create');
+      } else if (targetGame && targetGame in ARCADE_GAMES) {
+        const gameMeta = ARCADE_GAMES[targetGame];
+        ui.setHubQuickJoinFeedback(
+          `${gameMeta.title} live multiplayer tables (${gameMeta.codePrefix}XXXX) ready on PocketHost.`,
           false
         );
       }
