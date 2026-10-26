@@ -65,6 +65,29 @@
             </div>
         </div>
 
+        <!-- Persistent Live 1v1 Match Bar (Always visible on-screen during active live games) -->
+        <div id="live-persistent-hud" class="hidden md3-glass px-4 py-1.5 rounded-full border border-sky-400/50 bg-sky-950/85 text-sky-100 text-xs flex items-center justify-between gap-3 pointer-events-auto shadow-lg shadow-sky-950/60 max-w-full">
+            <div class="flex items-center gap-2 shrink-0">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                <span class="text-[10px] uppercase font-bold tracking-wider text-sky-300">LIVE MATCH:</span>
+                <span id="live-persistent-code" class="font-mono text-amber-200 font-bold tracking-wider">SANCT-XXXX</span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button" id="btn-persistent-copy-link" class="px-2.5 py-1 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold flex items-center gap-1 shadow-sm transition active:scale-95" title="Copy full shareable match link">
+                    <span class="material-symbols-rounded text-xs" id="icon-persistent-copy-link">link</span>
+                    <span id="label-persistent-copy-link">Copy Link</span>
+                </button>
+                <button type="button" id="btn-persistent-copy-code" class="px-2 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-stone-200 text-[11px] font-mono flex items-center gap-1 transition active:scale-95" title="Copy 6-character match code">
+                    <span class="material-symbols-rounded text-xs">content_copy</span>
+                    <span class="hidden sm:inline">Code</span>
+                </button>
+                <button type="button" id="btn-persistent-toggle-pin" class="px-2 py-1 rounded-xl border border-white/20 bg-white/5 hover:bg-white/15 text-stone-300 text-[11px] flex items-center gap-1 transition" title="Toggle Do Not Delete (protects match from 3-day cleanup)">
+                    <span class="material-symbols-rounded text-xs" id="icon-persistent-pin">push_pin</span>
+                    <span id="label-persistent-pin" class="hidden sm:inline">Pin</span>
+                </button>
+            </div>
+        </div>
+
         <!-- Mobile / Underpowered Device Notice Pill -->
         <div id="mobile-lite-banner" class="hidden md3-glass px-3.5 py-1 rounded-full border-teal-400/40 bg-teal-950/75 text-teal-100 text-[10px] sm:text-[11px] flex items-center gap-2 pointer-events-auto max-w-full">
             <span class="material-symbols-rounded text-teal-300 text-sm">bolt</span>
@@ -629,7 +652,7 @@
             </div>
 
             <!-- Active Session Status & Leave Option (Visible only when in Live Match) -->
-            <div id="live-active-banner" class="hidden p-3 rounded-2xl bg-sky-950/80 border border-sky-400/50 flex items-center justify-between gap-2">
+            <div id="live-active-banner" class="hidden p-3 rounded-2xl bg-sky-950/80 border border-sky-400/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
                     <div>
@@ -637,7 +660,11 @@
                         <span class="text-xs text-stone-200">Session: <span id="live-active-code" class="font-mono text-amber-200 font-bold">SANCT-XXXX</span></span>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 shrink-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" id="btn-live-banner-copy-link" class="px-2.5 py-1.5 rounded-xl border border-sky-400/40 bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 text-xs font-bold flex items-center gap-1 transition" title="Copy full shareable match link">
+                        <span class="material-symbols-rounded text-sm" id="icon-banner-copy-link">link</span>
+                        <span id="label-banner-copy-link">Copy Link</span>
+                    </button>
                     <button type="button" id="btn-toggle-do-not-delete" class="px-2.5 py-1.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-stone-300 text-xs font-bold flex items-center gap-1 transition" title="Toggle Do Not Delete (protects match from 3-day cleanup)">
                         <span class="material-symbols-rounded text-sm" id="icon-do-not-delete">push_pin</span>
                         <span id="label-do-not-delete">Do Not Delete</span>

@@ -87,6 +87,18 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'icon-do-not-delete': new MockElement(),
       'label-do-not-delete': new MockElement(),
       'live-host-do-not-delete': new MockElement(),
+      'live-persistent-hud': new MockElement(),
+      'live-persistent-code': new MockElement(),
+      'btn-persistent-copy-link': new MockElement(),
+      'icon-persistent-copy-link': new MockElement(),
+      'label-persistent-copy-link': new MockElement(),
+      'btn-persistent-copy-code': new MockElement(),
+      'btn-persistent-toggle-pin': new MockElement(),
+      'icon-persistent-pin': new MockElement(),
+      'label-persistent-pin': new MockElement(),
+      'btn-live-banner-copy-link': new MockElement(),
+      'icon-banner-copy-link': new MockElement(),
+      'label-banner-copy-link': new MockElement(),
       'pregame-mode-lock-notice': new MockElement()
     };
 
@@ -349,21 +361,46 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['live-join-error']?.textContent).toBe('');
     expect(domElements['live-join-error']?.classList.contains('hidden')).toBe(true);
 
-    // Live Match Active locks & banner toggle with Do Not Delete state
+    // Live Match Active locks, persistent on-screen HUD, and banner toggle with Do Not Delete state
     ui.setLiveMatchActive(true, 'SANCT-ACTIVE', true);
     expect(domElements['live-active-banner']?.classList.contains('hidden')).toBe(false);
     expect(domElements['live-active-code']?.textContent).toBe('SANCT-ACTIVE');
+    expect(domElements['live-persistent-hud']?.classList.contains('hidden')).toBe(false);
+    expect(domElements['live-persistent-code']?.textContent).toBe('SANCT-ACTIVE');
     expect(domElements['pregame-mode-lock-notice']?.classList.contains('hidden')).toBe(false);
     expect(domElements['btn-toggle-do-not-delete']?.classList.contains('bg-amber-500/20')).toBe(true);
     expect(domElements['label-do-not-delete']?.textContent).toBe('Protected (No Prune)');
+    expect(domElements['btn-persistent-toggle-pin']?.classList.contains('bg-amber-500/25')).toBe(true);
+    expect(domElements['label-persistent-pin']?.textContent).toBe('Pinned');
+
+    // Test copy link status toggling
+    ui.setPersistentCopyLinkCopied(true);
+    expect(domElements['icon-persistent-copy-link']?.textContent).toBe('check');
+    expect(domElements['label-persistent-copy-link']?.textContent).toBe('Copied!');
+
+    ui.setPersistentCopyLinkCopied(false);
+    expect(domElements['icon-persistent-copy-link']?.textContent).toBe('link');
+    expect(domElements['label-persistent-copy-link']?.textContent).toBe('Copy Link');
+
+    ui.setBannerCopyLinkCopied(true);
+    expect(domElements['icon-banner-copy-link']?.textContent).toBe('check');
+    expect(domElements['label-banner-copy-link']?.textContent).toBe('Copied!');
+
+    ui.setBannerCopyLinkCopied(false);
+    expect(domElements['icon-banner-copy-link']?.textContent).toBe('link');
+    expect(domElements['label-banner-copy-link']?.textContent).toBe('Copy Link');
 
     ui.setDoNotDeleteState(false);
     expect(domElements['btn-toggle-do-not-delete']?.classList.contains('bg-white/5')).toBe(true);
     expect(domElements['label-do-not-delete']?.textContent).toBe('Do Not Delete');
+    expect(domElements['btn-persistent-toggle-pin']?.classList.contains('bg-white/5')).toBe(true);
+    expect(domElements['label-persistent-pin']?.textContent).toBe('Pin');
 
     ui.setLiveMatchActive(false);
     expect(domElements['live-active-banner']?.classList.contains('hidden')).toBe(true);
     expect(domElements['live-active-code']?.textContent).toBe('');
+    expect(domElements['live-persistent-hud']?.classList.contains('hidden')).toBe(true);
+    expect(domElements['live-persistent-code']?.textContent).toBe('');
     expect(domElements['pregame-mode-lock-notice']?.classList.contains('hidden')).toBe(true);
   });
 });

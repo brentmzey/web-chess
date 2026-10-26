@@ -87,6 +87,18 @@ export interface UIControllerElements {
   hubQuickJoinInput: HTMLInputElement | null;
   btnHubQuickJoin: HTMLButtonElement | null;
   hubQuickJoinFeedback: HTMLElement | null;
+  livePersistentHud: HTMLElement | null;
+  livePersistentCode: HTMLElement | null;
+  btnPersistentCopyLink: HTMLButtonElement | null;
+  iconPersistentCopyLink: HTMLElement | null;
+  labelPersistentCopyLink: HTMLElement | null;
+  btnPersistentCopyCode: HTMLButtonElement | null;
+  btnPersistentTogglePin: HTMLButtonElement | null;
+  iconPersistentPin: HTMLElement | null;
+  labelPersistentPin: HTMLElement | null;
+  btnLiveBannerCopyLink: HTMLButtonElement | null;
+  iconBannerCopyLink: HTMLElement | null;
+  labelBannerCopyLink: HTMLElement | null;
 }
 
 export class UIController {
@@ -147,6 +159,18 @@ export class UIController {
       hubQuickJoinInput: document.getElementById('hub-quick-join-input') as HTMLInputElement | null,
       btnHubQuickJoin: document.getElementById('btn-hub-quick-join') as HTMLButtonElement | null,
       hubQuickJoinFeedback: document.getElementById('hub-quick-join-feedback'),
+      livePersistentHud: document.getElementById('live-persistent-hud'),
+      livePersistentCode: document.getElementById('live-persistent-code'),
+      btnPersistentCopyLink: document.getElementById('btn-persistent-copy-link') as HTMLButtonElement | null,
+      iconPersistentCopyLink: document.getElementById('icon-persistent-copy-link'),
+      labelPersistentCopyLink: document.getElementById('label-persistent-copy-link'),
+      btnPersistentCopyCode: document.getElementById('btn-persistent-copy-code') as HTMLButtonElement | null,
+      btnPersistentTogglePin: document.getElementById('btn-persistent-toggle-pin') as HTMLButtonElement | null,
+      iconPersistentPin: document.getElementById('icon-persistent-pin'),
+      labelPersistentPin: document.getElementById('label-persistent-pin'),
+      btnLiveBannerCopyLink: document.getElementById('btn-live-banner-copy-link') as HTMLButtonElement | null,
+      iconBannerCopyLink: document.getElementById('icon-banner-copy-link'),
+      labelBannerCopyLink: document.getElementById('label-banner-copy-link'),
       pregameModeLockNotice: document.getElementById('pregame-mode-lock-notice')
     };
   }
@@ -537,6 +561,21 @@ export class UIController {
     fromNullable(this.el.labelDoNotDelete).map(label => {
       label.textContent = pinned ? 'Protected (No Prune)' : 'Do Not Delete';
     });
+
+    fromNullable(this.el.btnPersistentTogglePin).map(btn => {
+      btn.classList.toggle('bg-amber-500/25', pinned);
+      btn.classList.toggle('border-amber-400/50', pinned);
+      btn.classList.toggle('text-amber-200', pinned);
+      btn.classList.toggle('bg-white/5', !pinned);
+      btn.classList.toggle('border-white/20', !pinned);
+      btn.classList.toggle('text-stone-300', !pinned);
+    });
+    fromNullable(this.el.iconPersistentPin).map(icon => {
+      icon.classList.toggle('text-amber-300', pinned);
+    });
+    fromNullable(this.el.labelPersistentPin).map(label => {
+      label.textContent = pinned ? 'Pinned' : 'Pin';
+    });
   }
 
   public setLiveMatchActive(active: boolean, sessionCode?: string, doNotDelete?: boolean): void {
@@ -546,10 +585,34 @@ export class UIController {
     fromNullable(this.el.liveActiveCode).map(codeEl => {
       codeEl.textContent = sessionCode || '';
     });
+    fromNullable(this.el.livePersistentHud).map(hud => {
+      hud.classList.toggle('hidden', !active);
+    });
+    fromNullable(this.el.livePersistentCode).map(codeEl => {
+      codeEl.textContent = sessionCode || '';
+    });
     fromNullable(this.el.pregameModeLockNotice).map(notice => {
       notice.classList.toggle('hidden', !active);
     });
     this.setDoNotDeleteState(Boolean(doNotDelete));
+  }
+
+  public setPersistentCopyLinkCopied(copied: boolean): void {
+    fromNullable(this.el.iconPersistentCopyLink).map(icon => {
+      icon.textContent = copied ? 'check' : 'link';
+    });
+    fromNullable(this.el.labelPersistentCopyLink).map(label => {
+      label.textContent = copied ? 'Copied!' : 'Copy Link';
+    });
+  }
+
+  public setBannerCopyLinkCopied(copied: boolean): void {
+    fromNullable(this.el.iconBannerCopyLink).map(icon => {
+      icon.textContent = copied ? 'check' : 'link';
+    });
+    fromNullable(this.el.labelBannerCopyLink).map(label => {
+      label.textContent = copied ? 'Copied!' : 'Copy Link';
+    });
   }
 
   public showArcadeHub(): void {

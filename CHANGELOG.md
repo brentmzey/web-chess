@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.17] - 2026-10-26
+### Added
+- **Persistent In-Game Live Match Sharing HUD & Quick Actions (`#live-persistent-hud`, `src/ui/uiController.ts`, `src/main.ts`)**:
+  - Implemented a persistent on-screen HUD bar displayed directly below the top turn indicator whenever a Live 1v1 match is active on the 3D board.
+  - Added one-click **"Copy Link"** button (`#btn-persistent-copy-link`) that copies the canonical invite URL (`https://...?session=SANCT-XXXX`), displays dynamic "Copied!" check feedback, sounds cathedral audio confirmation, and triggers toast banners.
+  - Added quick **"Code"** button (`#btn-persistent-copy-code`) to copy the raw 6-character session code.
+  - Added persistent on-screen **"Pin"** toggle button (`#btn-persistent-toggle-pin`) synchronized with the database `do_not_delete` match-protection state.
+  - Added matching **"Copy Link"** action button (`#btn-live-banner-copy-link`) inside the Live Match modal banner.
+  - Expanded `UIController` with methods `setPersistentCopyLinkCopied` and `setBannerCopyLinkCopied` alongside full test coverage in `tests/uiController.test.ts`.
+
 ## [1.2.0-rc.16] - 2026-10-26
 ### Added
 - **Phase 1: Sanctuary Multi-Game Arcade Hub & Universal Session Router (`src/routing/sessionRouter.ts`, `index.html`, `src/ui/uiController.ts`)**:

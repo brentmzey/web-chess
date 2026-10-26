@@ -1736,35 +1736,89 @@ function main(): void {
     })
   );
 
+  const toggleDoNotDeleteHandler = async () => {
+    const state = chessStore.getState();
+    if (!state.liveSession) return;
+    const currentPinned = Boolean(state.liveSession.doNotDelete);
+    const nextPinned = !currentPinned;
+
+    ui.setDoNotDeleteState(nextPinned);
+    soundFX.playSelect();
+
+    if (activeRealtimeClient) {
+      await activeRealtimeClient.setDoNotDelete(nextPinned);
+    } else {
+      await PocketBaseChessClient.setSessionDoNotDelete('', state.liveSession.sessionId, nextPinned);
+    }
+
+    chessStore.setState({
+      liveSession: {
+        ...state.liveSession,
+        doNotDelete: nextPinned
+      }
+    });
+    void persistCurrentSession();
+
+    if (nextPinned) {
+      ui.showTemporaryBanner('Match protected: will NOT be auto-deleted by cleanup cron.', 3500);
+    } else {
+      ui.showTemporaryBanner('Match unpinned: will follow standard 3-day cleanup.', 3500);
+    }
+  };
+
   fromNullable(document.getElementById('btn-toggle-do-not-delete')).map(btn =>
+    btn.addEventListener('click', toggleDoNotDeleteHandler)
+  );
+
+  fromNullable(document.getElementById('btn-persistent-toggle-pin')).map(btn =>
+    btn.addEventListener('click', toggleDoNotDeleteHandler)
+  );
+
+  const getActiveLiveSessionCode = (): string | null => {
+    const fromStore = chessStore.getState().liveSession?.sessionCode;
+    if (fromStore) return fromStore;
+    const persistentEl = document.getElementById('live-persistent-code');
+    if (persistentEl?.textContent && persistentEl.textContent !== 'SANCT-XXXX') {
+      return persistentEl.textContent.trim();
+    }
+    const bannerEl = document.getElementById('live-active-code');
+    if (bannerEl?.textContent && bannerEl.textContent !== 'SANCT-XXXX') {
+      return bannerEl.textContent.trim();
+    }
+    return null;
+  };
+
+  const copyLiveSessionLink = async (isPersistent: boolean) => {
+    const code = getActiveLiveSessionCode();
+    if (!code) return;
+    const url = `${window.location.origin}${window.location.pathname}?session=${code}`;
+    await navigator.clipboard.writeText(url);
+    soundFX.playSelect();
+    if (isPersistent) {
+      ui.setPersistentCopyLinkCopied(true);
+      setTimeout(() => ui.setPersistentCopyLinkCopied(false), 2000);
+    } else {
+      ui.setBannerCopyLinkCopied(true);
+      setTimeout(() => ui.setBannerCopyLinkCopied(false), 2000);
+    }
+    ui.showTemporaryBanner('Match Invite Link copied to clipboard! Share it with your opponent.', 3000);
+  };
+
+  fromNullable(document.getElementById('btn-persistent-copy-link')).map(btn =>
+    btn.addEventListener('click', () => void copyLiveSessionLink(true))
+  );
+
+  fromNullable(document.getElementById('btn-live-banner-copy-link')).map(btn =>
+    btn.addEventListener('click', () => void copyLiveSessionLink(false))
+  );
+
+  fromNullable(document.getElementById('btn-persistent-copy-code')).map(btn =>
     btn.addEventListener('click', async () => {
-      const state = chessStore.getState();
-      if (!state.liveSession) return;
-      const currentPinned = Boolean(state.liveSession.doNotDelete);
-      const nextPinned = !currentPinned;
-
-      ui.setDoNotDeleteState(nextPinned);
+      const code = getActiveLiveSessionCode();
+      if (!code) return;
+      await navigator.clipboard.writeText(code);
       soundFX.playSelect();
-
-      if (activeRealtimeClient) {
-        await activeRealtimeClient.setDoNotDelete(nextPinned);
-      } else {
-        await PocketBaseChessClient.setSessionDoNotDelete('', state.liveSession.sessionId, nextPinned);
-      }
-
-      chessStore.setState({
-        liveSession: {
-          ...state.liveSession,
-          doNotDelete: nextPinned
-        }
-      });
-      void persistCurrentSession();
-
-      if (nextPinned) {
-        ui.showTemporaryBanner('Match protected: will NOT be auto-deleted by cleanup cron.', 3500);
-      } else {
-        ui.showTemporaryBanner('Match unpinned: will follow standard 3-day cleanup.', 3500);
-      }
+      ui.showTemporaryBanner(`Match Code ${code} copied to clipboard!`, 2000);
     })
   );
 

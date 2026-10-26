@@ -57,8 +57,13 @@ The Live Match Setup dialog ([`index.html`](file:///Users/brentzey/personal/web-
    - When opened by the opponent, the application automatically detects the `?session=` parameter, skips the creation dialog, and enters the match room seamlessly.
 2. **Secondary: Manual Match Code**:
    - Displays the 6-character alphanumeric match code (`SANCT-XXXX`) alongside a **"Copy Code"** button for players entering manually from another device.
-3. **Immediate Board Entry**:
+3. **Immediate Board Entry & Persistent In-Game Share HUD**:
    - The host can click **"Enter Sanctuary Board & Wait"** (`#btn-enter-live-match`) or dismiss the modal by clicking outside on the darkened backdrop or pressing `Escape`.
+   - **Persistent In-Game HUD Bar (`#live-persistent-hud`)**:
+     - Whenever a Live 1v1 match is active, a floating pill appears directly below the top turn indicator on the 3D board canvas.
+     - Features a prominent **"Copy Link"** button (`#btn-persistent-copy-link`) with instant clipboard copying, auditory chime feedback, and temporary "Copied!" check confirmation.
+     - Displays the 6-character match code with a quick **"Code"** button (`#btn-persistent-copy-code`) for immediate sharing.
+     - Includes a persistent **"Pin"** toggle button (`#btn-persistent-toggle-pin`) allowing players to protect the match from automated 3-day cleanup at any time without opening any modals.
    - The host is placed directly in the 3D sanctuary, and the game automatically transitions into active play the moment the opponent connects.
 
 ---
