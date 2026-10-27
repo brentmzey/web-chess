@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.22] - 2026-10-27
+### Added
+- **Expansive Full-Screen Viewport Architecture for All Games (`index.html`, `src/styles/main.css`, `src/main.ts`)**:
+  - **Full-Screen Table Theaters**: Transformed all game views (Gothic Blackjack, Cathedral Poker, Sacred Skip-Bo, and Ten Rites Phase 10) from cramped, centered modal popups into majestic, edge-to-edge full-screen game arenas (`fixed inset-0 w-full h-full`) matching the immersive grandeur of Sanctuary Chess.
+  - **Atmospheric Sanctuary Navigation Bar**:
+    - Embedded unified top navigation bars across all game tables featuring prominent "Sanctuary" exit buttons, gothic typography headers, thematic game icons, and live status bars.
+    - Integrated native HTML5 Fullscreen API toggles (`btn-bjk-fullscreen`, `btn-poker-fullscreen`, `btn-skipbo-fullscreen`, `btn-phase10-fullscreen`) with dynamic icon swapping (`fullscreen` / `fullscreen_exit`) via `fullscreenchange` event observation.
+  - **Atmospheric Procedural Gaming Felts (`src/styles/main.css`)**:
+    - Created custom CSS felts: `.felt-blackjack` (deep emerald velvet radial gradient with casino rim shadow), `.felt-poker` (warm mahogany and amber oval felt), `.felt-skipbo` (celestial sapphire sanctuary table), and `.felt-phase10` (obsidian and liturgical jade felt).
+  - **High-Fidelity Playing Card Component System (`.playing-card-ui`)**:
+    - Implemented large, responsive tournament playing cards with realistic ivory parchment gradients, dual corner rank/suit indices, center suit symbols, drop shadows, and upside-down bottom pips.
+    - Added interactive tactile card animations: hover elevation transforms (`translateY(-4px)`), smooth card scaling, and illuminated golden selection rings (`.card-selected`).
+  - **Tactile Control Docks & Clear Spacing**:
+    - Expanded building piles and stockpile cards for Sacred Skip-Bo with real-time "Next Needed" hints and progress counters.
+    - Expanded community card arena and multi-seat layout for Cathedral Poker.
+    - Expanded dual draw/discard piles, laid melds sanctuary, and consecrated 10-card hand view for Ten Rites Phase 10.
+    - Expanded dealer shoe, chip rack, and betting controls for Gothic Blackjack.
+
 ## [1.2.0-rc.21] - 2026-10-26
 ### Added
 - **Complete Multi-Game Suite: Phase 10, Skip-Bo, Blackjack, & Multi-Variant Poker with Play vs Computer & Live 1v1 Online**:

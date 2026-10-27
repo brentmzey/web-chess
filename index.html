@@ -1042,151 +1042,172 @@
     </div>
 
     <!-- ===================================================================== -->
-    <!-- GOTHIC BLACKJACK SANCTUARY TABLE MODAL                                -->
     <!-- ===================================================================== -->
-    <div id="blackjack-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md hidden pointer-events-auto">
-        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-purple-400/50 w-full max-w-2xl max-h-[94vh] overflow-y-auto space-y-4 bg-gradient-to-b from-[#0e1814] to-[#09080c]">
-            <!-- Header -->
-            <div class="flex items-center justify-between border-b border-purple-500/30 pb-3">
+    <!-- GOTHIC BLACKJACK SANCTUARY TABLE (FULL SCREEN VIEW)                     -->
+    <!-- ===================================================================== -->
+    <div id="blackjack-modal" class="fixed inset-0 z-50 flex flex-col bg-[#060a08] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+        <!-- Top Sanctuary Navigation Bar -->
+        <header class="w-full px-4 sm:px-8 py-3 border-b border-emerald-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <!-- Left: Return to Sanctuary & Game Branding -->
+            <div class="flex items-center gap-3 sm:gap-4">
+                <button type="button" id="btn-close-blackjack" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">arrow_back</span>
+                    <span class="hidden sm:inline">Sanctuary</span>
+                </button>
                 <div class="flex items-center gap-2.5">
-                    <span class="material-symbols-rounded text-2xl text-purple-300">playing_cards</span>
+                    <div class="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-400/50 flex items-center justify-center text-emerald-300 shadow-md">
+                        <span class="material-symbols-rounded text-xl">playing_cards</span>
+                    </div>
                     <div>
-                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100">GOTHIC BLACKJACK</h2>
-                        <p class="text-[11px] text-stone-400">Cathedral High Table • 3:2 Natural Payout</p>
+                        <h2 class="font-cathedral text-sm sm:text-base font-bold text-amber-100 tracking-wider">GOTHIC BLACKJACK</h2>
+                        <p class="text-[10px] text-stone-400 hidden md:block">High Gothic Cathedral Table • 3:2 Natural Payout</p>
                     </div>
                 </div>
-                <button id="btn-close-blackjack" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Blackjack Table">
-                    <span class="material-symbols-rounded text-xl">close</span>
-                </button>
             </div>
 
-            <!-- Mode Toggle & Live Online Connection Bar -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-black/50 border border-white/10 text-xs">
-                <div class="flex items-center gap-1.5">
-                    <span class="text-stone-400">Mode:</span>
-                    <button type="button" id="bjk-tab-ai" class="px-2.5 py-1 rounded-xl bg-purple-600 text-white font-bold text-[11px]">Play vs Dealer</button>
-                    <button type="button" id="bjk-tab-live" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-purple-300 font-bold text-[11px]">Live 1v1 Online</button>
+            <!-- Center: Mode Toggle & Live Online Connection Bar -->
+            <div class="flex items-center gap-2">
+                <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                    <button type="button" id="bjk-tab-ai" class="px-3 py-1 rounded-xl bg-purple-600 text-white font-bold text-[11px] transition">Play vs Dealer</button>
+                    <button type="button" id="bjk-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-purple-300 font-bold text-[11px] transition">Live 1v1 Online</button>
                 </div>
-                <div id="bjk-live-session-info" class="hidden flex items-center gap-2">
-                    <span id="bjk-live-code" class="font-mono text-amber-300 text-xs font-bold tracking-wider">BJK-7K9P</span>
-                    <button type="button" id="btn-bjk-copy-link" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-amber-200 text-[10px] flex items-center gap-1">
+                <div id="bjk-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-sky-950/60 border border-sky-400/40 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+                    <span id="bjk-live-code" class="font-mono text-amber-300 font-bold tracking-wider">BJK-7K9P</span>
+                    <button type="button" id="btn-bjk-copy-link" class="px-2.5 py-0.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition">
                         <span class="material-symbols-rounded text-xs">content_copy</span>
                         <span>Copy Link</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Opponent AI & Difficulty Bar -->
-            <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-black/40 border border-white/10 text-xs">
-                <div class="flex items-center gap-2">
-                    <span class="text-stone-400">Dealer AI:</span>
+            <!-- Right: Dealer AI, Difficulty & View Options -->
+            <div class="flex items-center gap-2">
+                <div class="hidden lg:flex items-center gap-2 text-xs">
+                    <span class="text-stone-400">AI:</span>
                     <select id="bjk-ai-select" class="bg-black/60 border border-purple-400/30 rounded-xl px-2.5 py-1 text-xs text-purple-200 focus:outline-none">
                         <option value="minimax">Minimax Casino Engine</option>
                         <option value="micro-neural" selected>Micro-Neural Network AI</option>
                         <option value="gemini-nano">Gemini Nano Local LLM</option>
                     </select>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-stone-400">Difficulty:</span>
                     <select id="bjk-diff-select" class="bg-black/60 border border-purple-400/30 rounded-xl px-2.5 py-1 text-xs text-amber-200 focus:outline-none">
                         <option value="cautious">Cautious (Stands 16)</option>
                         <option value="balanced" selected>Balanced (Stands 17)</option>
                         <option value="ruthless">Ruthless (Pushes 18)</option>
                     </select>
                 </div>
+                <button type="button" id="btn-bjk-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+                    <span class="material-symbols-rounded text-lg">fullscreen</span>
+                </button>
             </div>
+        </header>
 
-            <!-- Felt Table Board -->
-            <div class="rounded-3xl p-5 border-2 border-emerald-500/30 bg-emerald-950/40 shadow-inner space-y-6">
+        <!-- Main Felt Arena Container (Spacious Full View) -->
+        <main class="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+            <!-- Grand Velvet Felt Board -->
+            <div class="rounded-3xl p-5 sm:p-8 border-2 border-emerald-500/40 felt-blackjack shadow-2xl flex-1 flex flex-col justify-between gap-6 min-h-[380px]">
                 <!-- Dealer Area -->
-                <div class="space-y-1.5 text-center">
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 flex items-center justify-center gap-2">
+                <div class="space-y-2 text-center">
+                    <div class="text-xs font-bold uppercase tracking-widest text-emerald-300/80 flex items-center justify-center gap-2.5">
+                        <span class="material-symbols-rounded text-base text-emerald-400">shield_person</span>
                         <span>Cathedral Dealer</span>
-                        <span id="bjk-dealer-total" class="px-2 py-0.5 rounded-full bg-black/50 text-amber-300 font-mono text-xs border border-white/10">0</span>
+                        <span id="bjk-dealer-total" class="px-2.5 py-0.5 rounded-full bg-black/60 text-amber-300 font-mono text-xs font-bold border border-emerald-400/30 shadow-sm">0</span>
                     </div>
-                    <div id="bjk-dealer-cards" class="flex items-center justify-center gap-2 min-h-[70px]">
+                    <div id="bjk-dealer-cards" class="flex flex-wrap items-center justify-center gap-3 min-h-[96px] sm:min-h-[110px]">
                         <span class="text-xs text-stone-500 italic">Place bet to deal</span>
                     </div>
                 </div>
 
-                <!-- Status Banner -->
-                <div id="bjk-status-banner" class="p-2 rounded-xl bg-black/60 border border-amber-400/30 text-center text-xs font-cathedral font-bold text-amber-200 tracking-wide">
-                    Place your bet and click Deal to begin.
+                <!-- Center Status Herald -->
+                <div class="max-w-md mx-auto w-full">
+                    <div id="bjk-status-banner" class="p-2.5 rounded-2xl bg-black/60 border border-amber-400/30 text-center text-xs sm:text-sm font-cathedral font-bold text-amber-200 tracking-wide shadow-lg">
+                        Place your bet and click Deal to begin.
+                    </div>
                 </div>
 
-                <!-- Player Area -->
-                <div class="space-y-1.5 text-center">
-                    <div id="bjk-player-cards" class="flex items-center justify-center gap-2 min-h-[70px]">
+                <!-- Player Hand Area -->
+                <div class="space-y-2 text-center">
+                    <div id="bjk-player-cards" class="flex flex-wrap items-center justify-center gap-3 min-h-[96px] sm:min-h-[110px]">
                         <span class="text-xs text-stone-500 italic">No cards in play</span>
                     </div>
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 flex items-center justify-center gap-2">
-                        <span>Your Hand</span>
-                        <span id="bjk-player-total" class="px-2 py-0.5 rounded-full bg-black/50 text-amber-300 font-mono text-xs border border-white/10">0</span>
+                    <div class="text-xs font-bold uppercase tracking-widest text-emerald-300/80 flex items-center justify-center gap-2.5">
+                        <span class="material-symbols-rounded text-base text-amber-400">person</span>
+                        <span>Your Consecrated Hand</span>
+                        <span id="bjk-player-total" class="px-2.5 py-0.5 rounded-full bg-black/60 text-amber-300 font-mono text-xs font-bold border border-emerald-400/30 shadow-sm">0</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Chip Bank & Betting Controls -->
-            <div class="flex items-center justify-between p-3 rounded-2xl bg-black/40 border border-white/10 text-xs">
-                <div class="flex items-center gap-1.5">
-                    <span class="material-symbols-rounded text-amber-300 text-sm">savings</span>
-                    <span class="text-stone-300">Bank:</span>
-                    <span id="bjk-bank-val" class="font-mono text-amber-200 font-bold">500 Relics</span>
+            <!-- Bottom Control Dock: Bank, Chip Rack & Actions -->
+            <div class="space-y-3 shrink-0">
+                <!-- Chip Bank & Betting Controls -->
+                <div class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-black/50 border border-white/10 text-xs backdrop-blur-sm">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300">
+                            <span class="material-symbols-rounded text-sm">savings</span>
+                        </div>
+                        <span class="text-stone-300">Bank:</span>
+                        <span id="bjk-bank-val" class="font-mono text-amber-200 font-bold text-sm">500 Relics</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                        <span class="text-stone-300">Current Bet:</span>
+                        <span id="bjk-bet-val" class="font-mono text-amber-200 font-bold text-sm mr-1">25</span>
+                        <button type="button" data-bet="10" class="bjk-bet-btn px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-200 font-bold text-[11px] transition">10</button>
+                        <button type="button" data-bet="25" class="bjk-bet-btn px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-200 font-bold text-[11px] transition">25</button>
+                        <button type="button" data-bet="50" class="bjk-bet-btn px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-200 font-bold text-[11px] transition">50</button>
+                        <button type="button" data-bet="100" class="bjk-bet-btn px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-200 font-bold text-[11px] transition">100</button>
+                    </div>
                 </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="text-stone-300">Bet:</span>
-                    <span id="bjk-bet-val" class="font-mono text-amber-200 font-bold">25</span>
-                    <button type="button" data-bet="10" class="bjk-bet-btn px-2 py-1 rounded-lg bg-white/10 hover:bg-amber-400/20 text-stone-200 text-[10px]">10</button>
-                    <button type="button" data-bet="25" class="bjk-bet-btn px-2 py-1 rounded-lg bg-white/10 hover:bg-amber-400/20 text-stone-200 text-[10px]">25</button>
-                    <button type="button" data-bet="50" class="bjk-bet-btn px-2 py-1 rounded-lg bg-white/10 hover:bg-amber-400/20 text-stone-200 text-[10px]">50</button>
-                    <button type="button" data-bet="100" class="bjk-bet-btn px-2 py-1 rounded-lg bg-white/10 hover:bg-amber-400/20 text-stone-200 text-[10px]">100</button>
-                </div>
-            </div>
 
-            <!-- Action Buttons -->
-            <div class="grid grid-cols-4 gap-2">
-                <button type="button" id="bjk-btn-deal" class="py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">play_arrow</span>
-                    <span>Deal</span>
-                </button>
-                <button type="button" id="bjk-btn-hit" disabled class="py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">add</span>
-                    <span>Hit</span>
-                </button>
-                <button type="button" id="bjk-btn-stand" disabled class="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">front_hand</span>
-                    <span>Stand</span>
-                </button>
-                <button type="button" id="bjk-btn-double" disabled class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">stars</span>
-                    <span>Double</span>
-                </button>
+                <!-- Tactical Action Buttons -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <button type="button" id="bjk-btn-deal" class="py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base">play_arrow</span>
+                        <span>Deal</span>
+                    </button>
+                    <button type="button" id="bjk-btn-hit" disabled class="py-3 rounded-2xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base">add</span>
+                        <span>Hit</span>
+                    </button>
+                    <button type="button" id="bjk-btn-stand" disabled class="py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base">front_hand</span>
+                        <span>Stand</span>
+                    </button>
+                    <button type="button" id="bjk-btn-double" disabled class="py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base">stars</span>
+                        <span>Double Down</span>
+                    </button>
+                </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- CATHEDRAL POKER MULTI-VARIANT SANCTUARY TABLE MODAL                   -->
+    <!-- CATHEDRAL POKER MULTI-VARIANT SANCTUARY TABLE (FULL SCREEN VIEW)      -->
     <!-- ===================================================================== -->
-    <div id="poker-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md hidden pointer-events-auto">
-        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-amber-400/50 w-full max-w-3xl max-h-[94vh] overflow-y-auto space-y-4 bg-gradient-to-b from-[#14120e] to-[#0c0908]">
-            <!-- Header -->
-            <div class="flex items-center justify-between border-b border-amber-500/30 pb-3">
+    <div id="poker-modal" class="fixed inset-0 z-50 flex flex-col bg-[#0a0705] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+        <!-- Top Sanctuary Navigation Bar -->
+        <header class="w-full px-4 sm:px-8 py-3 border-b border-amber-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <!-- Left: Return to Sanctuary & Game Branding -->
+            <div class="flex items-center gap-3 sm:gap-4">
+                <button type="button" id="btn-close-poker" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">arrow_back</span>
+                    <span class="hidden sm:inline">Sanctuary</span>
+                </button>
                 <div class="flex items-center gap-2.5">
-                    <span class="material-symbols-rounded text-2xl text-amber-300">token</span>
+                    <div class="w-9 h-9 rounded-xl bg-amber-950/80 border border-amber-400/50 flex items-center justify-center text-amber-300 shadow-md">
+                        <span class="material-symbols-rounded text-xl">token</span>
+                    </div>
                     <div>
-                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100">CATHEDRAL POKER</h2>
-                        <p class="text-[11px] text-stone-400">High Gothic Sanctuary Tables • Deep Hand Evaluation & Blinds</p>
+                        <h2 class="font-cathedral text-sm sm:text-base font-bold text-amber-100 tracking-wider">CATHEDRAL POKER</h2>
+                        <p class="text-[10px] text-stone-400 hidden md:block">High Gothic Sanctuary Table • Deep Hand Evaluation & Blinds</p>
                     </div>
                 </div>
-                <button id="btn-close-poker" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Poker Table">
-                    <span class="material-symbols-rounded text-xl">close</span>
-                </button>
             </div>
 
-            <!-- Variant & Mode Switcher Bar -->
-            <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-black/50 border border-white/10 text-xs">
-                <div class="flex items-center gap-2">
+            <!-- Center: Variant Selector & Mode Toggle -->
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="flex items-center gap-2 bg-black/50 border border-white/10 rounded-2xl px-2.5 py-1 text-xs">
                     <span class="text-stone-400 font-semibold">Variant:</span>
                     <select id="poker-variant-select" class="bg-black/60 border border-amber-400/30 rounded-xl px-2.5 py-1 text-xs text-amber-200 focus:outline-none">
                         <option value="texas-holdem" selected>Texas Hold'em (2 Hole, 5 Community)</option>
@@ -1195,317 +1216,372 @@
                         <option value="five-card-draw">Five-Card Draw (5 Hole, Exchange Up to 3)</option>
                     </select>
                 </div>
-                <div class="flex items-center gap-1.5">
-                    <button type="button" id="poker-tab-ai" class="px-2.5 py-1 rounded-xl bg-amber-500 text-stone-950 font-bold text-[11px]">Play vs AI</button>
-                    <button type="button" id="poker-tab-live" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-amber-300 font-bold text-[11px]">Live 1v1 Online</button>
+                <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                    <button type="button" id="poker-tab-ai" class="px-3 py-1 rounded-xl bg-amber-500 text-stone-950 font-bold text-[11px] transition">Play vs AI</button>
+                    <button type="button" id="poker-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-amber-300 font-bold text-[11px] transition">Live 1v1 Online</button>
+                </div>
+                <div id="poker-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-amber-950/60 border border-amber-400/40 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                    <span id="poker-live-code" class="font-mono text-amber-300 font-bold tracking-wider">POKER-ALPHA</span>
+                    <button type="button" id="btn-poker-copy-link" class="px-2.5 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                        <span>Copy Link</span>
+                    </button>
                 </div>
             </div>
 
-            <div id="poker-live-session-info" class="hidden p-2.5 rounded-2xl bg-amber-950/40 border border-amber-400/40 flex items-center justify-between text-xs">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-rounded text-sm text-amber-300">sensors</span>
-                    <span class="text-stone-300">Live Match Code:</span>
-                    <span id="poker-live-code" class="font-mono text-amber-300 font-bold tracking-wider">POKER-ALPHA</span>
-                </div>
-                <button type="button" id="btn-poker-copy-link" class="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-1">
-                    <span class="material-symbols-rounded text-sm">content_copy</span>
-                    <span>Copy Link</span>
+            <!-- Right: Fullscreen Toggle -->
+            <div class="flex items-center gap-2">
+                <button type="button" id="btn-poker-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+                    <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
             </div>
+        </header>
 
-            <!-- Felt Poker Table -->
-            <div class="rounded-3xl p-5 border-2 border-emerald-600/30 bg-emerald-950/40 shadow-inner space-y-5">
-                <!-- Pot & Stage Indicator -->
+        <!-- Main Felt Arena Container -->
+        <main class="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+            <!-- Grand Oval Felt Poker Table -->
+            <div class="rounded-3xl p-5 sm:p-8 border-4 border-amber-900/50 felt-poker shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[380px]">
+                <!-- Center Pot & Stage Row -->
                 <div class="flex items-center justify-between border-b border-white/10 pb-3">
-                    <div class="flex items-center gap-2">
-                        <span class="material-symbols-rounded text-amber-300 text-sm">savings</span>
-                        <span class="text-xs text-stone-300">Total Pot:</span>
-                        <span id="poker-pot-val" class="font-mono text-amber-200 font-bold text-sm">$30</span>
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300">
+                            <span class="material-symbols-rounded text-sm">savings</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-stone-400">Total Pot</span>
+                            <div id="poker-pot-val" class="font-mono text-amber-200 font-bold text-base sm:text-lg">$30</div>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span id="poker-stage-badge" class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 font-cathedral text-[10px] uppercase font-bold tracking-wider">Pre-Flop</span>
-                        <span id="poker-current-bet-val" class="text-xs text-stone-400 font-mono">Current Bet: $20</span>
+                    <div class="flex items-center gap-3">
+                        <span id="poker-stage-badge" class="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 font-cathedral text-xs uppercase font-bold tracking-wider">Pre-Flop</span>
+                        <span id="poker-current-bet-val" class="text-xs text-stone-300 font-mono bg-black/40 px-2.5 py-1 rounded-xl border border-white/10">Current Bet: $20</span>
                     </div>
                 </div>
 
-                <!-- Community Cards / Shared Table -->
-                <div class="space-y-1.5 text-center">
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 flex items-center justify-center gap-2">
+                <!-- Community Cards Arena (Flop / Turn / River) -->
+                <div class="space-y-2 text-center">
+                    <div class="text-[11px] font-bold uppercase tracking-widest text-amber-300/80 flex items-center justify-center gap-2">
+                        <span class="material-symbols-rounded text-sm text-amber-400">style</span>
                         <span>Community Flop / Turn / River</span>
                     </div>
-                    <div id="poker-community-cards" class="flex items-center justify-center gap-2 min-h-[70px]">
+                    <div id="poker-community-cards" class="flex flex-wrap items-center justify-center gap-3 min-h-[96px] sm:min-h-[110px]">
                         <span class="text-xs text-stone-500 italic">Waiting for hand to start</span>
                     </div>
                 </div>
 
                 <!-- Status Banner -->
-                <div id="poker-status-banner" class="p-2 rounded-xl bg-black/60 border border-amber-400/30 text-center text-xs font-cathedral font-bold text-amber-200 tracking-wide">
-                    Select your variant and click Deal to start the hand.
+                <div class="max-w-md mx-auto w-full">
+                    <div id="poker-status-banner" class="p-2.5 rounded-2xl bg-black/60 border border-amber-400/30 text-center text-xs sm:text-sm font-cathedral font-bold text-amber-200 tracking-wide shadow-lg">
+                        Select your variant and click Deal to start the hand.
+                    </div>
                 </div>
 
-                <!-- Player Hand Area -->
-                <div class="space-y-1.5 text-center">
-                    <div id="poker-player-cards" class="flex items-center justify-center gap-2 min-h-[70px]">
+                <!-- Hero Player Station -->
+                <div class="space-y-2 text-center">
+                    <div id="poker-player-cards" class="flex flex-wrap items-center justify-center gap-3 min-h-[96px] sm:min-h-[110px]">
                         <span class="text-xs text-stone-500 italic">No cards in hand</span>
                     </div>
-                    <div class="flex items-center justify-center gap-3">
-                        <span class="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your Hand:</span>
-                        <span id="poker-hand-rank" class="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 text-xs font-bold font-cathedral">High Card</span>
-                        <span class="text-[11px] text-stone-400 font-mono">Chips: <span id="poker-chip-bank" class="text-amber-300 font-bold">$1000</span></span>
+                    <div class="flex flex-wrap items-center justify-center gap-3">
+                        <span class="text-xs font-bold uppercase tracking-widest text-stone-400">Your Hand:</span>
+                        <span id="poker-hand-rank" class="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/40 text-xs font-bold font-cathedral">High Card</span>
+                        <span class="text-xs text-stone-300 font-mono bg-black/40 px-2.5 py-1 rounded-xl border border-white/10">Chips: <span id="poker-chip-bank" class="text-amber-300 font-bold">$1000</span></span>
                     </div>
                 </div>
             </div>
 
-            <!-- Poker Action Controls -->
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                <button type="button" id="poker-btn-deal" class="py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-1 shadow-md transition">
-                    <span class="material-symbols-rounded text-sm">play_arrow</span>
-                    <span>Deal Hand</span>
-                </button>
-                <button type="button" id="poker-btn-check" disabled class="py-2.5 rounded-xl bg-stone-700 hover:bg-stone-600 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">check</span>
-                    <span>Check</span>
-                </button>
-                <button type="button" id="poker-btn-call" disabled class="py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">toll</span>
-                    <span>Call</span>
-                </button>
-                <button type="button" id="poker-btn-raise" disabled class="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">trending_up</span>
-                    <span>Raise</span>
-                </button>
-                <button type="button" id="poker-btn-fold" disabled class="py-2.5 rounded-xl bg-red-800 hover:bg-red-700 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition col-span-2 sm:col-span-1">
-                    <span class="material-symbols-rounded text-sm">close</span>
-                    <span>Fold</span>
-                </button>
+            <!-- Bottom Action Controls -->
+            <div class="space-y-2.5 shrink-0">
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                    <button type="button" id="poker-btn-deal" class="py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base">play_arrow</span>
+                        <span>Deal Hand</span>
+                    </button>
+                    <button type="button" id="poker-btn-check" disabled class="py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base">check</span>
+                        <span>Check</span>
+                    </button>
+                    <button type="button" id="poker-btn-call" disabled class="py-3 rounded-2xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base">toll</span>
+                        <span>Call</span>
+                    </button>
+                    <button type="button" id="poker-btn-raise" disabled class="py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base">trending_up</span>
+                        <span>Raise</span>
+                    </button>
+                    <button type="button" id="poker-btn-fold" disabled class="py-3 rounded-2xl bg-red-900/80 hover:bg-red-800 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95 col-span-2 sm:col-span-1">
+                        <span class="material-symbols-rounded text-base">close</span>
+                        <span>Fold</span>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between gap-3 pt-1">
+                    <button type="button" id="poker-btn-next-street" disabled class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition">
+                        <span class="material-symbols-rounded text-sm">forward</span>
+                        <span>Deal Next Street</span>
+                    </button>
+                    <button type="button" id="poker-btn-draw-exchange" disabled class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-30 disabled:pointer-events-none text-stone-950 font-bold text-xs flex items-center gap-1.5 shadow-md transition">
+                        <span class="material-symbols-rounded text-sm">swap_horiz</span>
+                        <span>Exchange Selected Cards</span>
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center justify-between gap-2 pt-1">
-                <button type="button" id="poker-btn-next-street" disabled class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center gap-1">
-                    <span class="material-symbols-rounded text-sm">forward</span>
-                    <span>Deal Next Street</span>
-                </button>
-                <button type="button" id="poker-btn-draw-exchange" disabled class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-30 disabled:pointer-events-none text-stone-950 font-bold text-xs flex items-center gap-1">
-                    <span class="material-symbols-rounded text-sm">swap_horiz</span>
-                    <span>Exchange Selected Cards</span>
-                </button>
-            </div>
-        </div>
+        </main>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- SACRED SKIP-BO SANCTUARY TABLE MODAL                                  -->
+    <!-- SACRED SKIP-BO SANCTUARY TABLE (FULL SCREEN VIEW)                     -->
     <!-- ===================================================================== -->
-    <div id="skipbo-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md hidden pointer-events-auto">
-        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-blue-400/50 w-full max-w-3xl max-h-[94vh] overflow-y-auto space-y-4 bg-gradient-to-b from-[#0e1219] to-[#080a0e]">
-            <!-- Header -->
-            <div class="flex items-center justify-between border-b border-blue-500/30 pb-3">
+    <div id="skipbo-modal" class="fixed inset-0 z-50 flex flex-col bg-[#05080e] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+        <!-- Top Sanctuary Navigation Bar -->
+        <header class="w-full px-4 sm:px-8 py-3 border-b border-sky-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <!-- Left: Return to Sanctuary & Game Branding -->
+            <div class="flex items-center gap-3 sm:gap-4">
+                <button type="button" id="btn-close-skipbo" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">arrow_back</span>
+                    <span class="hidden sm:inline">Sanctuary</span>
+                </button>
                 <div class="flex items-center gap-2.5">
-                    <span class="material-symbols-rounded text-2xl text-blue-300">counter_1</span>
+                    <div class="w-9 h-9 rounded-xl bg-sky-950/80 border border-sky-400/50 flex items-center justify-center text-sky-300 shadow-md">
+                        <span class="material-symbols-rounded text-xl">counter_1</span>
+                    </div>
                     <div>
-                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100">SACRED SKIP-BO</h2>
-                        <p class="text-[11px] text-stone-400">Sequential Building 1-12 • Deplete Your 15-Card Stockpile</p>
+                        <h2 class="font-cathedral text-sm sm:text-base font-bold text-amber-100 tracking-wider">SACRED SKIP-BO</h2>
+                        <p class="text-[10px] text-stone-400 hidden md:block">Sequential Building 1-12 • Deplete Your 15-Card Stockpile</p>
                     </div>
                 </div>
-                <button id="btn-close-skipbo" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Skip-Bo Table">
-                    <span class="material-symbols-rounded text-xl">close</span>
-                </button>
             </div>
 
-            <!-- Mode Switcher -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-black/50 border border-white/10 text-xs">
-                <div class="flex items-center gap-1.5">
-                    <span class="text-stone-400">Mode:</span>
-                    <button type="button" id="skipbo-tab-ai" class="px-2.5 py-1 rounded-xl bg-blue-600 text-white font-bold text-[11px]">Play vs AI</button>
-                    <button type="button" id="skipbo-tab-live" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-blue-300 font-bold text-[11px]">Live 1v1 Online</button>
+            <!-- Center: Mode Toggle & Live Online Connection Bar -->
+            <div class="flex items-center gap-2">
+                <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                    <button type="button" id="skipbo-tab-ai" class="px-3 py-1 rounded-xl bg-blue-600 text-white font-bold text-[11px] transition">Play vs AI</button>
+                    <button type="button" id="skipbo-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-blue-300 font-bold text-[11px] transition">Live 1v1 Online</button>
                 </div>
-                <div id="skipbo-live-session-info" class="hidden flex items-center gap-2">
+                <div id="skipbo-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-blue-950/60 border border-blue-400/40 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
                     <span id="skipbo-live-code" class="font-mono text-amber-300 font-bold tracking-wider">SKIP-ALPHA</span>
-                    <button type="button" id="btn-skipbo-copy-link" class="px-2.5 py-1 rounded-xl bg-blue-500 hover:bg-blue-400 text-white font-bold text-xs flex items-center gap-1">
-                        <span class="material-symbols-rounded text-sm">content_copy</span>
+                    <button type="button" id="btn-skipbo-copy-link" class="px-2.5 py-0.5 rounded-lg bg-blue-500 hover:bg-blue-400 text-white font-bold text-[10px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
                         <span>Copy Link</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Table Felt -->
-            <div class="rounded-3xl p-5 border-2 border-blue-500/30 bg-blue-950/20 shadow-inner space-y-5">
-                <!-- Opponent Info & 4 Building Piles -->
+            <!-- Right: Auto AI Turn & Fullscreen -->
+            <div class="flex items-center gap-2">
+                <button type="button" id="skipbo-btn-bot-step" class="px-3 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 border border-white/10 text-stone-200 font-bold text-xs flex items-center gap-1.5 shadow-sm transition">
+                    <span class="material-symbols-rounded text-sm text-sky-400">smart_toy</span>
+                    <span class="hidden sm:inline">Auto AI Turn</span>
+                </button>
+                <button type="button" id="btn-skipbo-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+                    <span class="material-symbols-rounded text-lg">fullscreen</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Felt Arena Container -->
+        <main class="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+            <!-- Grand Blue Velvet Table -->
+            <div class="rounded-3xl p-5 sm:p-8 border-2 border-sky-500/40 felt-skipbo shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[380px]">
+                <!-- Opponent Info & Deck Stats -->
                 <div class="flex items-center justify-between border-b border-white/10 pb-3">
-                    <div class="text-xs text-stone-300">
-                        <span>Opponent Stockpile: </span>
+                    <div class="flex items-center gap-2 text-xs text-stone-300">
+                        <span class="material-symbols-rounded text-sm text-amber-400">account_circle</span>
+                        <span>Opponent Stockpile:</span>
                         <span id="skipbo-opp-stock" class="font-mono text-amber-300 font-bold">15 remaining</span>
                     </div>
-                    <div class="text-xs text-stone-300">
-                        <span>Draw Deck: </span>
+                    <div class="flex items-center gap-2 text-xs text-stone-300">
+                        <span class="material-symbols-rounded text-sm text-sky-400">layers</span>
+                        <span>Draw Deck:</span>
                         <span id="skipbo-draw-deck-count" class="font-mono text-blue-300 font-bold">132 cards</span>
                     </div>
                 </div>
 
                 <!-- 4 Shared Building Piles -->
-                <div class="space-y-1.5 text-center">
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400">4 Shared Building Piles (Must start at 1, build up to 12)</div>
-                    <div id="skipbo-building-piles" class="grid grid-cols-4 gap-2.5 max-w-md mx-auto">
+                <div class="space-y-2 text-center">
+                    <div class="text-[11px] font-bold uppercase tracking-widest text-sky-300/80">4 Shared Building Piles (Must start at 1, build up to 12)</div>
+                    <div id="skipbo-building-piles" class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-5 max-w-2xl mx-auto">
                         <!-- Populated dynamically -->
                     </div>
                 </div>
 
-                <!-- Status Banner -->
-                <div id="skipbo-status-banner" class="p-2 rounded-xl bg-black/60 border border-blue-400/30 text-center text-xs font-cathedral font-bold text-blue-200 tracking-wide">
-                    Play cards to building piles or discard to end your turn.
+                <!-- Status Herald -->
+                <div class="max-w-md mx-auto w-full">
+                    <div id="skipbo-status-banner" class="p-2.5 rounded-2xl bg-black/60 border border-blue-400/30 text-center text-xs sm:text-sm font-cathedral font-bold text-blue-200 tracking-wide shadow-lg">
+                        Play cards to building piles or discard to end your turn.
+                    </div>
                 </div>
 
-                <!-- Player Hand & Stockpile -->
-                <div class="space-y-2">
+                <!-- Player Hand, Stockpile & Discards -->
+                <div class="space-y-3">
                     <div class="flex items-center justify-between text-xs text-stone-400 font-semibold px-1">
                         <span>Your 5-Card Hand</span>
                         <span>Your Stockpile: <span id="skipbo-player-stock-count" class="font-mono text-amber-300 font-bold">15 remaining</span></span>
                     </div>
-                    <div class="flex flex-col sm:flex-row items-center gap-4 justify-between">
+                    <div class="flex flex-col sm:flex-row items-center gap-5 justify-between">
                         <!-- Hand Cards -->
-                        <div id="skipbo-player-hand" class="flex flex-wrap items-center justify-center gap-2 flex-1">
+                        <div id="skipbo-player-hand" class="flex flex-wrap items-center justify-center gap-3 flex-1 min-h-[85px]">
                             <!-- Populated dynamically -->
                         </div>
                         <!-- Top Stockpile Card -->
-                        <div class="flex flex-col items-center gap-1 border-l border-white/10 pl-4">
-                            <span class="text-[10px] uppercase font-bold text-amber-300">Stock Top</span>
-                            <div id="skipbo-stockpile-top" class="w-14 h-20 rounded-xl bg-amber-500 text-stone-950 font-bold text-lg flex items-center justify-center shadow-lg cursor-pointer border-2 border-amber-300">1</div>
+                        <div class="flex flex-col items-center gap-1 border-t sm:border-t-0 sm:border-l border-white/10 pt-3 sm:pt-0 sm:pl-6 shrink-0">
+                            <span class="text-[10px] uppercase font-bold text-amber-300 tracking-wider">Stock Top</span>
+                            <div id="skipbo-stockpile-top" class="w-16 h-22 rounded-2xl bg-amber-500 text-stone-950 font-bold text-xl flex items-center justify-center shadow-xl cursor-pointer border-3 border-amber-300 transition hover:scale-105">1</div>
+                        </div>
+                    </div>
+                    <!-- 4 Discard Piles -->
+                    <div class="space-y-1 text-center pt-1">
+                        <div class="text-[10px] font-bold uppercase tracking-widest text-stone-400">Your 4 Personal Discard Piles</div>
+                        <div id="skipbo-discard-piles" class="grid grid-cols-4 gap-2.5 max-w-sm mx-auto">
+                            <!-- Populated dynamically -->
                         </div>
                     </div>
                 </div>
-
-                <!-- 4 Discard Piles -->
-                <div class="space-y-1 text-center">
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your 4 Personal Discard Piles</div>
-                    <div id="skipbo-discard-piles" class="grid grid-cols-4 gap-2 max-w-sm mx-auto">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
             </div>
 
-            <!-- Controls -->
-            <div class="grid grid-cols-3 gap-2">
-                <button type="button" id="skipbo-btn-play-selected" class="py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">upload</span>
+            <!-- Controls Dock -->
+            <div class="grid grid-cols-2 gap-3 shrink-0">
+                <button type="button" id="skipbo-btn-play-selected" class="py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base">upload</span>
                     <span>Play to Pile</span>
                 </button>
-                <button type="button" id="skipbo-btn-discard-selected" class="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">download</span>
-                    <span>Discard & End</span>
-                </button>
-                <button type="button" id="skipbo-btn-bot-step" class="py-2.5 rounded-xl bg-stone-700 hover:bg-stone-600 text-stone-200 font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">smart_toy</span>
-                    <span>Auto AI Turn</span>
+                <button type="button" id="skipbo-btn-discard-selected" class="py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base">download</span>
+                    <span>Discard & End Turn</span>
                 </button>
             </div>
-        </div>
+        </main>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- TEN RITES (PHASE 10) SANCTUARY TABLE MODAL                            -->
+    <!-- TEN RITES (PHASE 10) SANCTUARY TABLE (FULL SCREEN VIEW)               -->
     <!-- ===================================================================== -->
-    <div id="phase10-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md hidden pointer-events-auto">
-        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-emerald-400/50 w-full max-w-3xl max-h-[94vh] overflow-y-auto space-y-4 bg-gradient-to-b from-[#0e1612] to-[#080d0a]">
-            <!-- Header -->
-            <div class="flex items-center justify-between border-b border-emerald-500/30 pb-3">
+    <div id="phase10-modal" class="fixed inset-0 z-50 flex flex-col bg-[#050a08] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+        <!-- Top Sanctuary Navigation Bar -->
+        <header class="w-full px-4 sm:px-8 py-3 border-b border-emerald-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <!-- Left: Return to Sanctuary & Game Branding -->
+            <div class="flex items-center gap-3 sm:gap-4">
+                <button type="button" id="btn-close-phase10" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">arrow_back</span>
+                    <span class="hidden sm:inline">Sanctuary</span>
+                </button>
                 <div class="flex items-center gap-2.5">
-                    <span class="material-symbols-rounded text-2xl text-emerald-300">auto_stories</span>
+                    <div class="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-400/50 flex items-center justify-center text-emerald-300 shadow-md">
+                        <span class="material-symbols-rounded text-xl">auto_stories</span>
+                    </div>
                     <div>
-                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100">TEN RITES (PHASE 10)</h2>
-                        <p class="text-[11px] text-stone-400">Master the 10 Liturgical Card Rites • Sets, Runs & Consecrations</p>
+                        <h2 class="font-cathedral text-sm sm:text-base font-bold text-amber-100 tracking-wider">TEN RITES (PHASE 10)</h2>
+                        <p class="text-[10px] text-stone-400 hidden md:block">Master the 10 Liturgical Card Rites • Sets, Runs & Consecrations</p>
                     </div>
                 </div>
-                <button id="btn-close-phase10" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Phase 10 Table">
-                    <span class="material-symbols-rounded text-xl">close</span>
-                </button>
             </div>
 
-            <!-- Mode Switcher -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-black/50 border border-white/10 text-xs">
-                <div class="flex items-center gap-1.5">
-                    <span class="text-stone-400">Mode:</span>
-                    <button type="button" id="phase10-tab-ai" class="px-2.5 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px]">Play vs AI</button>
-                    <button type="button" id="phase10-tab-live" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-300 font-bold text-[11px]">Live 1v1 Online</button>
+            <!-- Center: Mode Toggle & Live Online Connection Bar -->
+            <div class="flex items-center gap-2">
+                <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                    <button type="button" id="phase10-tab-ai" class="px-3 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px] transition">Play vs AI</button>
+                    <button type="button" id="phase10-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-emerald-300 font-bold text-[11px] transition">Live 1v1 Online</button>
                 </div>
-                <div id="phase10-live-session-info" class="hidden flex items-center gap-2">
+                <div id="phase10-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-emerald-950/60 border border-emerald-400/40 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                     <span id="phase10-live-code" class="font-mono text-amber-300 font-bold tracking-wider">P10-ALPHA</span>
-                    <button type="button" id="btn-phase10-copy-link" class="px-2.5 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-xs flex items-center gap-1">
-                        <span class="material-symbols-rounded text-sm">content_copy</span>
+                    <button type="button" id="btn-phase10-copy-link" class="px-2.5 py-0.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
                         <span>Copy Link</span>
                     </button>
                 </div>
             </div>
 
+            <!-- Right: Fullscreen -->
+            <div class="flex items-center gap-2">
+                <button type="button" id="btn-phase10-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+                    <span class="material-symbols-rounded text-lg">fullscreen</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Felt Arena Container -->
+        <main class="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
             <!-- Liturgical Phase Contract Banner -->
-            <div class="p-3 rounded-2xl bg-emerald-950/50 border border-emerald-400/40 flex items-center justify-between text-xs">
+            <div class="p-3 sm:p-4 rounded-2xl bg-emerald-950/60 border border-emerald-400/40 flex flex-wrap items-center justify-between gap-3 text-xs backdrop-blur-sm shrink-0">
                 <div class="space-y-0.5">
-                    <div class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Current Liturgical Rite:</div>
-                    <div id="phase10-target-contract" class="font-cathedral text-sm font-bold text-amber-100">Phase 1: 2 Sets of 3</div>
+                    <div class="text-[10px] uppercase font-bold text-emerald-400 tracking-widest">Current Liturgical Rite:</div>
+                    <div id="phase10-target-contract" class="font-cathedral text-sm sm:text-base font-bold text-amber-100">Phase 1: 2 Sets of 3</div>
                 </div>
-                <div class="text-right space-y-0.5">
-                    <div class="text-[10px] uppercase font-bold text-stone-400">Score Penalty:</div>
-                    <div id="phase10-player-score" class="font-mono font-bold text-amber-300">0 pts</div>
+                <div class="flex items-center gap-4 text-right">
+                    <div>
+                        <div class="text-[10px] uppercase font-bold text-stone-400">Score Penalty:</div>
+                        <div id="phase10-player-score" class="font-mono font-bold text-amber-300 text-sm">0 pts</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Table Felt -->
-            <div class="rounded-3xl p-5 border-2 border-emerald-500/30 bg-emerald-950/20 shadow-inner space-y-5">
+            <!-- Grand Velvet Felt Table -->
+            <div class="rounded-3xl p-5 sm:p-8 border-2 border-emerald-500/40 felt-phase10 shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[380px]">
                 <!-- Center Piles: Draw Deck & Discard Pile -->
-                <div class="flex items-center justify-center gap-8 border-b border-white/10 pb-4">
-                    <div class="text-center space-y-1">
-                        <span class="text-[10px] uppercase font-bold text-stone-400">Draw Deck</span>
-                        <div id="phase10-draw-deck-btn" class="w-16 h-22 rounded-xl bg-stone-800 hover:bg-stone-700 border-2 border-emerald-500/40 text-emerald-300 font-mono font-bold text-sm flex items-center justify-center cursor-pointer shadow-lg transition">🂠 Draw</div>
+                <div class="flex items-center justify-center gap-8 sm:gap-14 border-b border-white/10 pb-4">
+                    <div class="text-center space-y-1.5">
+                        <span class="text-[10px] uppercase font-bold text-stone-400 tracking-wider">Draw Deck</span>
+                        <div id="phase10-draw-deck-btn" class="w-18 sm:w-20 h-24 sm:h-28 rounded-2xl bg-stone-900 border-2 border-emerald-500/50 text-emerald-300 font-mono font-bold text-sm flex flex-col items-center justify-center cursor-pointer shadow-xl transition hover:scale-105 active:scale-95">
+                            <span class="text-2xl">🂠</span>
+                            <span class="text-[11px] mt-1 font-bold">Draw</span>
+                        </div>
                     </div>
-                    <div class="text-center space-y-1">
-                        <span class="text-[10px] uppercase font-bold text-stone-400">Discard Pile</span>
-                        <div id="phase10-discard-pile-btn" class="w-16 h-22 rounded-xl bg-stone-900 border-2 border-white/20 text-stone-200 font-mono font-bold text-sm flex items-center justify-center cursor-pointer shadow-lg transition">Empty</div>
+                    <div class="text-center space-y-1.5">
+                        <span class="text-[10px] uppercase font-bold text-stone-400 tracking-wider">Discard Pile</span>
+                        <div id="phase10-discard-pile-btn" class="w-18 sm:w-20 h-24 sm:h-28 rounded-2xl bg-stone-950 border-2 border-white/30 text-stone-200 font-mono font-bold text-sm flex flex-col items-center justify-center cursor-pointer shadow-xl transition hover:scale-105 active:scale-95">
+                            Empty
+                        </div>
                     </div>
                 </div>
 
                 <!-- Laid Phase Melds on Table -->
                 <div class="space-y-1.5">
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 text-center">Laid Phase Melds</div>
-                    <div id="phase10-laid-groups" class="min-h-[60px] p-2.5 rounded-2xl bg-black/40 border border-white/10 flex flex-wrap items-center justify-center gap-3">
+                    <div class="text-[11px] font-bold uppercase tracking-widest text-emerald-300/80 text-center">Laid Phase Melds</div>
+                    <div id="phase10-laid-groups" class="min-h-[75px] p-3 rounded-2xl bg-black/50 border border-white/10 flex flex-wrap items-center justify-center gap-3">
                         <span class="text-xs text-stone-500 italic">No melds laid down yet this round</span>
                     </div>
                 </div>
 
                 <!-- Status Banner -->
-                <div id="phase10-status-banner" class="p-2 rounded-xl bg-black/60 border border-emerald-400/30 text-center text-xs font-cathedral font-bold text-emerald-200 tracking-wide">
-                    Draw a card from the deck or discard pile to begin your turn.
+                <div class="max-w-md mx-auto w-full">
+                    <div id="phase10-status-banner" class="p-2.5 rounded-2xl bg-black/60 border border-emerald-400/30 text-center text-xs sm:text-sm font-cathedral font-bold text-emerald-200 tracking-wide shadow-lg">
+                        Draw a card from the deck or discard pile to begin your turn.
+                    </div>
                 </div>
 
                 <!-- Hand Cards -->
-                <div class="space-y-1.5">
+                <div class="space-y-2">
                     <div class="flex items-center justify-between text-xs text-stone-400 font-semibold px-1">
                         <span>Your Consecrated Hand (Select cards to meld or discard)</span>
-                        <span id="phase10-hand-count" class="font-mono text-emerald-300">10 cards</span>
+                        <span id="phase10-hand-count" class="font-mono text-emerald-300 font-bold">10 cards</span>
                     </div>
-                    <div id="phase10-player-hand" class="flex flex-wrap items-center justify-center gap-2 min-h-[75px]">
+                    <div id="phase10-player-hand" class="flex flex-wrap items-center justify-center gap-2.5 min-h-[85px]">
                         <!-- Populated dynamically -->
                     </div>
                 </div>
             </div>
 
             <!-- Action Buttons -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <button type="button" id="phase10-btn-draw-deck" class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">download</span>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
+                <button type="button" id="phase10-btn-draw-deck" class="py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base">download</span>
                     <span>Draw Deck</span>
                 </button>
-                <button type="button" id="phase10-btn-lay-phase" disabled class="py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:pointer-events-none text-stone-950 font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">verified</span>
+                <button type="button" id="phase10-btn-lay-phase" disabled class="py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:pointer-events-none text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base">verified</span>
                     <span>Lay Down Phase</span>
                 </button>
-                <button type="button" id="phase10-btn-hit-card" disabled class="py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">add_box</span>
+                <button type="button" id="phase10-btn-hit-card" disabled class="py-3 rounded-2xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base">add_box</span>
                     <span>Hit on Meld</span>
                 </button>
-                <button type="button" id="phase10-btn-discard" disabled class="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
-                    <span class="material-symbols-rounded text-sm">logout</span>
+                <button type="button" id="phase10-btn-discard" disabled class="py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base">logout</span>
                     <span>Discard & End</span>
                 </button>
             </div>
-        </div>
+        </main>
     </div>
 
     <!-- Application Script Entry Point -->

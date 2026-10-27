@@ -1996,6 +1996,35 @@ function main(): void {
     btn.addEventListener('click', () => ui.hidePhase10())
   );
 
+  // Fullscreen Table Toggles
+  const setupFullscreenToggle = (buttonId: string, modalId: string) => {
+    fromNullable(document.getElementById(buttonId)).map(btn => {
+      btn.addEventListener('click', () => {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        if (!document.fullscreenElement) {
+          modal.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
+    });
+  };
+
+  setupFullscreenToggle('btn-bjk-fullscreen', 'blackjack-modal');
+  setupFullscreenToggle('btn-poker-fullscreen', 'poker-modal');
+  setupFullscreenToggle('btn-skipbo-fullscreen', 'skipbo-modal');
+  setupFullscreenToggle('btn-phase10-fullscreen', 'phase10-modal');
+
+  document.addEventListener('fullscreenchange', () => {
+    const isFs = !!document.fullscreenElement;
+    ['btn-bjk-fullscreen', 'btn-poker-fullscreen', 'btn-skipbo-fullscreen', 'btn-phase10-fullscreen'].forEach(id => {
+      fromNullable(document.getElementById(id)).map(btn => {
+        btn.innerHTML = `<span class="material-symbols-rounded text-lg">${isFs ? 'fullscreen_exit' : 'fullscreen'}</span>`;
+      });
+    });
+  });
+
   // Gothic Blackjack Table Engine & Event Binding
   const bjkEngine = new BlackjackEngine(500, 'micro-neural', 'balanced');
 
@@ -2024,23 +2053,35 @@ function main(): void {
       } else {
         container.innerHTML = s.dealerHand
           .map(
-            c => `
-          <div class="px-3 py-3 rounded-xl border font-bold font-mono text-sm shadow-md transition ${
-            c.faceUp
-              ? ['hearts', 'diamonds'].includes(c.suit)
-                ? 'bg-stone-100 text-red-600 border-red-400/40'
-                : 'bg-stone-100 text-stone-900 border-stone-400/40'
-              : 'bg-purple-950 text-purple-300 border-purple-500/50'
-          }">
-            ${
+            c => {
+              const isRed = ['hearts', 'diamonds'].includes(c.suit);
+              const suitSymbol = c.suit === 'hearts' ? '♥' : c.suit === 'diamonds' ? '♦' : c.suit === 'clubs' ? '♣' : '♠';
+              return `
+            <div class="playing-card-ui w-14 sm:w-16 h-20 sm:h-24 p-2 ${
               c.faceUp
-                ? `${c.value}<span class="text-xs">${
-                    c.suit === 'hearts' ? '♥' : c.suit === 'diamonds' ? '♦' : c.suit === 'clubs' ? '♣' : '♠'
-                  }</span>`
-                : '🂠'
+                ? isRed
+                  ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/60 shadow-lg'
+                  : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/60 shadow-lg'
+                : 'bg-gradient-to-br from-purple-950 via-stone-900 to-purple-950 text-purple-300 border-purple-500/50 shadow-lg items-center justify-center font-cathedral text-2xl'
+            }">
+              ${
+                c.faceUp
+                  ? `
+                <div class="flex items-center justify-between text-xs font-bold leading-none">
+                  <span>${c.value}</span>
+                  <span>${suitSymbol}</span>
+                </div>
+                <div class="text-xl sm:text-2xl text-center leading-none">${suitSymbol}</div>
+                <div class="flex items-center justify-between text-xs font-bold leading-none rotate-180">
+                  <span>${c.value}</span>
+                  <span>${suitSymbol}</span>
+                </div>
+              `
+                  : '🂠'
+              }
+            </div>
+          `;
             }
-          </div>
-        `
           )
           .join('');
       }
@@ -2057,17 +2098,27 @@ function main(): void {
       } else {
         container.innerHTML = s.playerHand
           .map(
-            c => `
-          <div class="px-3 py-3 rounded-xl border font-bold font-mono text-sm shadow-md transition ${
-            ['hearts', 'diamonds'].includes(c.suit)
-              ? 'bg-stone-100 text-red-600 border-red-400/40'
-              : 'bg-stone-100 text-stone-900 border-stone-400/40'
-          }">
-            ${c.value}<span class="text-xs">${
-              c.suit === 'hearts' ? '♥' : c.suit === 'diamonds' ? '♦' : c.suit === 'clubs' ? '♣' : '♠'
-            }</span>
-          </div>
-        `
+            c => {
+              const isRed = ['hearts', 'diamonds'].includes(c.suit);
+              const suitSymbol = c.suit === 'hearts' ? '♥' : c.suit === 'diamonds' ? '♦' : c.suit === 'clubs' ? '♣' : '♠';
+              return `
+            <div class="playing-card-ui w-14 sm:w-16 h-20 sm:h-24 p-2 ${
+              isRed
+                ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/60 shadow-lg'
+                : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/60 shadow-lg'
+            }">
+              <div class="flex items-center justify-between text-xs font-bold leading-none">
+                <span>${c.value}</span>
+                <span>${suitSymbol}</span>
+              </div>
+              <div class="text-xl sm:text-2xl text-center leading-none">${suitSymbol}</div>
+              <div class="flex items-center justify-between text-xs font-bold leading-none rotate-180">
+                <span>${c.value}</span>
+                <span>${suitSymbol}</span>
+              </div>
+            </div>
+          `;
+            }
           )
           .join('');
       }
@@ -2199,23 +2250,35 @@ function main(): void {
   pokerEngine.populateBotOpponents();
   let pokerLiveCode = generateArcadeCode(GameCodePrefixEnum.Poker);
 
-  const formatCardHtml = (card: { suit: string; value: string; faceUp: boolean }) => `
-    <div class="px-2.5 py-2.5 rounded-xl border font-bold font-mono text-xs shadow-md transition ${
-      card.faceUp
-        ? ['hearts', 'diamonds'].includes(card.suit)
-          ? 'bg-stone-100 text-red-600 border-red-400/40'
-          : 'bg-stone-100 text-stone-900 border-stone-400/40'
-        : 'bg-amber-950 text-amber-300 border-amber-500/50'
-    }">
-      ${
+  const formatCardHtml = (card: { suit: string; value: string; faceUp: boolean }) => {
+    const isRed = ['hearts', 'diamonds'].includes(card.suit);
+    const suitSymbol = card.suit === 'hearts' ? '♥' : card.suit === 'diamonds' ? '♦' : card.suit === 'clubs' ? '♣' : '♠';
+    return `
+      <div class="playing-card-ui w-14 sm:w-16 h-20 sm:h-24 p-2 ${
         card.faceUp
-          ? `${card.value}<span class="text-[10px]">${
-              card.suit === 'hearts' ? '♥' : card.suit === 'diamonds' ? '♦' : card.suit === 'clubs' ? '♣' : '♠'
-            }</span>`
-          : '🂠'
-      }
-    </div>
-  `;
+          ? isRed
+            ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/60 shadow-lg'
+            : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/60 shadow-lg'
+          : 'bg-gradient-to-br from-amber-950 via-stone-900 to-amber-950 text-amber-300 border-amber-500/50 shadow-lg items-center justify-center font-cathedral text-2xl'
+      }">
+        ${
+          card.faceUp
+            ? `
+          <div class="flex items-center justify-between text-xs font-bold leading-none">
+            <span>${card.value}</span>
+            <span>${suitSymbol}</span>
+          </div>
+          <div class="text-xl sm:text-2xl text-center leading-none">${suitSymbol}</div>
+          <div class="flex items-center justify-between text-xs font-bold leading-none rotate-180">
+            <span>${card.value}</span>
+            <span>${suitSymbol}</span>
+          </div>
+        `
+            : '🂠'
+        }
+      </div>
+    `;
+  };
 
   const renderPokerTable = () => {
     const s = pokerEngine.state;
@@ -2422,11 +2485,15 @@ function main(): void {
         .map((pile, idx) => {
           const top = pile.length > 0 ? pile[pile.length - 1] : null;
           const label = top ? (top.type === SkipBoCardTypeEnum.Wild ? 'WILD' : `${top.value}`) : 'Empty';
+          const nextNeeded = pile.length < 12 ? pile.length + 1 : 'Done';
           return `
-          <div data-skipbo-building="${idx}" class="p-3 rounded-2xl bg-blue-950/60 border-2 border-blue-400/40 hover:border-blue-300 text-center cursor-pointer transition">
-            <span class="text-[10px] uppercase font-bold text-blue-300">Pile ${idx + 1}</span>
-            <div class="text-lg font-bold font-mono text-white mt-1">${label}</div>
-            <span class="text-[10px] text-stone-400">(${pile.length}/12)</span>
+          <div data-skipbo-building="${idx}" class="p-3 sm:p-4 rounded-2xl bg-blue-950/70 border-2 border-blue-400/50 hover:border-blue-300 text-center cursor-pointer transition shadow-xl hover:-translate-y-1">
+            <div class="flex items-center justify-between text-[10px] uppercase font-bold text-blue-300">
+              <span>Pile ${idx + 1}</span>
+              <span class="text-amber-300">Next: ${nextNeeded}</span>
+            </div>
+            <div class="text-2xl sm:text-3xl font-bold font-mono text-white my-2">${label}</div>
+            <span class="text-[10px] text-stone-400 font-mono">(${pile.length}/12)</span>
           </div>
         `;
         })
@@ -2463,12 +2530,16 @@ function main(): void {
       container.innerHTML = p1.hand
         .map(
           (c, idx) => `
-        <div data-skipbo-hand="${idx}" class="w-12 h-16 rounded-xl border-2 flex items-center justify-center font-bold font-mono text-sm shadow-md cursor-pointer transition ${
+        <div data-skipbo-hand="${idx}" class="playing-card-ui w-14 sm:w-16 h-20 sm:h-24 p-2 items-center justify-between text-center cursor-pointer transition ${
           selectedSkipBoSource === SkipBoSourcePileEnum.Hand && selectedSkipBoIndex === idx
-            ? 'bg-amber-400 text-stone-950 border-white scale-105'
-            : 'bg-stone-800 text-stone-100 border-white/20 hover:border-blue-400'
+            ? 'card-selected bg-amber-400 text-stone-950 font-bold'
+            : c.type === SkipBoCardTypeEnum.Wild
+            ? 'bg-gradient-to-b from-amber-500 to-amber-700 text-stone-950 border-amber-300 hover:border-amber-200 shadow-lg'
+            : 'bg-gradient-to-b from-stone-800 to-stone-900 text-stone-100 border-white/20 hover:border-blue-400 shadow-lg'
         }">
-          ${c.type === SkipBoCardTypeEnum.Wild ? 'W' : c.value}
+          <div class="text-[10px] uppercase font-bold opacity-75">${c.type === SkipBoCardTypeEnum.Wild ? 'Wild' : 'Number'}</div>
+          <div class="text-2xl sm:text-3xl font-mono font-bold leading-none my-1">${c.type === SkipBoCardTypeEnum.Wild ? '★' : c.value}</div>
+          <div class="text-[10px] font-mono opacity-75">${c.type === SkipBoCardTypeEnum.Wild ? 'W' : c.value}</div>
         </div>
       `
         )
@@ -2664,18 +2735,20 @@ function main(): void {
         .map((c, idx) => {
           const isSelected = selectedPhase10Indices.includes(idx);
           return `
-          <div data-p10-hand="${idx}" class="px-3 py-2 rounded-xl border-2 font-bold font-mono text-xs shadow-md cursor-pointer transition ${
-            isSelected ? 'border-amber-400 scale-105 bg-amber-500/20' : 'border-white/20 hover:border-emerald-400'
+          <div data-p10-hand="${idx}" class="playing-card-ui w-13 sm:w-15 h-19 sm:h-23 p-2 items-center justify-between cursor-pointer transition ${
+            isSelected ? 'card-selected' : ''
           } ${
             c.color === 'red'
-              ? 'bg-red-950/80 text-red-200'
+              ? 'bg-gradient-to-b from-red-950 to-red-900 text-red-100 border-red-500/60 shadow-lg'
               : c.color === 'blue'
-              ? 'bg-blue-950/80 text-blue-200'
+              ? 'bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-blue-500/60 shadow-lg'
               : c.color === 'green'
-              ? 'bg-emerald-950/80 text-emerald-200'
-              : 'bg-amber-950/80 text-amber-200'
+              ? 'bg-gradient-to-b from-emerald-950 to-emerald-900 text-emerald-100 border-emerald-500/60 shadow-lg'
+              : 'bg-gradient-to-b from-amber-950 to-amber-900 text-amber-100 border-amber-500/60 shadow-lg'
           }">
-            ${c.value || c.special}
+            <div class="text-[9px] uppercase font-bold opacity-80">${c.special !== 'standard' ? c.special : c.color}</div>
+            <div class="text-xl sm:text-2xl font-mono font-bold">${c.special === 'wild' ? '★' : c.special === 'skip' ? '⊘' : c.value}</div>
+            <div class="text-[9px] font-mono opacity-80">${c.value || c.special}</div>
           </div>
         `;
         })
