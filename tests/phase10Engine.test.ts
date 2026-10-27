@@ -322,4 +322,20 @@ describe('Phase10Engine - Liturgical Rites, Set/Run Validation & AI Auto-Play', 
     expect(engine.state.isGameOver).toBe(true);
     expect(engine.state.winner.getOrThrow()).toBe(p1.id);
   });
+
+  it('supports up to 6 players and starts new rounds dealing 10 cards to each', () => {
+    const engine = new Phase10Engine('Host', 'Bot1', undefined, 6);
+    expect(engine.state.players.length).toBe(6);
+    expect(engine.state.players[0]!.hand.length).toBe(10);
+    expect(engine.state.players[5]!.hand.length).toBe(10);
+
+    const roundRes = engine.startNextRound();
+    expect(roundRes.isSuccess()).toBe(true);
+    expect(engine.state.players[0]!.hand.length).toBe(10);
+    expect(engine.state.players[5]!.hand.length).toBe(10);
+
+    // Guard when game over
+    engine.state.isGameOver = true;
+    expect(engine.startNextRound().isFailure()).toBe(true);
+  });
 });

@@ -56,7 +56,8 @@ export enum ArcadeGameEnum {
   Uno = 'uno',
   Phase10 = 'phase10',
   Poker = 'poker',
-  SkipBo = 'skipbo'
+  SkipBo = 'skipbo',
+  Set = 'set'
 }
 
 export enum GameCodePrefixEnum {
@@ -66,7 +67,8 @@ export enum GameCodePrefixEnum {
   Uno = 'UNO-',
   Phase10 = 'P10-',
   Poker = 'POKER-',
-  SkipBo = 'SKIP-'
+  SkipBo = 'SKIP-',
+  Set = 'SET-'
 }
 
 export enum AIModelEnum {
@@ -242,3 +244,127 @@ export const PHASE_10_REQUIREMENTS: readonly Phase10Requirement[] = [
   { phaseNumber: 9, description: '1 set of 5 + 1 set of 2', shortLabel: 'Set of 5 & Set of 2' },
   { phaseNumber: 10, description: '1 set of 5 + 1 set of 3', shortLabel: 'Set of 5 & Set of 3' }
 ];
+
+// ============================================================================
+// SET (FINITE GEOMETRY GF(3)^4 CARD GAME) ENUMS & CONSTANTS
+// ============================================================================
+
+export enum SetCountEnum {
+  One = 1,
+  Two = 2,
+  Three = 3
+}
+
+export enum SetShapeEnum {
+  Diamond = 'diamond',
+  Squiggle = 'squiggle',
+  Oval = 'oval'
+}
+
+export enum SetShadingEnum {
+  Solid = 'solid',
+  Striped = 'striped',
+  Open = 'open'
+}
+
+export enum SetColorEnum {
+  Red = 'red',
+  Green = 'green',
+  Purple = 'purple'
+}
+
+export const SET_COUNTS: readonly SetCountEnum[] = [
+  SetCountEnum.One,
+  SetCountEnum.Two,
+  SetCountEnum.Three
+];
+
+export const SET_SHAPES: readonly SetShapeEnum[] = [
+  SetShapeEnum.Diamond,
+  SetShapeEnum.Squiggle,
+  SetShapeEnum.Oval
+];
+
+export const SET_SHADINGS: readonly SetShadingEnum[] = [
+  SetShadingEnum.Solid,
+  SetShadingEnum.Striped,
+  SetShadingEnum.Open
+];
+
+export const SET_COLORS: readonly SetColorEnum[] = [
+  SetColorEnum.Red,
+  SetColorEnum.Green,
+  SetColorEnum.Purple
+];
+
+// ============================================================================
+// REAL-LIFE GAME CAPACITIES & TABLE LIMITS
+// ============================================================================
+
+export interface GameCapacityConfig {
+  game: ArcadeGameEnum;
+  minPlayers: number;
+  maxPlayers: number;
+  standardTableSeats: number;
+  description: string;
+}
+
+export const REAL_LIFE_GAME_CAPACITIES: Record<ArcadeGameEnum, GameCapacityConfig> = {
+  [ArcadeGameEnum.Chess]: {
+    game: ArcadeGameEnum.Chess,
+    minPlayers: 2,
+    maxPlayers: 2,
+    standardTableSeats: 2,
+    description: '2 Players (White vs Black) + Unlimited Spectators'
+  },
+  [ArcadeGameEnum.Blackjack]: {
+    game: ArcadeGameEnum.Blackjack,
+    minPlayers: 1,
+    maxPlayers: 7,
+    standardTableSeats: 7,
+    description: '1 to 7 Players vs Dealer (Standard Casino Shoe Table)'
+  },
+  [ArcadeGameEnum.Poker]: {
+    game: ArcadeGameEnum.Poker,
+    minPlayers: 2,
+    maxPlayers: 10,
+    standardTableSeats: 10,
+    description: '2 to 10 Players (Standard Full-Ring Poker Table)'
+  },
+  [ArcadeGameEnum.Phase10]: {
+    game: ArcadeGameEnum.Phase10,
+    minPlayers: 2,
+    maxPlayers: 6,
+    standardTableSeats: 6,
+    description: '2 to 6 Players (Official Mattel/Ravensburger Tournament Rules)'
+  },
+  [ArcadeGameEnum.SkipBo]: {
+    game: ArcadeGameEnum.SkipBo,
+    minPlayers: 2,
+    maxPlayers: 6,
+    standardTableSeats: 6,
+    description: '2 to 6 Players (Official Mattel Skip-Bo Rules)'
+  },
+  [ArcadeGameEnum.Avalon]: {
+    game: ArcadeGameEnum.Avalon,
+    minPlayers: 5,
+    maxPlayers: 10,
+    standardTableSeats: 10,
+    description: '5 to 10 Players (Official Don Eskridge / Indie Boards Rules)'
+  },
+  [ArcadeGameEnum.Uno]: {
+    game: ArcadeGameEnum.Uno,
+    minPlayers: 2,
+    maxPlayers: 10,
+    standardTableSeats: 10,
+    description: '2 to 10 Players (Official Mattel Uno Rules)'
+  },
+  [ArcadeGameEnum.Set]: {
+    game: ArcadeGameEnum.Set,
+    minPlayers: 1,
+    maxPlayers: 20,
+    standardTableSeats: 4,
+    description: '1 to 20 Players (Official Set Enterprises / Marsha Falco GF(3)^4 Finite Geometry Rules)'
+  }
+};
+

@@ -73,6 +73,19 @@ import {
   PHASE_10_REQUIREMENTS
 } from './games/phase10/phase10Engine';
 import {
+  CardinalUnoEngine,
+  type UnoColor
+} from './games/uno/unoEngine';
+import {
+  AvalonEngine
+} from './games/avalon/avalonEngine';
+import {
+  SetEngine,
+  type SetCard
+} from './games/set/setEngine';
+import { ArcadeRealtimeClient } from './realtime/arcadeRealtimeClient';
+import {
+  ArcadeGameEnum,
   GameCodePrefixEnum,
   PokerVariantEnum,
   PokerActionEnum,
@@ -1957,6 +1970,18 @@ function main(): void {
     {
       id: 'phase10-modal',
       close: () => ui.hidePhase10()
+    },
+    {
+      id: 'uno-modal',
+      close: () => ui.hideUno()
+    },
+    {
+      id: 'avalon-modal',
+      close: () => ui.hideAvalon()
+    },
+    {
+      id: 'set-modal',
+      close: () => ui.hideSet()
     }
   ].forEach(({ id, close }) => {
     fromNullable(document.getElementById(id)).map(modalEl => {
@@ -1996,8 +2021,21 @@ function main(): void {
     btn.addEventListener('click', () => ui.hidePhase10())
   );
 
+  fromNullable(document.getElementById('btn-close-uno')).map(btn =>
+    btn.addEventListener('click', () => ui.hideUno())
+  );
+
+  fromNullable(document.getElementById('btn-close-avalon')).map(btn =>
+    btn.addEventListener('click', () => ui.hideAvalon())
+  );
+
+  fromNullable(document.getElementById('btn-close-set')).map(btn =>
+    btn.addEventListener('click', () => ui.hideSet())
+  );
+
   // Fullscreen Table Toggles
-  const setupFullscreenToggle = (buttonId: string, modalId: string) => {
+  const setupFullscreenToggle = (buttonId: string,
+                                 modalId: string) => {
     fromNullable(document.getElementById(buttonId)).map(btn => {
       btn.addEventListener('click', () => {
         const modal = document.getElementById(modalId);
@@ -2015,10 +2053,21 @@ function main(): void {
   setupFullscreenToggle('btn-poker-fullscreen', 'poker-modal');
   setupFullscreenToggle('btn-skipbo-fullscreen', 'skipbo-modal');
   setupFullscreenToggle('btn-phase10-fullscreen', 'phase10-modal');
+  setupFullscreenToggle('btn-uno-fullscreen', 'uno-modal');
+  setupFullscreenToggle('btn-avalon-fullscreen', 'avalon-modal');
+  setupFullscreenToggle('btn-set-fullscreen', 'set-modal');
 
   document.addEventListener('fullscreenchange', () => {
     const isFs = !!document.fullscreenElement;
-    ['btn-bjk-fullscreen', 'btn-poker-fullscreen', 'btn-skipbo-fullscreen', 'btn-phase10-fullscreen'].forEach(id => {
+    [
+      'btn-bjk-fullscreen',
+      'btn-poker-fullscreen',
+      'btn-skipbo-fullscreen',
+      'btn-phase10-fullscreen',
+      'btn-uno-fullscreen',
+      'btn-avalon-fullscreen',
+      'btn-set-fullscreen'
+    ].forEach(id => {
       fromNullable(document.getElementById(id)).map(btn => {
         btn.innerHTML = `<span class="material-symbols-rounded text-lg">${isFs ? 'fullscreen_exit' : 'fullscreen'}</span>`;
       });
@@ -2213,6 +2262,52 @@ function main(): void {
         }, 2000);
       }
     });
+  };
+
+  // Active Arcade Real-Time Client for live multiplayer synchronization
+  let activeArcadeClient: ArcadeRealtimeClient | null = null;
+
+  const setupArcadeRealtimeSession = (
+    game: ArcadeGameEnum,
+    sessionCode: string,
+    playerName: string = 'Cathedral Player',
+    onAction?: (actionType: string, payload: unknown) => void
+  ): ArcadeRealtimeClient => {
+    if (activeArcadeClient) {
+      activeArcadeClient.disconnect();
+      activeArcadeClient = null;
+    }
+
+    const client = new ArcadeRealtimeClient({
+      sessionCode,
+      participantId: 'usr_' + Math.random().toString(36).substring(2, 9)
+    });
+    activeArcadeClient = client;
+
+    // Register or auto-create arcade room on server
+    fetch('/api/arcade/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        game,
+        sessionCode,
+        creatorName: playerName
+      })
+    })
+      .catch(() => {})
+      .then(() => client.claimSeat(playerName))
+      .then(() => {
+        client.connect();
+      })
+      .catch(() => {});
+
+    if (onAction) {
+      client.on('action_dispatched', (evt: any) => {
+        onAction(evt.actionType, evt.payload);
+      });
+    }
+
+    return client;
   };
 
   // --- Gothic Blackjack Mode Switcher ---
@@ -2863,6 +2958,698 @@ function main(): void {
     })
   );
 
+  // =========================================================================
+  // Cardinal Uno Engine & Table Controls
+  // =========================================================================
+  let unoEngine = new CardinalUnoEngine('Pilgrim', 4);
+  let unoLiveCode = generateArcadeCode(GameCodePrefixEnum.Uno);
+  let pendingWildCardIndex: number | null = null;
+
+  const renderUnoTable = () => {
+    const s = unoEngine.state;
+    const humanPlayer = s.players[0]!;
+
+    // Opponents Track
+    fromNullable(document.getElementById('uno-opponents-track')).map(container => {
+      const opponents = s.players.slice(1);
+      container.innerHTML = opponents
+        .map(
+          (p, idx) => `
+        <div class="px-3 py-1.5 rounded-2xl bg-black/60 border ${
+          s.currentTurnIndex === idx + 1 ? 'border-amber-400 ring-2 ring-amber-400/40' : 'border-white/10'
+        } flex items-center gap-2 text-xs">
+          <div class="w-2 h-2 rounded-full ${p.isBot ? 'bg-purple-400' : 'bg-sky-400'}"></div>
+          <span class="font-bold text-stone-200">${p.name}</span>
+          <span class="px-2 py-0.5 rounded-full bg-red-950/80 border border-red-500/30 text-amber-300 font-mono text-[11px] font-bold">
+            ${p.hand.length} 🂠
+          </span>
+          ${p.calledUno ? '<span class="text-[9px] font-bold text-amber-400 uppercase">UNO!</span>' : ''}
+        </div>
+      `
+        )
+        .join('');
+    });
+
+    // Active Color Badge
+    fromNullable(document.getElementById('uno-active-color-badge')).map(badge => {
+      badge.textContent = s.activeColor.toUpperCase();
+      const colorMap: Record<UnoColor, string> = {
+        red: 'bg-red-950/80 text-red-200 border-red-500/50',
+        blue: 'bg-blue-950/80 text-blue-200 border-blue-500/50',
+        green: 'bg-emerald-950/80 text-emerald-200 border-emerald-500/50',
+        yellow: 'bg-amber-950/80 text-amber-200 border-amber-500/50',
+        wild: 'bg-purple-950/80 text-purple-200 border-purple-500/50'
+      };
+      badge.className = `px-3.5 py-1.5 rounded-xl border font-cathedral font-bold text-xs uppercase tracking-wider shadow-md ${colorMap[s.activeColor] || ''}`;
+    });
+
+    // Discard Pile Top
+    fromNullable(document.getElementById('uno-discard-pile')).map(el => {
+      const top = unoEngine.getTopDiscard();
+      const colorBg =
+        top.color === 'red'
+          ? 'bg-gradient-to-b from-red-950 to-red-900 text-red-100 border-red-500/60'
+          : top.color === 'blue'
+          ? 'bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-blue-500/60'
+          : top.color === 'green'
+          ? 'bg-gradient-to-b from-emerald-950 to-emerald-900 text-emerald-100 border-emerald-500/60'
+          : top.color === 'yellow'
+          ? 'bg-gradient-to-b from-amber-950 to-amber-900 text-amber-100 border-amber-500/60'
+          : 'bg-gradient-to-br from-stone-900 via-purple-950 to-stone-900 text-purple-200 border-purple-400/60';
+
+      const label = top.type === 'number' ? top.value : top.type === 'wild4' ? '+4' : top.type === 'draw2' ? '+2' : top.type === 'reverse' ? '⇄' : top.type === 'skip' ? '⊘' : '★';
+      el.className = `w-18 sm:w-20 h-24 sm:h-28 rounded-2xl border-2 flex flex-col items-center justify-between p-2 font-mono font-bold text-sm shadow-xl ${colorBg}`;
+      el.innerHTML = `
+        <div class="text-[9px] uppercase font-bold self-start">${top.color}</div>
+        <div class="text-2xl font-bold">${label}</div>
+        <div class="text-[9px] uppercase font-bold self-end">${label}</div>
+      `;
+    });
+
+    // Status Banner
+    fromNullable(document.getElementById('uno-status-banner')).map(el => {
+      el.textContent = s.historyText[s.historyText.length - 1] || 'Match cards or draw.';
+    });
+
+    // Hand Count & Player Hand
+    fromNullable(document.getElementById('uno-hand-count')).map(el => {
+      el.textContent = `${humanPlayer.hand.length} cards`;
+    });
+
+    fromNullable(document.getElementById('uno-player-hand')).map(container => {
+      container.innerHTML = humanPlayer.hand
+        .map((c, idx) => {
+          const playable = unoEngine.canPlayCard(c);
+          const colorBg =
+            c.color === 'red'
+              ? 'bg-gradient-to-b from-red-950 to-red-900 text-red-100 border-red-500/60'
+              : c.color === 'blue'
+              ? 'bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-blue-500/60'
+              : c.color === 'green'
+              ? 'bg-gradient-to-b from-emerald-950 to-emerald-900 text-emerald-100 border-emerald-500/60'
+              : c.color === 'yellow'
+              ? 'bg-gradient-to-b from-amber-950 to-amber-900 text-amber-100 border-amber-500/60'
+              : 'bg-gradient-to-br from-stone-900 via-purple-950 to-stone-900 text-purple-200 border-purple-400/60';
+
+          const label = c.type === 'number' ? c.value : c.type === 'wild4' ? '+4' : c.type === 'draw2' ? '+2' : c.type === 'reverse' ? '⇄' : c.type === 'skip' ? '⊘' : '★';
+
+          return `
+          <div data-uno-hand="${idx}" class="playing-card-ui w-13 sm:w-15 h-19 sm:h-23 p-2 items-center justify-between cursor-pointer transition ${colorBg} ${
+            playable ? 'ring-1 ring-amber-400/50 hover:scale-105' : 'opacity-50'
+          }">
+            <div class="text-[9px] uppercase font-bold self-start opacity-80">${c.color}</div>
+            <div class="text-xl sm:text-2xl font-mono font-bold">${label}</div>
+            <div class="text-[9px] font-mono self-end opacity-80">${label}</div>
+          </div>
+        `;
+        })
+        .join('');
+
+      container.querySelectorAll('[data-uno-hand]').forEach(el => {
+        el.addEventListener('click', () => {
+          if (s.currentTurnIndex !== 0) return;
+          const idx = parseInt(el.getAttribute('data-uno-hand') || '0', 10);
+          const card = humanPlayer.hand[idx];
+          if (!card || !unoEngine.canPlayCard(card)) return;
+
+          if (card.color === 'wild') {
+            pendingWildCardIndex = idx;
+            fromNullable(document.getElementById('uno-color-picker')).map(cp => cp.classList.remove('hidden'));
+            return;
+          }
+
+          const res = unoEngine.playCard(idx);
+          if (res.isSuccess()) {
+            soundFX.playCathedralOrganAndBell();
+            if (activeArcadeClient) {
+              void activeArcadeClient.sendAction('uno_play', { handIndex: idx });
+            }
+            renderUnoTable();
+            checkAndRunUnoBots();
+          }
+        });
+      });
+    });
+  };
+
+  const checkAndRunUnoBots = () => {
+    if (unoEngine.state.isGameOver) return;
+    if (unoEngine.state.currentTurnIndex !== 0) {
+      setTimeout(() => {
+        if (unoEngine.state.isGameOver) return;
+        unoEngine.executeAiTurn();
+        renderUnoTable();
+        if (unoEngine.state.currentTurnIndex !== 0) {
+          checkAndRunUnoBots();
+        }
+      }, 700);
+    }
+  };
+
+  const setUnoMode = (isLive: boolean) => {
+    fromNullable(document.getElementById('uno-live-session-info')).map(el => {
+      if (isLive) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    fromNullable(document.getElementById('uno-live-code')).map(el => {
+      el.textContent = unoLiveCode;
+    });
+    fromNullable(document.getElementById('uno-tab-ai')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-red-300 font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-red-600 text-white font-bold text-[11px]';
+    });
+    fromNullable(document.getElementById('uno-tab-live')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-red-600 text-white font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-red-300 font-bold text-[11px]';
+    });
+    if (isLive) {
+      setupArcadeRealtimeSession(ArcadeGameEnum.Uno, unoLiveCode, 'Pilgrim Player', (action, payload: any) => {
+        if (action === 'uno_play' && typeof payload?.handIndex === 'number') {
+          unoEngine.playCard(payload.handIndex, payload.wildColor);
+          renderUnoTable();
+        } else if (action === 'uno_draw') {
+          unoEngine.drawCard();
+          renderUnoTable();
+        }
+      });
+    } else if (activeArcadeClient) {
+      void activeArcadeClient.leaveSeat();
+      activeArcadeClient.disconnect();
+      activeArcadeClient = null;
+    }
+  };
+
+  fromNullable(document.getElementById('uno-tab-ai')).map(b => b.addEventListener('click', () => setUnoMode(false)));
+  fromNullable(document.getElementById('uno-tab-live')).map(b => b.addEventListener('click', () => setUnoMode(true)));
+  fromNullable(document.getElementById('btn-uno-copy-link')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchLink(unoLiveCode, b))
+  );
+
+  fromNullable(document.getElementById('uno-draw-deck-btn')).map(b =>
+    b.addEventListener('click', () => {
+      if (unoEngine.state.currentTurnIndex === 0) {
+        unoEngine.drawCard();
+        soundFX.playSelect();
+        if (activeArcadeClient) {
+          void activeArcadeClient.sendAction('uno_draw', {});
+        }
+        renderUnoTable();
+        checkAndRunUnoBots();
+      }
+    })
+  );
+
+  fromNullable(document.getElementById('uno-btn-draw')).map(b =>
+    b.addEventListener('click', () => {
+      if (unoEngine.state.currentTurnIndex === 0) {
+        unoEngine.drawCard();
+        soundFX.playSelect();
+        if (activeArcadeClient) {
+          void activeArcadeClient.sendAction('uno_draw', {});
+        }
+        renderUnoTable();
+        checkAndRunUnoBots();
+      }
+    })
+  );
+
+  fromNullable(document.getElementById('uno-btn-call-uno')).map(b =>
+    b.addEventListener('click', () => {
+      const res = unoEngine.callUno('p1');
+      if (res.isSuccess()) {
+        soundFX.playCathedralOrganAndBell();
+      }
+      renderUnoTable();
+    })
+  );
+
+  ['red', 'blue', 'green', 'yellow'].forEach(c => {
+    fromNullable(document.getElementById(`uno-pick-${c}`)).map(b => {
+      b.addEventListener('click', () => {
+        if (pendingWildCardIndex !== null) {
+          unoEngine.playCard(pendingWildCardIndex, c as UnoColor);
+          pendingWildCardIndex = null;
+          fromNullable(document.getElementById('uno-color-picker')).map(cp => cp.classList.add('hidden'));
+          soundFX.playCathedralOrganAndBell();
+          renderUnoTable();
+          checkAndRunUnoBots();
+        }
+      });
+    });
+  });
+
+  // =========================================================================
+  // The Resistance: Avalon Engine & Table Controls
+  // =========================================================================
+  let avalonEngine = new AvalonEngine('Percival', 5);
+  let avalonLiveCode = generateArcadeCode(GameCodePrefixEnum.Avalon);
+  let selectedAvalonKnights: string[] = [];
+
+  const renderAvalonTable = () => {
+    const s = avalonEngine.state;
+    const humanPlayer = s.players[0]!;
+
+    // Quests Track
+    fromNullable(document.getElementById('avalon-quests-track')).map(container => {
+      container.innerHTML = s.quests
+        .map((q, idx) => {
+          const isCurrent = s.currentQuestIndex === idx;
+          const statusBg = q.outcome.match({
+            Some: o => (o === 'success' ? 'bg-emerald-600 text-stone-950 border-emerald-400' : 'bg-red-600 text-white border-red-400'),
+            None: () => (isCurrent ? 'bg-sky-600 text-white border-amber-400 ring-2 ring-amber-400/40' : 'bg-stone-900 text-stone-400 border-white/20')
+          });
+          return `
+          <div class="px-3 py-1.5 rounded-xl border font-mono font-bold text-xs flex flex-col items-center ${statusBg}">
+            <span>Q${q.questNumber} (${q.teamSize})</span>
+            <span class="text-[9px] uppercase">${q.outcome.match({ Some: o => o, None: () => (isCurrent ? 'Active' : 'Pending') })}</span>
+          </div>
+        `;
+        })
+        .join('');
+    });
+
+    // Vote Track
+    fromNullable(document.getElementById('avalon-vote-track-val')).map(el => {
+      el.textContent = `${s.failedVoteCount} / 5`;
+    });
+
+    // Role Herald
+    fromNullable(document.getElementById('avalon-role-title')).map(el => {
+      el.textContent = `${humanPlayer.role} (${humanPlayer.alignment === 'good' ? 'Good' : 'Evil'})`;
+      el.className = `font-cathedral text-base font-bold ${humanPlayer.alignment === 'good' ? 'text-sky-300' : 'text-red-400'}`;
+    });
+    fromNullable(document.getElementById('avalon-role-desc')).map(el => {
+      el.textContent =
+        humanPlayer.role === 'Merlin'
+          ? 'You know the minions of evil. Remain subtle to escape the Assassin!'
+          : humanPlayer.role === 'Percival'
+          ? 'You know who Merlin and Morgana are, but not which is which!'
+          : humanPlayer.role === 'Assassin'
+          ? 'Identify and execute Merlin at the end to snatch victory for Mordred!'
+          : humanPlayer.alignment === 'good'
+          ? 'Loyal Knight of Arthur. Seek out and approve pure teams!'
+          : 'Minion of Mordred. Sow discord and fail quests!';
+    });
+
+    // Seats Grid
+    fromNullable(document.getElementById('avalon-seats-grid')).map(container => {
+      const currentQuest = avalonEngine.getCurrentQuest();
+      container.innerHTML = s.players
+        .map((p, idx) => {
+          const isLeader = s.currentLeaderIndex === idx;
+          const isSelected = selectedAvalonKnights.includes(p.id);
+          const isProposed = currentQuest.proposedTeam.includes(p.id);
+          return `
+          <div data-avalon-seat="${p.id}" class="p-2.5 rounded-2xl bg-black/60 border ${
+            isSelected
+              ? 'border-amber-400 ring-2 ring-amber-400/50'
+              : isProposed
+              ? 'border-sky-400'
+              : 'border-white/10'
+          } flex flex-col items-center gap-1 cursor-pointer transition hover:bg-white/5">
+            <div class="flex items-center gap-1">
+              ${isLeader ? '<span class="text-amber-400 text-xs">👑</span>' : ''}
+              <span class="font-bold text-xs text-stone-200">${p.name}</span>
+            </div>
+            <span class="text-[9px] px-2 py-0.5 rounded-full ${p.isBot ? 'bg-purple-950/80 text-purple-300 border border-purple-400/30' : 'bg-sky-950/80 text-sky-300 border border-sky-400/30'}">
+              ${p.isBot ? 'Bot Knight' : 'Human Knight'}
+            </span>
+            ${isProposed ? '<span class="text-[9px] font-bold text-sky-300 uppercase">On Quest</span>' : ''}
+          </div>
+        `;
+        })
+        .join('');
+
+      container.querySelectorAll('[data-avalon-seat]').forEach(el => {
+        el.addEventListener('click', () => {
+          const pid = el.getAttribute('data-avalon-seat') || '';
+          if (selectedAvalonKnights.includes(pid)) {
+            selectedAvalonKnights = selectedAvalonKnights.filter(id => id !== pid);
+          } else {
+            selectedAvalonKnights.push(pid);
+          }
+          soundFX.playSelect();
+          renderAvalonTable();
+        });
+      });
+    });
+
+    // Status Banner
+    fromNullable(document.getElementById('avalon-status-banner')).map(el => {
+      el.textContent = s.historyText[s.historyText.length - 1] || 'Advance the kingdom quests.';
+    });
+
+    // Control Docks visibility based on stage
+    fromNullable(document.getElementById('avalon-vote-controls')).map(el => {
+      if (s.stage === 'team-building' || s.stage === 'voting') el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    fromNullable(document.getElementById('avalon-quest-controls')).map(el => {
+      if (s.stage === 'quest-execution') el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    fromNullable(document.getElementById('avalon-assassin-controls')).map(el => {
+      if (s.stage === 'assassination') el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+  };
+
+  const setAvalonMode = (isLive: boolean) => {
+    fromNullable(document.getElementById('avalon-live-session-info')).map(el => {
+      if (isLive) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    fromNullable(document.getElementById('avalon-live-code')).map(el => {
+      el.textContent = avalonLiveCode;
+    });
+    fromNullable(document.getElementById('avalon-tab-ai')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-sky-300 font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-sky-600 text-white font-bold text-[11px]';
+    });
+    fromNullable(document.getElementById('avalon-tab-live')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-sky-600 text-white font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-sky-300 font-bold text-[11px]';
+    });
+    if (isLive) {
+      setupArcadeRealtimeSession(ArcadeGameEnum.Avalon, avalonLiveCode, 'Arthurian Knight', (action, payload: any) => {
+        if (action === 'avalon_propose' && Array.isArray(payload?.team)) {
+          avalonEngine.proposeTeam(payload.team);
+          renderAvalonTable();
+        } else if (action === 'avalon_vote' && typeof payload?.approve === 'boolean') {
+          avalonEngine.castVote(payload.playerId || 'p1', payload.approve);
+          renderAvalonTable();
+        } else if (action === 'avalon_quest' && typeof payload?.pass === 'boolean') {
+          avalonEngine.castQuestCard(payload.playerId || 'p1', payload.pass);
+          renderAvalonTable();
+        }
+      });
+    } else if (activeArcadeClient) {
+      void activeArcadeClient.leaveSeat();
+      activeArcadeClient.disconnect();
+      activeArcadeClient = null;
+    }
+  };
+
+  fromNullable(document.getElementById('avalon-tab-ai')).map(b => b.addEventListener('click', () => setAvalonMode(false)));
+  fromNullable(document.getElementById('avalon-tab-live')).map(b => b.addEventListener('click', () => setAvalonMode(true)));
+  fromNullable(document.getElementById('btn-avalon-copy-link')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchLink(avalonLiveCode, b))
+  );
+
+  fromNullable(document.getElementById('avalon-btn-propose')).map(b =>
+    b.addEventListener('click', () => {
+      const res = avalonEngine.proposeTeam(selectedAvalonKnights);
+      if (res.isSuccess()) {
+        soundFX.playCathedralOrganAndBell();
+        if (activeArcadeClient) {
+          void activeArcadeClient.sendAction('avalon_propose', { team: selectedAvalonKnights });
+        }
+        selectedAvalonKnights = [];
+      }
+      renderAvalonTable();
+    })
+  );
+
+  fromNullable(document.getElementById('avalon-btn-vote-approve')).map(b =>
+    b.addEventListener('click', () => {
+      avalonEngine.castVote('p1', true);
+      // Auto vote for bots
+      avalonEngine.state.players.slice(1).forEach(bot => {
+        avalonEngine.castVote(bot.id, true);
+      });
+      soundFX.playSelect();
+      if (activeArcadeClient) {
+        void activeArcadeClient.sendAction('avalon_vote', { playerId: 'p1', approve: true });
+      }
+      renderAvalonTable();
+    })
+  );
+
+  fromNullable(document.getElementById('avalon-btn-vote-reject')).map(b =>
+    b.addEventListener('click', () => {
+      avalonEngine.castVote('p1', false);
+      avalonEngine.state.players.slice(1).forEach(bot => {
+        avalonEngine.castVote(bot.id, false);
+      });
+      soundFX.playSelect();
+      if (activeArcadeClient) {
+        void activeArcadeClient.sendAction('avalon_vote', { playerId: 'p1', approve: false });
+      }
+      renderAvalonTable();
+    })
+  );
+
+  fromNullable(document.getElementById('avalon-btn-quest-pass')).map(b =>
+    b.addEventListener('click', () => {
+      avalonEngine.castQuestCard('p1', true);
+      // Fill remaining quest cards with bots on team
+      const quest = avalonEngine.getCurrentQuest();
+      quest.proposedTeam.filter(id => id !== 'p1').forEach(id => {
+        const bot = avalonEngine.state.players.find(p => p.id === id);
+        const pass = bot?.alignment === 'good';
+        avalonEngine.castQuestCard(id, pass);
+      });
+      soundFX.playCathedralOrganAndBell();
+      if (activeArcadeClient) {
+        void activeArcadeClient.sendAction('avalon_quest', { playerId: 'p1', pass: true });
+      }
+      renderAvalonTable();
+    })
+  );
+
+  fromNullable(document.getElementById('avalon-btn-quest-fail')).map(b =>
+    b.addEventListener('click', () => {
+      avalonEngine.castQuestCard('p1', false);
+      const quest = avalonEngine.getCurrentQuest();
+      quest.proposedTeam.filter(id => id !== 'p1').forEach(id => {
+        const bot = avalonEngine.state.players.find(p => p.id === id);
+        const pass = bot?.alignment === 'good';
+        avalonEngine.castQuestCard(id, pass);
+      });
+      soundFX.playSelect();
+      if (activeArcadeClient) {
+        void activeArcadeClient.sendAction('avalon_quest', { playerId: 'p1', pass: false });
+      }
+      renderAvalonTable();
+    })
+  );
+
+  fromNullable(document.getElementById('avalon-btn-assassinate')).map(b =>
+    b.addEventListener('click', () => {
+      if (selectedAvalonKnights.length === 1) {
+        avalonEngine.assassinateMerlin(selectedAvalonKnights[0]!);
+        selectedAvalonKnights = [];
+        soundFX.playCathedralOrganAndBell();
+        renderAvalonTable();
+      }
+    })
+  );
+
+  // Sacred Geometry SET Table Engine & Event Binding
+  let setEngine = new SetEngine(3, 'You (Sanctuary Geometer)');
+  let selectedSetIndices: number[] = [];
+  let setHintIndex: number | null = null;
+
+  const renderSetSymbolSvg = (card: SetCard): string => {
+    const colorHex =
+      card.color === 'red'
+        ? '#ef4444'
+        : card.color === 'green'
+          ? '#10b981'
+          : '#a855f7';
+    const patternId = `set-stripe-${card.id}`;
+    const fillAttr =
+      card.shading === 'solid'
+        ? colorHex
+        : card.shading === 'open'
+          ? 'none'
+          : `url(#${patternId})`;
+
+    const shapeElement =
+      card.shape === 'diamond'
+        ? `<polygon points="32,4 60,20 32,36 4,20" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3" />`
+        : card.shape === 'oval'
+          ? `<rect x="6" y="6" width="52" height="28" rx="14" ry="14" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3" />`
+          : `<path d="M 8,24 C 12,6 28,6 32,18 C 36,30 52,30 56,14 C 54,32 38,34 30,22 C 22,10 10,16 8,24 Z" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3" />`;
+
+    const singleSvg = `<svg viewBox="0 0 64 40" class="w-12 h-7 sm:w-14 sm:h-8"><defs><pattern id="${patternId}" width="5" height="5" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="5" stroke="${colorHex}" stroke-width="2.2" /></pattern></defs>${shapeElement}</svg>`;
+    return Array.from({ length: card.count }, () => singleSvg).join('');
+  };
+
+  const renderSetTable = () => {
+    const s = setEngine.state;
+    const validSets = setEngine.getAvailableSets();
+
+    fromNullable(document.getElementById('set-deck-count-val')).map(el => {
+      el.textContent = String(s.deck.length);
+    });
+    fromNullable(document.getElementById('set-available-val')).map(el => {
+      el.textContent = String(validSets.length);
+    });
+    fromNullable(document.getElementById('set-Banner-msg')).map(el => {
+      el.textContent = s.historyText[s.historyText.length - 1] || 'Select 3 cards forming a SET.';
+    });
+
+    fromNullable(document.getElementById('set-players-strip')).map(strip => {
+      strip.innerHTML = '';
+      s.players.forEach(p => {
+        const badge = document.createElement('div');
+        badge.className = `px-3 py-1.5 rounded-xl border ${
+          p.id === 'p1'
+            ? 'border-cyan-400 bg-cyan-950/70'
+            : 'border-white/15 bg-black/50'
+        } text-xs flex items-center gap-2`;
+        badge.innerHTML = `<span class="font-bold text-stone-100">${p.name}</span><span class="text-cyan-300 font-mono">Sets: ${p.score}</span><span class="text-stone-400 font-mono text-[10px]">(-${p.penalties})</span>`;
+        strip.appendChild(badge);
+      });
+    });
+
+    fromNullable(document.getElementById('set-board-grid')).map(grid => {
+      grid.innerHTML = '';
+      s.tableCards.forEach((card, idx) => {
+        const isSelected = selectedSetIndices.includes(idx);
+        const isHint = setHintIndex === idx;
+        const btn = document.createElement('button');
+        btn.className = `p-3 rounded-2xl border-2 transition flex flex-col items-center justify-center gap-1.5 min-h-[96px] bg-stone-950/90 hover:bg-stone-900 shadow-lg ${
+          isSelected
+            ? 'border-amber-400 ring-2 ring-amber-400/60 -translate-y-1'
+            : isHint
+              ? 'border-cyan-400 ring-2 ring-cyan-400/50'
+              : 'border-white/15'
+        }`;
+        btn.innerHTML = `
+          <div class="flex flex-col items-center justify-center gap-1">${renderSetSymbolSvg(card)}</div>
+          <span class="text-[9px] font-mono text-stone-400 uppercase tracking-wider">${card.count} ${card.color} ${card.shading} ${card.shape}</span>
+        `;
+        btn.addEventListener('click', () => {
+          setHintIndex = null;
+          if (selectedSetIndices.includes(idx)) {
+            selectedSetIndices = selectedSetIndices.filter(i => i !== idx);
+          } else if (selectedSetIndices.length < 3) {
+            selectedSetIndices.push(idx);
+          }
+          soundFX.playSelect();
+          renderSetTable();
+        });
+        grid.appendChild(btn);
+      });
+    });
+
+    fromNullable(document.getElementById('set-btn-claim') as HTMLButtonElement | null).map(b => {
+      b.disabled = selectedSetIndices.length !== 3 || s.isGameOver;
+    });
+  };
+
+  let setLiveCode = `SET-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  const setSetMode = (isLive: boolean) => {
+    const aiBtn = document.getElementById('set-mode-ai');
+    const liveBtn = document.getElementById('set-mode-live');
+    const liveBanner = document.getElementById('set-live-banner');
+    const codeVal = document.getElementById('set-live-code-val');
+    if (isLive) {
+      aiBtn?.classList.remove('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
+      aiBtn?.classList.add('text-stone-400');
+      liveBtn?.classList.add('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
+      liveBtn?.classList.remove('text-stone-400');
+      liveBanner?.classList.remove('hidden');
+      liveBanner?.classList.add('flex');
+      if (codeVal) codeVal.textContent = setLiveCode;
+      setupArcadeRealtimeSession(ArcadeGameEnum.Set, setLiveCode, 'Sanctuary Geometer', () =>
+        renderSetTable()
+      );
+    } else {
+      liveBtn?.classList.remove('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
+      liveBtn?.classList.add('text-stone-400');
+      aiBtn?.classList.add('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
+      aiBtn?.classList.remove('text-stone-400');
+      liveBanner?.classList.add('hidden');
+      liveBanner?.classList.remove('flex');
+    }
+  };
+
+  fromNullable(document.getElementById('set-mode-ai')).map(b =>
+    b.addEventListener('click', () => setSetMode(false))
+  );
+  fromNullable(document.getElementById('set-mode-live')).map(b =>
+    b.addEventListener('click', () => setSetMode(true))
+  );
+  fromNullable(document.getElementById('set-copy-code-btn')).map(b =>
+    b.addEventListener('click', () => {
+      const shareUrl = `${window.location.origin}${window.location.pathname}?game=set&session=${setLiveCode}`;
+      void navigator.clipboard?.writeText(shareUrl);
+      ui.showTemporaryBanner(`SET Room Link Copied: ${setLiveCode}`, 2500);
+    })
+  );
+
+  fromNullable(document.getElementById('set-btn-claim')).map(b =>
+    b.addEventListener('click', () => {
+      if (selectedSetIndices.length === 3) {
+        const res = setEngine.claimSet('p1', [
+          selectedSetIndices[0]!,
+          selectedSetIndices[1]!,
+          selectedSetIndices[2]!
+        ]);
+        if (res.isSuccess()) {
+          soundFX.playCathedralOrganAndBell();
+        } else {
+          soundFX.playSelect();
+        }
+        if (activeArcadeClient) {
+          void activeArcadeClient.sendAction('set_claim', {
+            playerId: 'p1',
+            indices: selectedSetIndices
+          });
+        }
+        selectedSetIndices = [];
+        setHintIndex = null;
+        renderSetTable();
+      }
+    })
+  );
+
+  fromNullable(document.getElementById('set-btn-deal-more')).map(b =>
+    b.addEventListener('click', () => {
+      setEngine.dealThreeMoreCards();
+      soundFX.playSelect();
+      renderSetTable();
+    })
+  );
+
+  fromNullable(document.getElementById('set-btn-hint')).map(b =>
+    b.addEventListener('click', () => {
+      setHintIndex = setEngine.getHintCardIndex().match({
+        Some: idx => idx,
+        None: () => null
+      });
+      soundFX.playSelect();
+      renderSetTable();
+    })
+  );
+
+  fromNullable(document.getElementById('set-btn-ai-move')).map(b =>
+    b.addEventListener('click', () => {
+      setEngine.executeAiTurn('p2');
+      selectedSetIndices = [];
+      setHintIndex = null;
+      soundFX.playSelect();
+      renderSetTable();
+    })
+  );
+
+  fromNullable(document.getElementById('set-btn-new-game')).map(b =>
+    b.addEventListener('click', () => {
+      setEngine = new SetEngine(3, 'You (Sanctuary Geometer)');
+      selectedSetIndices = [];
+      setHintIndex = null;
+      soundFX.playSelect();
+      renderSetTable();
+    })
+  );
+
   // Arcade Hub Dual Buttons (Play vs AI & Play Live)
   document.querySelectorAll('[data-game-ai]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2891,6 +3678,21 @@ function main(): void {
         setPhase10Mode(false);
         renderPhase10Table();
         ui.showPhase10();
+      } else if (targetGame === 'uno') {
+        ui.hideArcadeHub();
+        setUnoMode(false);
+        renderUnoTable();
+        ui.showUno();
+      } else if (targetGame === 'avalon') {
+        ui.hideArcadeHub();
+        setAvalonMode(false);
+        renderAvalonTable();
+        ui.showAvalon();
+      } else if (targetGame === 'set') {
+        ui.hideArcadeHub();
+        setSetMode(false);
+        renderSetTable();
+        ui.showSet();
       } else if (targetGame && targetGame in ARCADE_GAMES) {
         const gameMeta = ARCADE_GAMES[targetGame];
         ui.setHubQuickJoinFeedback(
@@ -2928,6 +3730,21 @@ function main(): void {
         setPhase10Mode(true);
         renderPhase10Table();
         ui.showPhase10();
+      } else if (targetGame === 'uno') {
+        ui.hideArcadeHub();
+        setUnoMode(true);
+        renderUnoTable();
+        ui.showUno();
+      } else if (targetGame === 'avalon') {
+        ui.hideArcadeHub();
+        setAvalonMode(true);
+        renderAvalonTable();
+        ui.showAvalon();
+      } else if (targetGame === 'set') {
+        ui.hideArcadeHub();
+        setSetMode(true);
+        renderSetTable();
+        ui.showSet();
       } else if (targetGame && targetGame in ARCADE_GAMES) {
         const gameMeta = ARCADE_GAMES[targetGame];
         ui.setHubQuickJoinFeedback(
@@ -2976,6 +3793,24 @@ function main(): void {
           setPhase10Mode(true);
           renderPhase10Table();
           ui.showPhase10();
+        } else if (game === 'uno') {
+          ui.hideArcadeHub();
+          unoLiveCode = code;
+          setUnoMode(true);
+          renderUnoTable();
+          ui.showUno();
+        } else if (game === 'avalon') {
+          ui.hideArcadeHub();
+          avalonLiveCode = code;
+          setAvalonMode(true);
+          renderAvalonTable();
+          ui.showAvalon();
+        } else if (game === 'set') {
+          ui.hideArcadeHub();
+          setLiveCode = code;
+          setSetMode(true);
+          renderSetTable();
+          ui.showSet();
         } else {
           const gameMeta = ARCADE_GAMES[game];
           ui.setHubQuickJoinFeedback(
@@ -2986,7 +3821,7 @@ function main(): void {
       },
       None: () => {
         ui.setHubQuickJoinFeedback(
-          'Please enter a valid session code (e.g. SANCT-XXXX, BJK-XXXX, POKER-XXXX, SKIP-XXXX, P10-XXXX) or match link.',
+          'Please enter a valid session code (e.g. SANCT-XXXX, BJK-XXXX, POKER-XXXX, SKIP-XXXX, P10-XXXX, UNO-XXXX, AVALON-XXXX, SET-XXXX) or match link.',
           true
         );
       }
@@ -3276,6 +4111,21 @@ function main(): void {
         setPhase10Mode(true);
         renderPhase10Table();
         ui.showPhase10();
+      } else if (route.game === 'uno') {
+        unoLiveCode = sessionCode;
+        setUnoMode(true);
+        renderUnoTable();
+        ui.showUno();
+      } else if (route.game === 'avalon') {
+        avalonLiveCode = sessionCode;
+        setAvalonMode(true);
+        renderAvalonTable();
+        ui.showAvalon();
+      } else if (route.game === 'set') {
+        setLiveCode = sessionCode;
+        setSetMode(true);
+        renderSetTable();
+        ui.showSet();
       } else {
         ui.showArcadeHub();
         const gameMeta = ARCADE_GAMES[route.game];

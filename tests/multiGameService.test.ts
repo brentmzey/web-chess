@@ -175,4 +175,102 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
     expect(snapRes.isSuccess()).toBe(true);
     expect(snapRes.getOrThrow().bln_do_not_delete).toBe(1);
   });
+
+  it('manages Sacred Geometry SET sessions, seats, events, snapshots, and history migration', () => {
+    const db = initDb();
+    const service = new MultiGameService(db);
+
+    const setRes = service.createSetSession('SET-OMEGA', true);
+    expect(setRes.isSuccess()).toBe(true);
+    const session = setRes.getOrThrow();
+    expect(session.session_code).toBe('SET-OMEGA');
+    expect(session.do_not_delete).toBe(1);
+
+    const seat1 = service.registerSetSeat(session.id, 1, 'usr_g1', 'Euclid', false);
+    const seat2 = service.registerSetSeat(session.id, 2, 'bot_g2', 'Hypatia Bot', true, 'micro-neural');
+    expect(seat1.isSuccess()).toBe(true);
+    expect(seat2.isSuccess()).toBe(true);
+
+    const evtRes = service.recordSetEvent(session.id, 1, 'set_claimed', {
+      playerId: 'usr_g1',
+      cards: ['set-1-diamond-solid-red', 'set-2-diamond-solid-red', 'set-3-diamond-solid-red']
+    });
+    expect(evtRes.isSuccess()).toBe(true);
+
+    const snapRes = service.archiveSetSnapshot('SET-OMEGA', 'Euclid', 14, { setsFound: 14 }, true);
+    expect(snapRes.isSuccess()).toBe(true);
+    expect(snapRes.getOrThrow().bln_do_not_delete).toBe(1);
+
+    const migrateRes = service.migrateSetSnapshotsToHistory();
+    expect(migrateRes.isSuccess()).toBe(true);
+    expect(migrateRes.getOrThrow()).toBe(1);
+
+    const histCount = db.query('SELECT COUNT(*) as count FROM tbl_archived_set_snapshots_history').get() as {
+      count: number;
+    };
+    expect(histCount.count).toBe(1);
+  });
+
+  it('prunes all stale 3+ day old sessions across all 7 arcade games while strictly preserving do_not_delete = 1 and fresh games', () => {
+    const db = initDb();
+    const service = new MultiGameService(db);
+    const now = Date.now();
+    const fourDaysAgo = now - 4 * 86_400_000;
+    const oneDayAgo = now - 1 * 86_400_000;
+
+    // Create 1 stale unpinned, 1 stale pinned (do_not_delete=true), and 1 fresh unpinned for each game
+    service.createBlackjackSession('BJK-STALE', 10, 500, false);
+    service.createBlackjackSession('BJK-PINNED', 10, 500, true);
+    service.createBlackjackSession('BJK-FRESH', 10, 500, false);
+
+    service.createAvalonSession('AVALON-STALE', 5, false);
+    service.createAvalonSession('AVALON-PINNED', 5, true);
+
+    service.createUnoSession('UNO-STALE', 'red', false);
+    service.createPhase10Session('P10-STALE', false);
+    service.createPokerSession('POKER-STALE', 'texas-holdem', 10, 20, false);
+    service.createSkipBoSession('SKIP-STALE', 15, false);
+    service.createSetSession('SET-STALE', false);
+    service.createSetSession('SET-PINNED', true);
+
+    // Backdate the STALE and PINNED sessions to 4 days ago, and FRESH to 1 day ago
+    const tables = [
+      'tbl_bjk_sessions',
+      'tbl_res_sessions',
+      'tbl_uno_sessions',
+      'tbl_p10_sessions',
+      'tbl_pok_sessions',
+      'tbl_skp_sessions',
+      'tbl_set_sessions'
+    ];
+    for (const tbl of tables) {
+      db.prepare(`UPDATE ${tbl} SET updated_at = ? WHERE session_code LIKE '%-STALE' OR session_code LIKE '%-PINNED'`).run(fourDaysAgo);
+      db.prepare(`UPDATE ${tbl} SET updated_at = ? WHERE session_code LIKE '%-FRESH'`).run(oneDayAgo);
+    }
+
+    const pruneRes = service.pruneAllStaleArcadeGames(3, now);
+    expect(pruneRes.isSuccess()).toBe(true);
+    const report = pruneRes.getOrThrow();
+
+    // Exactly 7 stale unpinned sessions (1 per game) should be pruned
+    expect(report.totalPruned).toBe(7);
+    expect(report.prunedByGame.blackjack).toEqual(['BJK-STALE']);
+    expect(report.prunedByGame.avalon).toEqual(['AVALON-STALE']);
+    expect(report.prunedByGame.uno).toEqual(['UNO-STALE']);
+    expect(report.prunedByGame.phase10).toEqual(['P10-STALE']);
+    expect(report.prunedByGame.poker).toEqual(['POKER-STALE']);
+    expect(report.prunedByGame.skipbo).toEqual(['SKIP-STALE']);
+    expect(report.prunedByGame.set).toEqual(['SET-STALE']);
+
+    // Verify BJK-PINNED and BJK-FRESH remain in tbl_bjk_sessions
+    const remainingBjk = db.query('SELECT session_code FROM tbl_bjk_sessions ORDER BY session_code').all() as Array<{ session_code: string }>;
+    expect(remainingBjk.map(r => r.session_code)).toEqual(['BJK-FRESH', 'BJK-PINNED']);
+
+    // Verify SET-PINNED remains in tbl_set_sessions while SET-STALE was archived into tbl_archived_set_snapshots
+    const remainingSet = db.query('SELECT session_code FROM tbl_set_sessions').all() as Array<{ session_code: string }>;
+    expect(remainingSet.map(r => r.session_code)).toEqual(['SET-PINNED']);
+
+    const archivedSet = db.query('SELECT txt_session_code FROM tbl_archived_set_snapshots').all() as Array<{ txt_session_code: string }>;
+    expect(archivedSet.map(r => r.txt_session_code)).toEqual(['SET-STALE']);
+  });
 });

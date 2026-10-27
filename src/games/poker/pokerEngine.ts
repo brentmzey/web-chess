@@ -286,7 +286,7 @@ export class CathedralPokerEngine {
 
   constructor(
     variant: PokerVariantEnum = PokerVariantEnum.TexasHoldem,
-    maxSeats: number = 6,
+    maxSeats: number = 10,
     smallBlind: number = 10,
     bigBlind: number = 20
   ) {

@@ -1,7 +1,16 @@
 import { fromNullable, Option, some, none } from '../utils/fp';
 import { ArcadeGameEnum, GameCodePrefixEnum } from '../constants/gameEnums';
 
-export type ArcadeGameType = 'chess' | 'blackjack' | 'avalon' | 'uno' | 'phase10' | 'poker' | 'skipbo' | ArcadeGameEnum;
+export type ArcadeGameType =
+  | 'chess'
+  | 'blackjack'
+  | 'avalon'
+  | 'uno'
+  | 'phase10'
+  | 'poker'
+  | 'skipbo'
+  | 'set'
+  | ArcadeGameEnum;
 
 export interface ArcadeGameMetadata {
   id: ArcadeGameType;
@@ -49,8 +58,8 @@ export const ARCADE_GAMES: Record<string, ArcadeGameMetadata> = {
     minPlayers: 5,
     maxPlayers: 10,
     icon: 'swords',
-    badgeText: 'Phase 3 Preview',
-    isAvailable: false,
+    badgeText: 'Live & Playable',
+    isAvailable: true,
     phaseNumber: 3
   },
   [ArcadeGameEnum.Uno]: {
@@ -59,10 +68,10 @@ export const ARCADE_GAMES: Record<string, ArcadeGameMetadata> = {
     tagline: 'Cathedral stained glass color matching with Reverse, Skip, & Wild +4.',
     codePrefix: GameCodePrefixEnum.Uno,
     minPlayers: 2,
-    maxPlayers: 8,
+    maxPlayers: 10,
     icon: 'style',
-    badgeText: 'Phase 4 Preview',
-    isAvailable: false,
+    badgeText: 'Live & Playable',
+    isAvailable: true,
     phaseNumber: 4
   },
   [ArcadeGameEnum.Phase10]: {
@@ -83,7 +92,7 @@ export const ARCADE_GAMES: Record<string, ArcadeGameMetadata> = {
     tagline: "Texas Hold'em, Omaha, Stud & Draw variants with high-stakes sanctuary blinds.",
     codePrefix: GameCodePrefixEnum.Poker,
     minPlayers: 2,
-    maxPlayers: 9,
+    maxPlayers: 10,
     icon: 'token',
     badgeText: 'Live & Playable',
     isAvailable: true,
@@ -95,11 +104,23 @@ export const ARCADE_GAMES: Record<string, ArcadeGameMetadata> = {
     tagline: 'Race to deplete your 15-card stockpile onto 4 shared ascending building piles.',
     codePrefix: GameCodePrefixEnum.SkipBo,
     minPlayers: 2,
-    maxPlayers: 4,
+    maxPlayers: 6,
     icon: 'counter_1',
     badgeText: 'Live & Playable',
     isAvailable: true,
     phaseNumber: 7
+  },
+  [ArcadeGameEnum.Set]: {
+    id: ArcadeGameEnum.Set,
+    title: 'Sacred Geometry SET',
+    tagline: '81-card GF(3)^4 finite geometry pattern recognition: match 3 cards where each of 4 attributes is all identical or all distinct.',
+    codePrefix: GameCodePrefixEnum.Set,
+    minPlayers: 1,
+    maxPlayers: 20,
+    icon: 'category',
+    badgeText: 'Live & Playable',
+    isAvailable: true,
+    phaseNumber: 8
   }
 };
 
@@ -111,7 +132,7 @@ export interface RouteResolution {
 }
 
 /**
- * Detects the game type from a session code prefix (e.g. SANCT-, BJK-, AVALON-, UNO-, P10-, POKER-, SKIP-).
+ * Detects the game type from a session code prefix (e.g. SANCT-, BJK-, AVALON-, UNO-, P10-, POKER-, SKIP-, SET-).
  */
 export function detectGameFromSessionCode(code: string): ArcadeGameType {
   const normalized = code.trim().toUpperCase();
@@ -122,6 +143,7 @@ export function detectGameFromSessionCode(code: string): ArcadeGameType {
   if (normalized.startsWith(GameCodePrefixEnum.Phase10)) return ArcadeGameEnum.Phase10;
   if (normalized.startsWith(GameCodePrefixEnum.Poker)) return ArcadeGameEnum.Poker;
   if (normalized.startsWith(GameCodePrefixEnum.SkipBo)) return ArcadeGameEnum.SkipBo;
+  if (normalized.startsWith(GameCodePrefixEnum.Set)) return ArcadeGameEnum.Set;
 
   // Default fallback for legacy or custom session codes
   return ArcadeGameEnum.Chess;
@@ -183,11 +205,9 @@ export function resolveRoute(searchString: string): RouteResolution {
 /**
  * Builds a shareable URL for a given game and optional session code.
  */
-export function buildArcadeGameUrl(
-  baseUrl: string,
-  game: ArcadeGameType,
-  sessionCode?: string
-): string {
+export function buildArcadeGameUrl(baseUrl: string,
+                                   game: ArcadeGameType,
+                                   sessionCode?: string): string {
   const origin =
     typeof window !== 'undefined' && window.location?.origin
       ? window.location.origin

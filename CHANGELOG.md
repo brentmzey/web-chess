@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.23] - 2026-10-27
+### Added
+- **Sacred Geometry SET ($\text{GF}(3)^4$ Finite Geometry Card Game) (`src/games/set/setEngine.ts`, `index.html`, `src/main.ts`, `tests/setEngine.test.ts`)**:
+  - Engineered the 81-card $\text{GF}(3)^4$ / $\text{AG}(4, 3)$ affine geometry engine across 4 features: `count` (`1 | 2 | 3`), `shape` (`diamond | squiggle | oval`), `shading` (`solid | striped | open`), and `color` (`red | green | purple`).
+  - Implemented collinearity validation ($(a_i + b_i + c_i) \bmod 3 === 0$), unique third-card completion vector calculation ($(6 - a_i - b_i) \bmod 3$), human-readable attribute failure explanations, Cap Set Theorem 21-card guarantee handling, false-Set $-1$ point penalty enforcement, hints, AI opponent turns, and end-of-game detection.
+  - Added full-screen `#set-modal` theater with procedural SVG symbol rendering (diamonds, ovals, squiggles with solid, open, and striped SVG pattern fills), real-time available-Set counter, AI opponent mode, and Live Online multiplayer mode (`SET-XXXX`).
+- **Playable Cardinal Uno & The Resistance: Avalon Engines, Full-Screen Theaters & Real-Time Multiplayer (`src/games/uno/unoEngine.ts`, `src/games/avalon/avalonEngine.ts`, `src/server/services/arcadeRealtimeService.ts`, `src/realtime/arcadeRealtimeClient.ts`)**:
+  - Built complete `CardinalUnoEngine` (2–10 players, 108-card deck, Skip, 2-player Reverse-as-Skip rule, Draw Two, Wild, Wild Draw 4, UNO declaration, deck recycling) and `#uno-modal` full-screen theater.
+  - Built complete `AvalonEngine` (5–10 players, Merlin, Percival, Loyal Servants, Assassin, Morgana, Minions of Mordred, 5 Quests with 7+ player two-fail Quest 4 rule, 5-reject evil victory, and Merlin Assassination stage) and `#avalon-modal` full-screen theater.
+  - Added `ArcadeRealtimeService` and `ArcadeRealtimeClient` providing multiplexed Server-Sent Events (SSE) real-time rooms, `Last-Event-ID` missed-event replay, and automatic AI bot hot-swapping when human players join or leave across all arcade games.
+- **Database Schema Optimization, SET Tables & Universal 3+ Day Stale Session Pruning (`src/server/db/multiGameSchema.sql`, `src/server/pocketbase/multiGameSchema.json`, `src/server/services/multiGameService.ts`, `pb_hooks/cleanup.pb.js`)**:
+  - Added Hungarian-prefixed SET tables (`tbl_set_sessions`, `tbl_set_seats`, `tbl_set_moves`, `tbl_set_events`, `tbl_archived_set_snapshots`, `tbl_archived_set_snapshots_history`) and PocketBase collections for Poker (`tbl_pok_*`), Skip-Bo (`tbl_skp_*`), and SET (`tbl_set_*`).
+  - Added composite cleanup indexes (`idx_<prefix>_cleanup_composite ON tbl_<prefix>_sessions (do_not_delete, updated_at, status)`) across all 7 arcade SQLite table families.
+  - Implemented `MultiGameService.pruneAllStaleArcadeGames(olderThanDays = 3)` and expanded `pb_hooks/cleanup.pb.js` cron (`0 3,15 * * *`) to archive snapshots and cascade-delete stale sessions older than 3 days across every game collection while preserving records flagged with `do_not_delete = true`.
+- **IntelliJ Java Function/Method Parameter Formatting & Documentation Refresh (`AGENTS.md`, `README.md`, `CHANGELOG.md`)**:
+  - Formatted multi-parameter functions and methods in the IntelliJ Java parameter alignment style (first parameter immediately after `(`, subsequent parameters flush vertically below, closing `)` on the final parameter's line) and codified this rule in `AGENTS.md`.
+
 ## [1.2.0-rc.22] - 2026-10-27
 ### Added
 - **Expansive Full-Screen Viewport Architecture for All Games (`index.html`, `src/styles/main.css`, `src/main.ts`)**:

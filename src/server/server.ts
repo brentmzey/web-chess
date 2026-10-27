@@ -3,6 +3,8 @@ import { SanctuaryDatabase } from './db/database';
 import { SessionRepository } from './db/sessionRepository';
 import { RealtimeChessService } from './services/realtimeChessService';
 import { SSEManager } from './sse/sseManager';
+import { ArcadeRealtimeService } from './services/arcadeRealtimeService';
+import { ArcadeGameEnum } from '../constants/gameEnums';
 
 export interface SanctuaryServerOptions {
   port?: number;
@@ -16,6 +18,7 @@ export class SanctuaryRealtimeServer {
   public repository: SessionRepository;
   public sseManager: SSEManager;
   public service: RealtimeChessService;
+  public arcadeService: ArcadeRealtimeService;
   private server: ReturnType<typeof Bun.serve> | null = null;
   private port: number;
 
@@ -25,6 +28,7 @@ export class SanctuaryRealtimeServer {
     this.repository = new SessionRepository(this.db);
     this.sseManager = new SSEManager(this.repository);
     this.service = new RealtimeChessService(this.repository, this.sseManager);
+    this.arcadeService = new ArcadeRealtimeService();
   }
 
   public async handleRequest(req: Request): Promise<Response> {
@@ -222,6 +226,144 @@ export class SanctuaryRealtimeServer {
         return res.match({
           Ok: session => json({ session }, 200),
           Err: badRequest
+        });
+      }
+
+      // 8. POST /api/arcade/sessions -> Create arcade game session
+      if (method === 'POST' && pathname === '/api/arcade/sessions') {
+        const body = (await req.json().catch(fallbackEmpty)) as Record<string, unknown>;
+        const game = body.game as ArcadeGameEnum;
+        const sessionCode = body.sessionCode as string;
+        const requestedSeats = typeof body.maxSeats === 'number' ? body.maxSeats : undefined;
+        const creatorName = typeof body.creatorName === 'string' ? body.creatorName : 'Host Player';
+
+        if (!game || !sessionCode) {
+          return badRequest('Missing game or sessionCode parameter');
+        }
+
+        const res = this.arcadeService.createSession(game, sessionCode, requestedSeats, creatorName);
+        return res.match({
+          Ok: s => json({ id: s.id, sessionCode: s.sessionCode, game: s.game, maxSeats: s.maxSeats }, 201),
+          Err: badRequest
+        });
+      }
+
+      // 9. POST /api/arcade/sessions/join -> Join arcade session & claim seat
+      if (method === 'POST' && pathname === '/api/arcade/sessions/join') {
+        const body = (await req.json().catch(fallbackEmpty)) as Record<string, unknown>;
+        const sessionCode = body.sessionCode as string;
+        const participantId = body.participantId as string;
+        const displayName = body.displayName as string;
+
+        if (!sessionCode || !participantId || !displayName) {
+          return badRequest('Missing sessionCode, participantId, or displayName');
+        }
+
+        const res = this.arcadeService.joinSession(sessionCode, participantId, displayName);
+        return res.match({
+          Ok: data => json({ seatNumber: data.seatNumber, sessionCode: data.session.sessionCode, maxSeats: data.session.maxSeats }, 200),
+          Err: badRequest
+        });
+      }
+
+      // 10. POST /api/arcade/sessions/leave -> Leave arcade session & restore bot
+      if (method === 'POST' && pathname === '/api/arcade/sessions/leave') {
+        const body = (await req.json().catch(fallbackEmpty)) as Record<string, unknown>;
+        const sessionCode = body.sessionCode as string;
+        const participantId = body.participantId as string;
+
+        if (!sessionCode || !participantId) {
+          return badRequest('Missing sessionCode or participantId');
+        }
+
+        const res = this.arcadeService.leaveSession(sessionCode, participantId);
+        return res.match({
+          Ok: msg => json({ message: msg }, 200),
+          Err: badRequest
+        });
+      }
+
+      // 11. POST /api/arcade/sessions/action -> Dispatch real-time game action
+      if (method === 'POST' && pathname === '/api/arcade/sessions/action') {
+        const body = (await req.json().catch(fallbackEmpty)) as Record<string, unknown>;
+        const sessionCode = body.sessionCode as string;
+        const participantId = body.participantId as string;
+        const actionType = body.actionType as string;
+        const payload = (body.payload as Record<string, unknown>) || {};
+
+        if (!sessionCode || !participantId || !actionType) {
+          return badRequest('Missing sessionCode, participantId, or actionType');
+        }
+
+        const res = this.arcadeService.dispatchAction(sessionCode, participantId, actionType, payload);
+        return res.match({
+          Ok: event => json({ event }, 200),
+          Err: badRequest
+        });
+      }
+
+      // 12. GET /api/arcade/sessions/:sessionCode -> Get arcade session details & seats
+      const arcadeSessionMatch = pathname.match(/^\/api\/arcade\/sessions\/([^/]+)$/);
+      if (method === 'GET' && arcadeSessionMatch) {
+        const code = arcadeSessionMatch[1]!;
+        const sOpt = this.arcadeService.getSession(code);
+        return sOpt.match({
+          Some: s => json({
+            id: s.id,
+            sessionCode: s.sessionCode,
+            game: s.game,
+            maxSeats: s.maxSeats,
+            seats: s.seatManager.getAllSeats().map(seat => ({
+              seatNumber: seat.seatNumber,
+              isOccupied: seat.isOccupied,
+              isBot: seat.isBot,
+              playerId: seat.playerId,
+              playerName: seat.playerName
+            })),
+            totalHumans: s.seatManager.getHumanCount(),
+            totalBots: s.seatManager.getBotCount()
+          }, 200),
+          None: () => json({ error: `Arcade session '${code}' not found` }, 404)
+        });
+      }
+
+      // 13. GET /api/arcade/sessions/:sessionCode/events -> SSE stream for arcade session
+      const arcadeEventsMatch = pathname.match(/^\/api\/arcade\/sessions\/([^/]+)\/events$/);
+      if (method === 'GET' && arcadeEventsMatch) {
+        const code = arcadeEventsMatch[1]!;
+        const sOpt = this.arcadeService.getSession(code);
+        if (sOpt.isNone()) {
+          return json({ error: `Arcade session '${code}' not found` }, 404);
+        }
+
+        const participantId = url.searchParams.get('participantId') || 'anon-' + Math.random().toString(36).slice(2, 9);
+        const lastEventHeader = req.headers.get('Last-Event-ID');
+        const lastEventParam = url.searchParams.get('lastEventId');
+        const lastEventId = lastEventHeader
+          ? parseInt(lastEventHeader, 10)
+          : lastEventParam
+            ? parseInt(lastEventParam, 10)
+            : undefined;
+
+        let cleanup: (() => void) | null = null;
+
+        const stream = new ReadableStream<Uint8Array>({
+          start: controller => {
+            this.arcadeService.subscribe(code, participantId, controller, lastEventId);
+            cleanup = () => this.arcadeService.unsubscribe(code, participantId);
+          },
+          cancel: () => {
+            if (cleanup) cleanup();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive',
+            ...corsHeaders
+          }
         });
       }
 

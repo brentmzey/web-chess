@@ -72,5 +72,16 @@ When operating in this repository, agents must adhere to the following without e
      - **Security & Secret Scanning**: `git diff`, `git grep`, and regex scans to audit for sensitive tokens, passwords, and API keys.
      - **Automated Versioning, Git Commits & Remote Push**: Staging verified files, bumping `RC#` in `package.json` and `CHANGELOG.md`, committing with descriptive semantic messages, and pushing to `origin/main` to trigger production deployment once all tests pass with 100% line/branch coverage and zero type errors.
    - **Revocation Rule**: If the user explicitly specifies in a prompt to refrain from an action (e.g., *"do not commit"*, *"do not push"*, *"only show diff"*, *"pause before deploy"*), agents MUST immediately prioritize and adhere to that specific instruction over these pre-approved defaults.
+10. **Mandatory IntelliJ Java Function/Method Parameter Formatting Style**:
+   - Always write multi-parameter functions and methods in the **IntelliJ Java parameter alignment style**: the opening parenthesis `(` is followed immediately by the first parameter on that same line; subsequent parameters are placed on new lines aligned vertically (flush) with the first parameter; and the closing parenthesis `)` is placed on the same line as the final parameter:
+     ```ts
+     export function exampleFunction(firstParam: string,
+                                     secondParam: number,
+                                     thirdParam: boolean): ReturnType {
+     ```
+11. **Multi-Game Sanctuary Arcade Hub, Hungarian Database Schema & 3+ Day Stale Session Pruning**:
+   - All 8 Sanctuary Arcade games (**Sanctuary Chess** `SANCT-`, **Gothic Blackjack** `BJK-`, **Cathedral Poker** `POKER-`, **Ten Rites / Phase 10** `P10-`, **Sacred Skip-Bo** `SKIP-`, **Cardinal Uno** `UNO-`, **The Resistance: Avalon** `AVALON-`, and **Sacred Geometry SET** `SET-`) must support both **Play vs AI** and **Real-Time Online Multiplayer** with full-screen theater views and real-life player capacities.
+   - Maintain Hungarian-prefixed tables (`tbl_<game>_sessions`, `tbl_<game>_seats`, `tbl_<game>_moves`, `tbl_<game>_events`, `tbl_archived_<game>_snapshots`, `tbl_archived_<game>_snapshots_history`), composite cleanup indexes (`(do_not_delete, updated_at, status)`), and universal automated pruning of all stale sessions 3+ days old where `do_not_delete != true`.
+
 
 

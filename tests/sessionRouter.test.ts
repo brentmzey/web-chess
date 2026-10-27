@@ -23,6 +23,8 @@ describe('Sanctuary Arcade Session Router & URL Deep-Linking', () => {
     expect(detectGameFromSessionCode('poker-texas')).toBe('poker');
     expect(detectGameFromSessionCode('SKIP-FAST')).toBe('skipbo');
     expect(detectGameFromSessionCode('skip-1234')).toBe('skipbo');
+    expect(detectGameFromSessionCode('SET-GEOM')).toBe('set');
+    expect(detectGameFromSessionCode('set-gf34')).toBe('set');
 
     // Unknown or legacy code defaults gracefully to chess
     expect(detectGameFromSessionCode('UNKNOWN-CODE')).toBe('chess');
@@ -109,7 +111,7 @@ describe('Sanctuary Arcade Session Router & URL Deep-Linking', () => {
   });
 
   it('contains complete metadata for all Sanctuary Arcade games in ARCADE_GAMES', () => {
-    const expectedGames = ['chess', 'blackjack', 'avalon', 'uno', 'phase10', 'poker', 'skipbo'] as const;
+    const expectedGames = ['chess', 'blackjack', 'avalon', 'uno', 'phase10', 'poker', 'skipbo', 'set'] as const;
     for (const g of expectedGames) {
       const meta = ARCADE_GAMES[g];
       expect(meta).toBeDefined();

@@ -112,7 +112,13 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'skipbo-modal': new MockElement(),
       'btn-close-skipbo': new MockElement(),
       'phase10-modal': new MockElement(),
-      'btn-close-phase10': new MockElement()
+      'btn-close-phase10': new MockElement(),
+      'uno-modal': new MockElement(),
+      'btn-close-uno': new MockElement(),
+      'avalon-modal': new MockElement(),
+      'btn-close-avalon': new MockElement(),
+      'set-modal': new MockElement(),
+      'btn-close-set': new MockElement()
     };
 
     (globalThis as any).document = {
@@ -444,7 +450,7 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(ui.isBlackjackVisible()).toBe(false);
   });
 
-  it('controls Poker, Skip-Bo, and Phase 10 modal visibility', () => {
+  it('controls Poker, Skip-Bo, Phase 10, Uno, and Avalon modal visibility', () => {
     const ui = new UIController();
 
     // Poker
@@ -470,6 +476,30 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(ui.isPhase10Visible()).toBe(true);
     ui.hidePhase10();
     expect(ui.isPhase10Visible()).toBe(false);
+
+    // Uno
+    domElements['uno-modal'].classList.add('hidden');
+    expect(ui.isUnoVisible()).toBe(false);
+    ui.showUno();
+    expect(ui.isUnoVisible()).toBe(true);
+    ui.hideUno();
+    expect(ui.isUnoVisible()).toBe(false);
+
+    // Avalon
+    domElements['avalon-modal'].classList.add('hidden');
+    expect(ui.isAvalonVisible()).toBe(false);
+    ui.showAvalon();
+    expect(ui.isAvalonVisible()).toBe(true);
+    ui.hideAvalon();
+    expect(ui.isAvalonVisible()).toBe(false);
+
+    // SET
+    domElements['set-modal'].classList.add('hidden');
+    expect(ui.isSetVisible()).toBe(false);
+    ui.showSet();
+    expect(ui.isSetVisible()).toBe(true);
+    ui.hideSet();
+    expect(ui.isSetVisible()).toBe(false);
   });
 });
 

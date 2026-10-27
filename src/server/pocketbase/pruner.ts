@@ -54,14 +54,12 @@ const toError = (err: unknown): Error =>
  * `cascadeDelete: true` automatically purges all related records in
  * `session_participants`, `game_moves`, and `session_events`.
  */
-export async function prunePocketBaseSessions(
-  baseUrl: string,
-  email: string,
-  password: string,
-  olderThanDays: number = 3,
-  batchSize: number = 100,
-  triggerSource: CleanupTriggerSource = 'cli_manual'
-): Promise<Result<PruneReport, string>> {
+export async function prunePocketBaseSessions(baseUrl: string,
+                                              email: string,
+                                              password: string,
+                                              olderThanDays: number = 3,
+                                              batchSize: number = 100,
+                                              triggerSource: CleanupTriggerSource = 'cli_manual'): Promise<Result<PruneReport, string>> {
   const startTime = currentEpochMs();
   const traceId = `trc_cln_${startTime}_${Math.random().toString(36).substring(2, 8)}`;
   const url = baseUrl.replace(/\/+$/, '');
@@ -336,11 +334,9 @@ export async function prunePocketBaseSessions(
 /**
  * Restores an archived session from tbl_archived_game_snapshots (or history) back into PocketBase game_sessions.
  */
-export async function restoreArchivedPocketBaseSession(
-  url: string,
-  token: string,
-  sessionCode: string
-): Promise<Result<{ session_code: string; restored: boolean }, string>> {
+export async function restoreArchivedPocketBaseSession(url: string,
+                                                       token: string,
+                                                       sessionCode: string): Promise<Result<{ session_code: string; restored: boolean }, string>> {
   return tryCatchAsync(async () => {
     const headers = {
       Authorization: `Bearer ${token}`,

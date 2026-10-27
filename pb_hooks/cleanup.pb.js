@@ -83,6 +83,55 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
             count++;
         }
 
+        // Sweep all multi-game Sanctuary Arcade session collections (3+ days old & do_not_delete != true)
+        const arcadeCollections = [
+            { sessionCol: "tbl_bjk_sessions", snapCol: "tbl_archived_bjk_snapshots" },
+            { sessionCol: "tbl_res_sessions", snapCol: "tbl_archived_res_snapshots" },
+            { sessionCol: "tbl_uno_sessions", snapCol: "tbl_archived_uno_snapshots" },
+            { sessionCol: "tbl_p10_sessions", snapCol: "tbl_archived_p10_snapshots" },
+            { sessionCol: "tbl_pok_sessions", snapCol: "tbl_archived_pok_snapshots" },
+            { sessionCol: "tbl_skp_sessions", snapCol: "tbl_archived_skp_snapshots" },
+            { sessionCol: "tbl_set_sessions", snapCol: "tbl_archived_set_snapshots" }
+        ];
+
+        for (const arc of arcadeCollections) {
+            try {
+                const arcRecords = $app.findRecordsByFilter(
+                    arc.sessionCol,
+                    "updated < {:cutoff} && do_not_delete != true",
+                    "-updated",
+                    100,
+                    0,
+                    { cutoff: cutoffDate }
+                );
+                const arcSnapCol = $app.findCollectionByNameOrId(arc.snapCol);
+                for (const arcRec of arcRecords) {
+                    const arcCode = arcRec.getString("session_code");
+                    if (arcSnapCol) {
+                        try {
+                            const arcSnap = new Record(arcSnapCol);
+                            arcSnap.set("txt_session_code", arcCode);
+                            arcSnap.set("bln_do_not_delete", arcRec.getBool("do_not_delete"));
+                            arcSnap.set("json_snapshot_payload", {
+                                sessionId: arcRec.id,
+                                sessionCode: arcCode,
+                                status: arcRec.getString("status"),
+                                prunedReason: "stale_inactivity_3_days"
+                            });
+                            $app.save(arcSnap);
+                        } catch (_arcSnapErr) {
+                            // Continue cascade delete if snapshot save fails
+                        }
+                    }
+                    $app.delete(arcRec);
+                    deletedCodes.push(arcCode);
+                    count++;
+                }
+            } catch (_arcErr) {
+                // Collection may not exist yet or is empty
+            }
+        }
+
         console.log(`[SanctuaryChess Cron:${traceId}] Cleanup completed. Cascade deleted ${count} stale game sessions.`);
     } catch (err) {
         errorMessage = String(err);

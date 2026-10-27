@@ -272,4 +272,47 @@ describe('PocketBase Goja JavaScript Cron Hook (pb_hooks/cleanup.pb.js)', () => 
     expect(queryFilterExecuted).toBe('updated < {:cutoff} && do_not_delete != true');
     expect(deletedRecords.length).toBe(0);
   });
+
+  it('sweeps and snapshots stale multi-game arcade sessions (Blackjack, Poker, Skip-Bo, Phase 10, Uno, Avalon, SET)', () => {
+    let registeredCallback: Function | null = null;
+    const deletedRecords: any[] = [];
+    const savedRecords: any[] = [];
+
+    const mockSetStale = new MockRecord({ id: 'col_set', name: 'tbl_set_sessions' });
+    mockSetStale.set('session_code', 'SET-STALE99');
+    mockSetStale.set('status', 'playing');
+    mockSetStale.set('do_not_delete', false);
+
+    const mockApp = {
+      findRecordsByFilter: (colName: string, filter: string) => {
+        if (colName === 'tbl_set_sessions') {
+          expect(filter).toBe('updated < {:cutoff} && do_not_delete != true');
+          return [mockSetStale];
+        }
+        return [];
+      },
+      findCollectionByNameOrId: (name: string) => ({ id: `id_${name}`, name }),
+      save: (rec: any) => { savedRecords.push(rec); },
+      delete: (rec: any) => { deletedRecords.push(rec); }
+    };
+
+    const sandbox = {
+      cronAdd: (_name: string, _cron: string, cb: Function) => {
+        registeredCallback = cb;
+      },
+      $app: mockApp,
+      Record: MockRecord,
+      console: { log: () => {}, error: () => {}, warn: () => {} },
+      Date,
+      Math
+    };
+
+    vm.runInNewContext(hookSource, sandbox);
+    registeredCallback!();
+
+    const setSnapshot = savedRecords.find(r => r.collection.name === 'tbl_archived_set_snapshots');
+    expect(setSnapshot).toBeDefined();
+    expect(setSnapshot.getString('txt_session_code')).toBe('SET-STALE99');
+    expect(deletedRecords).toContain(mockSetStale);
+  });
 });

@@ -83,53 +83,53 @@ export class SkipBoEngine {
     player1Name: string = 'Human Pilgrim',
     player2Name: string = 'Cathedral AI Abbot',
     stockpileSize: number = 15,
-    customDeck?: SkipBoCard[]
+    customDeck?: SkipBoCard[],
+    playerCount: number = 2
   ) {
     const deck = customDeck || createSkipBoDeck();
+    const totalPlayers = Math.max(2, Math.min(6, playerCount));
+    const botNames = ['Cathedral AI Abbot', 'Brother Luke', 'Prior Anselm', 'Deacon Francis', 'Archon Benedict'];
 
-    const p1Stock: SkipBoCard[] = [];
-    const p2Stock: SkipBoCard[] = [];
+    const playersList: SkipBoPlayerState[] = [];
 
-    for (let i = 0; i < stockpileSize; i++) {
-      p1Stock.push(deck.pop()!);
-      p2Stock.push(deck.pop()!);
+    for (let pIdx = 0; pIdx < totalPlayers; pIdx++) {
+      const pStock: SkipBoCard[] = [];
+      for (let i = 0; i < stockpileSize; i++) {
+        pStock.push(deck.pop()!);
+      }
+
+      const pHand: SkipBoCard[] = [];
+      if (pIdx === 0) {
+        for (let i = 0; i < 5; i++) {
+          pHand.push(deck.pop()!);
+        }
+      }
+
+      const pName = pIdx === 0
+        ? player1Name
+        : pIdx === 1
+        ? player2Name
+        : botNames[pIdx - 1] || `SkipBot #${pIdx + 1}`;
+
+      playersList.push({
+        id: `p${pIdx + 1}`,
+        name: pName,
+        isBot: pIdx > 0,
+        stockpile: pStock,
+        hand: pHand,
+        discardPiles: [[], [], [], []]
+      });
     }
-
-    const p1Hand: SkipBoCard[] = [];
-    const p2Hand: SkipBoCard[] = [];
-
-    // Deal initial 5 cards to Player 1 (starting player)
-    for (let i = 0; i < 5; i++) {
-      p1Hand.push(deck.pop()!);
-    }
-
-    const player1: SkipBoPlayerState = {
-      id: 'p1',
-      name: player1Name,
-      isBot: false,
-      stockpile: p1Stock,
-      hand: p1Hand,
-      discardPiles: [[], [], [], []]
-    };
-
-    const player2: SkipBoPlayerState = {
-      id: 'p2',
-      name: player2Name,
-      isBot: true,
-      stockpile: p2Stock,
-      hand: p2Hand,
-      discardPiles: [[], [], [], []]
-    };
 
     this.state = {
-      players: [player1, player2],
+      players: playersList,
       currentTurnIndex: 0,
       buildingPiles: [[], [], [], []],
       drawPile: deck,
       recyclePile: [],
       isGameOver: false,
       winner: none(),
-      historyText: ['Sacred Skip-Bo match commenced. Deal complete.']
+      historyText: [`Sacred Skip-Bo match commenced (${totalPlayers} players). Deal complete.`]
     };
   }
 

@@ -160,46 +160,44 @@ export class Phase10Engine {
   constructor(
     player1Name: string = 'Human Pilgrim',
     player2Name: string = 'Cathedral AI Prior',
-    customDeck?: Phase10Card[]
+    customDeck?: Phase10Card[],
+    playerCount: number = 2
   ) {
     const deck = customDeck || createPhase10Deck();
+    const totalPlayers = Math.max(2, Math.min(6, playerCount));
 
-    const p1Hand: Phase10Card[] = [];
-    const p2Hand: Phase10Card[] = [];
+    const playersList: Phase10PlayerState[] = [];
+    const botNames = ['Cathedral AI Prior', 'Abbot Brother', 'Deacon Michael', 'Novice Thomas', 'Archon Gregory'];
 
-    // Deal 10 cards to each player
-    for (let i = 0; i < 10; i++) {
-      p1Hand.push(deck.pop()!);
-      p2Hand.push(deck.pop()!);
+    for (let pIdx = 0; pIdx < totalPlayers; pIdx++) {
+      const pHand: Phase10Card[] = [];
+      for (let i = 0; i < 10; i++) {
+        pHand.push(deck.pop()!);
+      }
+
+      const pName = pIdx === 0
+        ? player1Name
+        : pIdx === 1
+        ? player2Name
+        : botNames[pIdx - 1] || `Sanctuary Bot #${pIdx + 1}`;
+
+      playersList.push({
+        id: `p${pIdx + 1}`,
+        name: pName,
+        isBot: pIdx > 0,
+        currentPhase: 1,
+        phaseCompletedThisRound: false,
+        hand: pHand,
+        laidGroups: [],
+        score: 0
+      });
     }
 
     // Top card to discard pile
     const initialDiscard = [deck.pop()!];
 
-    const player1: Phase10PlayerState = {
-      id: 'p1',
-      name: player1Name,
-      isBot: false,
-      currentPhase: 1,
-      phaseCompletedThisRound: false,
-      hand: p1Hand,
-      laidGroups: [],
-      score: 0
-    };
-
-    const player2: Phase10PlayerState = {
-      id: 'p2',
-      name: player2Name,
-      isBot: true,
-      currentPhase: 1,
-      phaseCompletedThisRound: false,
-      hand: p2Hand,
-      laidGroups: [],
-      score: 0
-    };
-
     this.state = {
-      players: [player1, player2],
+      players: playersList,
       currentTurnIndex: 0,
       hasDrawnThisTurn: false,
       drawPile: deck,
@@ -207,7 +205,7 @@ export class Phase10Engine {
       isRoundOver: false,
       isGameOver: false,
       winner: none(),
-      historyText: ['Phase 10 match started. Phase 1 active (2 Sets of 3).']
+      historyText: [`Phase 10 match started (${totalPlayers} players). Phase 1 active (2 Sets of 3).`]
     };
   }
 
@@ -491,5 +489,30 @@ export class Phase10Engine {
     }
 
     return logs;
+  }
+
+  /**
+   * Commences the next round by reshuffling and dealing 10 cards to all seated players.
+   */
+  public startNextRound(): Result<string, string> {
+    if (this.state.isGameOver) return failure('Game is already over.');
+    const deck = createPhase10Deck();
+
+    this.state.players.forEach(p => {
+      p.hand = [];
+      p.laidGroups = [];
+      p.phaseCompletedThisRound = false;
+      for (let i = 0; i < 10; i++) {
+        p.hand.push(deck.pop()!);
+      }
+    });
+
+    this.state.drawPile = deck;
+    this.state.discardPile = [deck.pop()!];
+    this.state.isRoundOver = false;
+    this.state.hasDrawnThisTurn = false;
+    this.state.currentTurnIndex = 0;
+    this.state.historyText.push(`New round started. Phases advanced.`);
+    return success('New round started successfully.');
   }
 }

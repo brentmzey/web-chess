@@ -109,6 +109,9 @@ export interface UIControllerElements {
   pokerModal: HTMLElement | null;
   skipboModal: HTMLElement | null;
   phase10Modal: HTMLElement | null;
+  unoModal: HTMLElement | null;
+  avalonModal: HTMLElement | null;
+  setModal: HTMLElement | null;
 }
 
 export class UIController {
@@ -191,6 +194,9 @@ export class UIController {
       pokerModal: document.getElementById('poker-modal'),
       skipboModal: document.getElementById('skipbo-modal'),
       phase10Modal: document.getElementById('phase10-modal'),
+      unoModal: document.getElementById('uno-modal'),
+      avalonModal: document.getElementById('avalon-modal'),
+      setModal: document.getElementById('set-modal'),
       pregameModeLockNotice: document.getElementById('pregame-mode-lock-notice')
     };
   }
@@ -753,6 +759,60 @@ export class UIController {
 
   public isPhase10Visible(): boolean {
     return fromNullable(this.el.phase10Modal)
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
+  public showUno(): void {
+    fromNullable(this.el.unoModal).map(modal => {
+      modal.classList.remove('hidden');
+    });
+  }
+
+  public hideUno(): void {
+    fromNullable(this.el.unoModal).map(modal => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  public isUnoVisible(): boolean {
+    return fromNullable(this.el.unoModal)
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
+  public showAvalon(): void {
+    fromNullable(this.el.avalonModal).map(modal => {
+      modal.classList.remove('hidden');
+    });
+  }
+
+  public hideAvalon(): void {
+    fromNullable(this.el.avalonModal).map(modal => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  public isAvalonVisible(): boolean {
+    return fromNullable(this.el.avalonModal)
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
+  public showSet(): void {
+    fromNullable(this.el.setModal).map(modal => {
+      modal.classList.remove('hidden');
+    });
+  }
+
+  public hideSet(): void {
+    fromNullable(this.el.setModal).map(modal => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  public isSetVisible(): boolean {
+    return fromNullable(this.el.setModal)
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }

@@ -219,4 +219,62 @@ describe('SanctuaryRealtimeServer HTTP & SSE Endpoints', () => {
 
     server.stop();
   });
+
+  it('manages real-time multi-game arcade sessions via HTTP and SSE routes', async () => {
+    // 1. Create arcade session
+    const createReq = new Request('http://localhost:3888/api/arcade/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ game: 'poker', sessionCode: 'POKER-HTTP-1', maxSeats: 10, creatorName: 'Host' })
+    });
+    const createResp = await server.handleRequest(createReq);
+    expect(createResp.status).toBe(201);
+    const createData = (await createResp.json()) as any;
+    expect(createData.sessionCode).toBe('POKER-HTTP-1');
+    expect(createData.maxSeats).toBe(10);
+
+    // 2. Join arcade session
+    const joinReq = new Request('http://localhost:3888/api/arcade/sessions/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionCode: 'POKER-HTTP-1', participantId: 'usr_p2', displayName: 'Player Two' })
+    });
+    const joinResp = await server.handleRequest(joinReq);
+    expect(joinResp.status).toBe(200);
+    const joinData = (await joinResp.json()) as any;
+    expect(joinData.seatNumber).toBe(2);
+
+    // 3. Dispatch real-time action
+    const actReq = new Request('http://localhost:3888/api/arcade/sessions/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionCode: 'POKER-HTTP-1', participantId: 'usr_p2', actionType: 'bet', payload: { amount: 50 } })
+    });
+    const actResp = await server.handleRequest(actReq);
+    expect(actResp.status).toBe(200);
+
+    // 4. Get session state
+    const getReq = new Request('http://localhost:3888/api/arcade/sessions/POKER-HTTP-1');
+    const getResp = await server.handleRequest(getReq);
+    expect(getResp.status).toBe(200);
+    const getData = (await getResp.json()) as any;
+    expect(getData.totalHumans).toBe(2);
+    expect(getData.seats.length).toBe(10);
+
+    // 5. Leave session
+    const leaveReq = new Request('http://localhost:3888/api/arcade/sessions/leave', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionCode: 'POKER-HTTP-1', participantId: 'usr_p2' })
+    });
+    const leaveResp = await server.handleRequest(leaveReq);
+    expect(leaveResp.status).toBe(200);
+
+    // 6. Connect SSE stream
+    const sseReq = new Request('http://localhost:3888/api/arcade/sessions/POKER-HTTP-1/events?participantId=usr_sse_1');
+    const sseResp = await server.handleRequest(sseReq);
+    expect(sseResp.status).toBe(200);
+    expect(sseResp.headers.get('Content-Type')).toBe('text/event-stream');
+    sseResp.body?.cancel();
+  });
 });

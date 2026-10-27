@@ -21,11 +21,9 @@ interface CollectionListResponse {
 const toError = (err: unknown): Error =>
   err instanceof Error ? err : new Error(String(err));
 
-export const runPocketBaseMigration = async (
-  baseUrl: string,
-  email: string,
-  password: string
-): Promise<{ success: boolean; applied: string[]; errors: string[] }> => {
+export const runPocketBaseMigration = async (baseUrl: string,
+                                             email: string,
+                                             password: string): Promise<{ success: boolean; applied: string[]; errors: string[] }> => {
   const url = baseUrl.replace(/\/+$/, '');
   logger.info(`Starting PocketBase schema migration for ${url}...`);
 

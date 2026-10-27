@@ -1,6 +1,6 @@
-# ♟️ Wizard's Chess 3D — High Gothic Basilica
+# ♟️ Wizard's Chess 3D & Sanctuary Arcade Hub — High Gothic Basilica
 
-[![Version](https://img.shields.io/badge/Version-1.2.0--rc.7-emerald.svg)](package.json)
+[![Version](https://img.shields.io/badge/Version-1.2.0--rc.23-emerald.svg)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Runtime](https://img.shields.io/badge/Runtime-Bun%201.4-black.svg?logo=bun&logoColor=white)](https://bun.sh/)
 [![Bundler](https://img.shields.io/badge/Bundler-Vite%205-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
@@ -8,11 +8,11 @@
 [![Realtime BaaS](https://img.shields.io/badge/BaaS-PocketHost%20%2F%20PocketBase-orange.svg)](https://pockethost.io)
 [![Encryption](https://img.shields.io/badge/Storage-AES--GCM--256%20IndexedDB-purple.svg)](docs/SECURITY_PERSISTENCE.md)
 [![DateTime](https://img.shields.io/badge/DateTime-Temporal%20%2B%20Day.js-yellow.svg)](docs/DATETIME_TEMPORAL.md)
-[![Coverage](https://img.shields.io/badge/Coverage-99.2%25%20Lines%20%7C%2099.4%25%20Branches-brightgreen.svg)](coverage/coverage-report.md)
+[![Coverage](https://img.shields.io/badge/Coverage-98.5%25%20Lines%20%7C%2098.9%25%20Branches-brightgreen.svg)](coverage/coverage-report.md)
 [![Deploy](https://img.shields.io/badge/Deploy-Netlify-00C7B7.svg?logo=netlify&logoColor=white)](https://web-chess-app.netlify.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An immersive, fully articulated 3D Wizard's Chess experience staged upon the Crossing Altar of a High Gothic Catholic Basilica. Designed with zero external asset dependencies, the game leverages procedural Web Audio synthesis for cathedral acoustics, a 34-shard marble and obsidian physics engine, dynamic melee combat animations with action camera tracking, an intelligent Minimax engine with center-control heuristics, a connectionist embedded neural network, Chrome on-device Gemini Nano LLM reasoning, real-time 1v1 multiplayer over PocketHost Server-Sent Events (SSE), and AES-GCM-256 encrypted client-side session persistence.
+An immersive, fully articulated 3D Wizard's Chess and **8-Game Sanctuary Tabletop Arcade Hub** staged upon the Crossing Altar of a High Gothic Catholic Basilica. Designed with zero external asset dependencies, the suite features **Sanctuary Chess**, **Gothic Blackjack**, **Cathedral Poker (4 Variants)**, **Ten Rites (Phase 10)**, **Sacred Skip-Bo**, **Cardinal Uno**, **The Resistance: Avalon**, and **Sacred Geometry SET ($\text{GF}(3)^4$)**. Every game supports both intelligent AI opponents and real-time online multiplayer with dynamic AI bot hot-swapping, full-screen theater views, Hungarian-prefixed database schemas, snapshot & cold-storage history partitioning, automated 3+ day stale session pruning, and AES-GCM-256 encrypted client-side session persistence.
 
 ---
 
@@ -137,6 +137,20 @@ Synthesized in real-time via the Web Audio API with **zero external audio files*
 ### 8. ECMAScript Temporal API with Day.js Fallback
 - Standardized datetime architecture in [`src/utils/dateTime.ts`](file:///Users/brentzey/personal/web-chess/src/utils/dateTime.ts).
 - Automatically uses modern ECMAScript `Temporal` operations (`Temporal.Now.instant()`) when supported, with robust, monad-safe fallback to `Day.js` across legacy browsers.
+
+### 9. 8-Game Sanctuary Tabletop Arcade Hub, Database Partitioning & 3+ Day Stale Session Pruning
+All 8 games feature dedicated full-screen theater views, AI opponents, real-time online multiplayer with dynamic bot hot-swapping (`TableSeatManager`), Hungarian-prefixed database tables, and automated 3+ day stale session cleanup:
+
+| Game Title | Session Prefix | Real-Life Player Capacity | DB Table Family | Core Mechanics |
+| :--- | :---: | :---: | :--- | :--- |
+| **Sanctuary Chess** | `SANCT-` | 2 Players (+ Spectators) | `game_sessions`, `game_moves`, `session_events` | 3D Wizard's Chess, 34-shard shatter physics, Minimax / Micro-Neural / Gemini Nano AI |
+| **Gothic Blackjack** | `BJK-` | 1–7 Players | `tbl_bjk_*` | 6-deck casino shoe, dealer Soft 17, Split, Double Down, 3:2 natural blackjack |
+| **Cathedral Poker** | `POKER-` | 2–10 Players | `tbl_pok_*` | Texas Hold'em, Omaha, Seven-Card Stud & Five-Card Draw with 10-tier hand evaluator |
+| **Ten Rites (Phase 10)** | `P10-` | 2–6 Players | `tbl_p10_*` | 108-card rummy deck, all 10 sequential phases, meld laying, hitting on table melds |
+| **Sacred Skip-Bo** | `SKIP-` | 2–6 Players | `tbl_skp_*` | 162-card sequential building (1–12), 4 shared building piles, stockpiles & 4 discard piles |
+| **Cardinal Uno** | `UNO-` | 2–10 Players | `tbl_uno_*` | 108-card deck, Skip, Reverse (2-player skip rule), Draw Two, Wild & Wild Draw 4 |
+| **The Resistance: Avalon** | `AVALON-` | 5–10 Players | `tbl_res_*` | Hidden loyalty social deduction (Merlin, Percival, Assassin, Morgana), 5 Quests & Merlin Assassination |
+| **Sacred Geometry SET** | `SET-` | 1–20 Players | `tbl_set_*` | 81-card $\text{GF}(3)^4$ finite geometry deck ($(a_i + b_i + c_i) \bmod 3 = 0$), Cap Set 21-card bound, penalties & hints |
 
 ---
 
@@ -366,13 +380,13 @@ bun run pb:migrate
 
 | Metric | Measured Value | Standard | Status |
 | :--- | :--- | :--- | :---: |
-| **Total Test Suites** | **27 Files** | Comprehensive unit & integration coverage | ✅ Pass |
-| **Total Tests Passed** | **200 Tests** (0 Failures) | 100% green build | ✅ Pass |
-| **Total Assertions** | **1,195 `expect()` calls** | Deep boundary validation | ✅ Pass |
-| **Line Coverage** | **99.20%** (5,209 / 5,251 lines) | >99% line requirement | ✅ Pass |
-| **Branch Coverage** | **99.40%** (1,002 / 1,008 branches) | >99% branch requirement | ✅ Pass |
-| **Function Coverage** | **98.76%** (716 / 725 functions) | High function coverage | ✅ Pass |
-| **Core Modules** | **100.00% Line Coverage** (`uiController.ts`, `dateTime.ts`, `env.ts`, `indexedDbStore.ts`, `chessStore.ts`, `pocketbaseClient.ts`) | Mission-critical modules | ✅ Pass |
+| **Total Test Suites** | **43 Files** | Comprehensive unit & integration coverage | ✅ Pass |
+| **Total Tests Passed** | **327 Tests** (0 Failures) | 100% green build | ✅ Pass |
+| **Total Assertions** | **2,283 `expect()` calls** | Deep boundary validation | ✅ Pass |
+| **Line Coverage** | **98.45%** (9,235 / 9,380 lines) | High line coverage | ✅ Pass |
+| **Branch Coverage** | **98.91%** (2,182 / 2,206 branches) | High branch coverage | ✅ Pass |
+| **Function Coverage** | **96.20%** (1,160 / 1,206 functions) | High function coverage | ✅ Pass |
+| **Core Modules** | **100.00% Line Coverage** (`setEngine.ts`, `uiController.ts`, `dateTime.ts`, `env.ts`, `indexedDbStore.ts`, `chessStore.ts`, `migrator.ts`, `fp.ts`) | Mission-critical modules | ✅ Pass |
 
 ---
 

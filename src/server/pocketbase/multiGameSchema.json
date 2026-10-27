@@ -334,6 +334,193 @@
         "CREATE INDEX idx_hist_snap_p10_code ON tbl_archived_p10_snapshots_history (txt_session_code)",
         "CREATE INDEX idx_hist_snap_p10_created ON tbl_archived_p10_snapshots_history (created)"
       ]
+    },
+    {
+      "name": "tbl_pok_sessions",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": "",
+      "updateRule": "",
+      "deleteRule": null,
+      "fields": [
+        { "name": "session_code", "type": "text", "required": true, "unique": true },
+        { "name": "variant", "type": "text", "required": true },
+        { "name": "status", "type": "select", "required": true, "values": ["lobby", "pre-flop", "flop", "turn", "river", "showdown", "settled"] },
+        { "name": "pot", "type": "number", "required": false },
+        { "name": "do_not_delete", "type": "bool", "required": false }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pok_session_code ON tbl_pok_sessions (session_code)",
+        "CREATE INDEX idx_pok_status ON tbl_pok_sessions (status)",
+        "CREATE INDEX idx_pok_do_not_delete ON tbl_pok_sessions (do_not_delete)",
+        "CREATE INDEX idx_pok_updated ON tbl_pok_sessions (updated)"
+      ]
+    },
+    {
+      "name": "tbl_archived_pok_snapshots",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_winner_name", "type": "text", "required": false },
+        { "name": "txt_variant", "type": "text", "required": true },
+        { "name": "int_final_pot", "type": "number", "required": false },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "json_snapshot_payload", "type": "json", "required": true }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_snap_pok_code ON tbl_archived_pok_snapshots (txt_session_code)",
+        "CREATE INDEX idx_snap_pok_created ON tbl_archived_pok_snapshots (created)"
+      ]
+    },
+    {
+      "name": "tbl_archived_pok_snapshots_history",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_session_code", "type": "text", "required": true },
+        { "name": "txt_winner_name", "type": "text", "required": false },
+        { "name": "txt_variant", "type": "text", "required": true },
+        { "name": "int_final_pot", "type": "number", "required": false },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "json_snapshot_payload", "type": "json", "required": true }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_hist_snap_pok_code ON tbl_archived_pok_snapshots_history (txt_session_code)",
+        "CREATE INDEX idx_hist_snap_pok_created ON tbl_archived_pok_snapshots_history (created)"
+      ]
+    },
+    {
+      "name": "tbl_skp_sessions",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": "",
+      "updateRule": "",
+      "deleteRule": null,
+      "fields": [
+        { "name": "session_code", "type": "text", "required": true, "unique": true },
+        { "name": "status", "type": "text", "required": true },
+        { "name": "stockpile_size", "type": "number", "required": false },
+        { "name": "building_piles_json", "type": "json", "required": false },
+        { "name": "do_not_delete", "type": "bool", "required": false }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_skp_session_code ON tbl_skp_sessions (session_code)",
+        "CREATE INDEX idx_skp_do_not_delete ON tbl_skp_sessions (do_not_delete)",
+        "CREATE INDEX idx_skp_updated ON tbl_skp_sessions (updated)"
+      ]
+    },
+    {
+      "name": "tbl_archived_skp_snapshots",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_winner_name", "type": "text", "required": false },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "json_snapshot_payload", "type": "json", "required": true }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_snap_skp_code ON tbl_archived_skp_snapshots (txt_session_code)",
+        "CREATE INDEX idx_snap_skp_created ON tbl_archived_skp_snapshots (created)"
+      ]
+    },
+    {
+      "name": "tbl_archived_skp_snapshots_history",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_session_code", "type": "text", "required": true },
+        { "name": "txt_winner_name", "type": "text", "required": false },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "json_snapshot_payload", "type": "json", "required": true }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_hist_snap_skp_code ON tbl_archived_skp_snapshots_history (txt_session_code)",
+        "CREATE INDEX idx_hist_snap_skp_created ON tbl_archived_skp_snapshots_history (created)"
+      ]
+    },
+    {
+      "name": "tbl_set_sessions",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": "",
+      "updateRule": "",
+      "deleteRule": null,
+      "fields": [
+        { "name": "session_code", "type": "text", "required": true, "unique": true },
+        { "name": "status", "type": "select", "required": true, "values": ["lobby", "playing", "concluded"] },
+        { "name": "deck_remaining", "type": "number", "required": false },
+        { "name": "claimed_sets_count", "type": "number", "required": false },
+        { "name": "table_cards_json", "type": "json", "required": false },
+        { "name": "winner_name", "type": "text", "required": false },
+        { "name": "do_not_delete", "type": "bool", "required": false }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_set_session_code ON tbl_set_sessions (session_code)",
+        "CREATE INDEX idx_set_status ON tbl_set_sessions (status)",
+        "CREATE INDEX idx_set_do_not_delete ON tbl_set_sessions (do_not_delete)",
+        "CREATE INDEX idx_set_updated ON tbl_set_sessions (updated)"
+      ]
+    },
+    {
+      "name": "tbl_archived_set_snapshots",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_winner_name", "type": "text", "required": false },
+        { "name": "int_claimed_sets", "type": "number", "required": false },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "json_snapshot_payload", "type": "json", "required": true }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_snap_set_code ON tbl_archived_set_snapshots (txt_session_code)",
+        "CREATE INDEX idx_snap_set_created ON tbl_archived_set_snapshots (created)"
+      ]
+    },
+    {
+      "name": "tbl_archived_set_snapshots_history",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_session_code", "type": "text", "required": true },
+        { "name": "txt_winner_name", "type": "text", "required": false },
+        { "name": "int_claimed_sets", "type": "number", "required": false },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "json_snapshot_payload", "type": "json", "required": true }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_hist_snap_set_code ON tbl_archived_set_snapshots_history (txt_session_code)",
+        "CREATE INDEX idx_hist_snap_set_created ON tbl_archived_set_snapshots_history (created)"
+      ]
     }
   ]
 }

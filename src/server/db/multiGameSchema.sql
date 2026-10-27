@@ -513,3 +513,107 @@ CREATE TABLE IF NOT EXISTS tbl_archived_skp_snapshots_history (
     json_snapshot_payload TEXT NOT NULL,
     created_at INTEGER NOT NULL
 );
+
+-- ============================================================================
+-- 7. SACRED GEOMETRY SET TABLES (GF(3)^4 FINITE GEOMETRY)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tbl_set_sessions (
+    id TEXT PRIMARY KEY,
+    session_code TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL CHECK (status IN ('lobby', 'playing', 'concluded')),
+    deck_remaining INTEGER NOT NULL DEFAULT 69,
+    claimed_sets_count INTEGER NOT NULL DEFAULT 0,
+    table_cards_json TEXT NOT NULL,
+    winner_name TEXT,
+    do_not_delete INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_set_session_code ON tbl_set_sessions (session_code);
+CREATE INDEX IF NOT EXISTS idx_set_status ON tbl_set_sessions (status);
+CREATE INDEX IF NOT EXISTS idx_set_do_not_delete ON tbl_set_sessions (do_not_delete);
+CREATE INDEX IF NOT EXISTS idx_set_updated_at ON tbl_set_sessions (updated_at);
+
+CREATE TABLE IF NOT EXISTS tbl_set_seats (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    is_bot INTEGER NOT NULL DEFAULT 1,
+    bot_model TEXT,
+    score INTEGER NOT NULL DEFAULT 0,
+    sets_found INTEGER NOT NULL DEFAULT 0,
+    penalties INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_set_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, seat_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_set_seats_session ON tbl_set_seats (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_set_moves (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    action_type TEXT NOT NULL,
+    cards_json TEXT NOT NULL,
+    is_valid_set INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_set_sessions (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_set_moves_session ON tbl_set_moves (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_set_events (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    event_seq INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_set_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, event_seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_set_events_session ON tbl_set_events (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_archived_set_snapshots (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL UNIQUE,
+    txt_winner_name TEXT,
+    int_claimed_sets INTEGER NOT NULL DEFAULT 0,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    json_snapshot_payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_snap_set_code ON tbl_archived_set_snapshots (txt_session_code);
+CREATE INDEX IF NOT EXISTS idx_snap_set_created ON tbl_archived_set_snapshots (created_at);
+
+CREATE TABLE IF NOT EXISTS tbl_archived_set_snapshots_history (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL,
+    txt_winner_name TEXT,
+    int_claimed_sets INTEGER NOT NULL DEFAULT 0,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    json_snapshot_payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_hist_snap_set_code ON tbl_archived_set_snapshots_history (txt_session_code);
+CREATE INDEX IF NOT EXISTS idx_hist_snap_set_created ON tbl_archived_set_snapshots_history (created_at);
+
+-- ============================================================================
+-- 8. COMPOSITE CLEANUP & ARCHIVAL INDEXES FOR ALL LIVE ARCADE GAMES
+-- Optimizes semi-daily 3+ day stale session queries: (do_not_delete, updated_at, status)
+-- ============================================================================
+CREATE INDEX IF NOT EXISTS idx_bjk_cleanup_composite ON tbl_bjk_sessions (do_not_delete, updated_at, status);
+CREATE INDEX IF NOT EXISTS idx_res_cleanup_composite ON tbl_res_sessions (do_not_delete, updated_at, status);
+CREATE INDEX IF NOT EXISTS idx_uno_cleanup_composite ON tbl_uno_sessions (do_not_delete, updated_at, status);
+CREATE INDEX IF NOT EXISTS idx_p10_cleanup_composite ON tbl_p10_sessions (do_not_delete, updated_at, status);
+CREATE INDEX IF NOT EXISTS idx_pok_cleanup_composite ON tbl_pok_sessions (do_not_delete, updated_at, status);
+CREATE INDEX IF NOT EXISTS idx_skp_cleanup_composite ON tbl_skp_sessions (do_not_delete, updated_at, status);
+CREATE INDEX IF NOT EXISTS idx_set_cleanup_composite ON tbl_set_sessions (do_not_delete, updated_at, status);
