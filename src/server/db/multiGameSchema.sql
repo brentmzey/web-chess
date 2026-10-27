@@ -38,6 +38,55 @@ CREATE TABLE IF NOT EXISTS tbl_bjk_hands (
 
 CREATE INDEX IF NOT EXISTS idx_bjk_hand_session ON tbl_bjk_hands (session_id);
 
+CREATE TABLE IF NOT EXISTS tbl_bjk_seats (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    is_bot INTEGER NOT NULL DEFAULT 1,
+    bot_model TEXT,
+    chip_bank REAL NOT NULL DEFAULT 500,
+    current_bet REAL NOT NULL DEFAULT 25,
+    cards_json TEXT,
+    hand_total INTEGER DEFAULT 0,
+    hand_status TEXT NOT NULL DEFAULT 'waiting',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_bjk_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, seat_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bjk_seats_session ON tbl_bjk_seats (session_id);
+CREATE INDEX IF NOT EXISTS idx_bjk_seats_is_bot ON tbl_bjk_seats (is_bot);
+
+CREATE TABLE IF NOT EXISTS tbl_bjk_moves (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    round_number INTEGER NOT NULL,
+    action TEXT NOT NULL,
+    card_json TEXT,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_bjk_sessions (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_bjk_moves_session ON tbl_bjk_moves (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_bjk_events (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    event_seq INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_bjk_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, event_seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bjk_events_session ON tbl_bjk_events (session_id);
+CREATE INDEX IF NOT EXISTS idx_bjk_events_seq ON tbl_bjk_events (session_id, event_seq);
+
 CREATE TABLE IF NOT EXISTS tbl_archived_bjk_snapshots (
     id TEXT PRIMARY KEY,
     txt_session_code TEXT NOT NULL UNIQUE,
@@ -96,6 +145,37 @@ CREATE TABLE IF NOT EXISTS tbl_res_missions (
 
 CREATE INDEX IF NOT EXISTS idx_res_mission_session ON tbl_res_missions (session_id);
 
+CREATE TABLE IF NOT EXISTS tbl_res_seats (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    is_bot INTEGER NOT NULL DEFAULT 1,
+    bot_model TEXT,
+    role TEXT NOT NULL DEFAULT 'Loyal Servant of Arthur',
+    allegiance TEXT NOT NULL DEFAULT 'good',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_res_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, seat_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_res_seats_session ON tbl_res_seats (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_res_events (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    event_seq INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_res_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, event_seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_res_events_session ON tbl_res_events (session_id);
+
 CREATE TABLE IF NOT EXISTS tbl_archived_res_snapshots (
     id TEXT PRIMARY KEY,
     txt_session_code TEXT NOT NULL UNIQUE,
@@ -140,6 +220,37 @@ CREATE TABLE IF NOT EXISTS tbl_uno_sessions (
 CREATE INDEX IF NOT EXISTS idx_uno_session_code ON tbl_uno_sessions (session_code);
 CREATE INDEX IF NOT EXISTS idx_uno_do_not_delete ON tbl_uno_sessions (do_not_delete);
 
+CREATE TABLE IF NOT EXISTS tbl_uno_seats (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    is_bot INTEGER NOT NULL DEFAULT 1,
+    bot_model TEXT,
+    card_count INTEGER NOT NULL DEFAULT 7,
+    cards_json TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_uno_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, seat_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_uno_seats_session ON tbl_uno_seats (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_uno_events (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    event_seq INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_uno_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, event_seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_uno_events_session ON tbl_uno_events (session_id);
+
 CREATE TABLE IF NOT EXISTS tbl_archived_uno_snapshots (
     id TEXT PRIMARY KEY,
     txt_session_code TEXT NOT NULL UNIQUE,
@@ -177,6 +288,39 @@ CREATE TABLE IF NOT EXISTS tbl_p10_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_p10_session_code ON tbl_p10_sessions (session_code);
 CREATE INDEX IF NOT EXISTS idx_p10_do_not_delete ON tbl_p10_sessions (do_not_delete);
+
+CREATE TABLE IF NOT EXISTS tbl_p10_seats (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    is_bot INTEGER NOT NULL DEFAULT 1,
+    bot_model TEXT,
+    current_phase INTEGER NOT NULL DEFAULT 1,
+    phase_completed INTEGER NOT NULL DEFAULT 0,
+    score INTEGER NOT NULL DEFAULT 0,
+    cards_json TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_p10_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, seat_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_p10_seats_session ON tbl_p10_seats (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_p10_events (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    event_seq INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_p10_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, event_seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_p10_events_session ON tbl_p10_events (session_id);
 
 CREATE TABLE IF NOT EXISTS tbl_archived_p10_snapshots (
     id TEXT PRIMARY KEY,

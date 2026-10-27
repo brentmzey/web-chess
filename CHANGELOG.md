@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.19] - 2026-10-26
+### Added
+- **Dynamic Multi-Seat Table Allocation & Bot Hot-Swapping (`src/games/multiplayer/tableSeatManager.ts`)**:
+  - Engineered generic, functional `TableSeatManager` supporting arbitrary player capacities (5-7 in Blackjack, 5-10 in Avalon, 2-10 in Uno, 2-6 in Phase 10).
+  - Dynamic Bot Pre-Fill: Automatically populates empty seats with AI bots (`minimax`, `micro-neural`, `gemini-nano`) so matches start instantly without waiting for a lobby to fill.
+  - Seamless Bot Hot-Swap on Player Join (`claimSeat`): Automatically replaces the seated AI bot with the incoming human player without interrupting the table state.
+  - Dynamic AI Replacement on Player Disconnect/Leave (`vacateSeat`): Instantly hot-swaps an AI bot back into an abandoned seat, maintaining hand continuity and preventing table freezes.
+- **Multi-Player (>2) Gothic Blackjack Engine (`src/games/blackjack/blackjackMultiSeatEngine.ts`)**:
+  - Implemented 5-seat multiplayer Gothic Blackjack table engine supporting multiple simultaneous human players alongside AI opponents.
+  - Includes 6-deck shoe dealing, dealer Soft 17 rules, sequential multi-seat turns, bot auto-play heuristics, human player actions (`hit`, `stand`, `double`), and casino payout settlements (3:2 natural blackjack, 1:1 wins, ties push, busts lose).
+- **Dedicated Hungarian Database Tables, Tracing & History Partitions (`src/server/db/multiGameSchema.sql`, `src/server/pocketbase/multiGameSchema.json`, `src/server/services/multiGameService.ts`)**:
+  - Added dedicated seats, moves, events, and snapshot partition tables across Blackjack (`tbl_bjk_*`), Avalon (`tbl_res_*`), Uno (`tbl_uno_*`), and Phase 10 (`tbl_p10_*`).
+  - Implemented `MultiGameService` with structured tracing (`[SERVER_SIDE] [BJK_TRACE]`, `[RES_TRACE]`, etc.), snapshot archival with `bln_do_not_delete` support, and transaction-safe migrations to history partitions (`tbl_archived_<game>_snapshots_history`).
+- **Scene & Background Environments Roadmap (`docs/SCENE_THEMES_ROADMAP.md`)**:
+  - Established procedural 3D environment architecture and rollout plan for Courtroom (High Court of Justice), Royal Palace (Throne Room), Grand Monastic Library (Scriptorium), and Alchemical Crucible while maintaining the High Gothic Basilica as default.
+- **Testing & Verification (`tests/tableSeatManager.test.ts`, `tests/blackjackMultiSeatEngine.test.ts`, `tests/multiGameService.test.ts`)**:
+  - Added 18 new unit & integration tests covering multi-seat capacity, bot filling, hot swapping, multi-player rounds, and database cascade deletion with 260 total passing tests across 35 files.
+
 ## [1.2.0-rc.18] - 2026-10-26
 ### Added
 - **Live Chess Match Stalemate & Checkmate Exit UX (`index.html`, `src/ui/uiController.ts`, `src/main.ts`)**:

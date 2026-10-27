@@ -50,6 +50,32 @@
       ]
     },
     {
+      "name": "tbl_bjk_seats",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": "",
+      "updateRule": "",
+      "deleteRule": null,
+      "fields": [
+        { "name": "session", "type": "relation", "required": true, "collectionName": "tbl_bjk_sessions", "cascadeDelete": true },
+        { "name": "seat_number", "type": "number", "required": true },
+        { "name": "player_id", "type": "text", "required": true },
+        { "name": "player_name", "type": "text", "required": true },
+        { "name": "is_bot", "type": "bool", "required": true },
+        { "name": "bot_model", "type": "text", "required": false },
+        { "name": "chip_bank", "type": "number", "required": true },
+        { "name": "current_bet", "type": "number", "required": true },
+        { "name": "cards_json", "type": "json", "required": false },
+        { "name": "hand_total", "type": "number", "required": false },
+        { "name": "hand_status", "type": "text", "required": true }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_bjk_seat_session ON tbl_bjk_seats (session)",
+        "CREATE UNIQUE INDEX idx_bjk_seat_number ON tbl_bjk_seats (session, seat_number)"
+      ]
+    },
+    {
       "name": "tbl_archived_bjk_snapshots",
       "type": "base",
       "listRule": "",
