@@ -1,6 +1,7 @@
 import { fromNullable, Option, some, none } from '../utils/fp';
+import { ArcadeGameEnum, GameCodePrefixEnum } from '../constants/gameEnums';
 
-export type ArcadeGameType = 'chess' | 'blackjack' | 'avalon' | 'uno' | 'phase10';
+export type ArcadeGameType = 'chess' | 'blackjack' | 'avalon' | 'uno' | 'phase10' | 'poker' | ArcadeGameEnum;
 
 export interface ArcadeGameMetadata {
   id: ArcadeGameType;
@@ -15,12 +16,12 @@ export interface ArcadeGameMetadata {
   phaseNumber: number;
 }
 
-export const ARCADE_GAMES: Record<ArcadeGameType, ArcadeGameMetadata> = {
-  chess: {
-    id: 'chess',
+export const ARCADE_GAMES: Record<string, ArcadeGameMetadata> = {
+  [ArcadeGameEnum.Chess]: {
+    id: ArcadeGameEnum.Chess,
     title: "Wizard's Chess 3D",
     tagline: 'Articulated High Gothic Cathedral Chess with procedural acoustics & AI.',
-    codePrefix: 'SANCT-',
+    codePrefix: GameCodePrefixEnum.Sanctuary,
     minPlayers: 1,
     maxPlayers: 2,
     icon: 'church',
@@ -28,23 +29,23 @@ export const ARCADE_GAMES: Record<ArcadeGameType, ArcadeGameMetadata> = {
     isAvailable: true,
     phaseNumber: 1
   },
-  blackjack: {
-    id: 'blackjack',
+  [ArcadeGameEnum.Blackjack]: {
+    id: ArcadeGameEnum.Blackjack,
     title: 'Gothic Blackjack',
     tagline: 'High-stakes sanctuary card tables against the Cathedral Dealer.',
-    codePrefix: 'BJK-',
+    codePrefix: GameCodePrefixEnum.Blackjack,
     minPlayers: 1,
     maxPlayers: 7,
     icon: 'playing_cards',
-    badgeText: 'Phase 2 Preview',
-    isAvailable: false,
+    badgeText: 'Live & Playable',
+    isAvailable: true,
     phaseNumber: 2
   },
-  avalon: {
-    id: 'avalon',
+  [ArcadeGameEnum.Avalon]: {
+    id: ArcadeGameEnum.Avalon,
     title: 'The Resistance: Avalon',
     tagline: 'Holy Knights vs Mordred Minions. Secret voting, quests & assassinations.',
-    codePrefix: 'AVALON-',
+    codePrefix: GameCodePrefixEnum.Avalon,
     minPlayers: 5,
     maxPlayers: 10,
     icon: 'swords',
@@ -52,11 +53,11 @@ export const ARCADE_GAMES: Record<ArcadeGameType, ArcadeGameMetadata> = {
     isAvailable: false,
     phaseNumber: 3
   },
-  uno: {
-    id: 'uno',
+  [ArcadeGameEnum.Uno]: {
+    id: ArcadeGameEnum.Uno,
     title: 'Cardinal Uno',
     tagline: 'Cathedral stained glass color matching with Reverse, Skip, & Wild +4.',
-    codePrefix: 'UNO-',
+    codePrefix: GameCodePrefixEnum.Uno,
     minPlayers: 2,
     maxPlayers: 8,
     icon: 'style',
@@ -64,17 +65,29 @@ export const ARCADE_GAMES: Record<ArcadeGameType, ArcadeGameMetadata> = {
     isAvailable: false,
     phaseNumber: 4
   },
-  phase10: {
-    id: 'phase10',
+  [ArcadeGameEnum.Phase10]: {
+    id: ArcadeGameEnum.Phase10,
     title: 'Ten Rites (Phase 10)',
     tagline: 'Master the 10 liturgical card rites: sets, runs, and sacred melds.',
-    codePrefix: 'P10-',
+    codePrefix: GameCodePrefixEnum.Phase10,
     minPlayers: 2,
     maxPlayers: 6,
     icon: 'auto_stories',
     badgeText: 'Phase 5 Preview',
     isAvailable: false,
     phaseNumber: 5
+  },
+  [ArcadeGameEnum.Poker]: {
+    id: ArcadeGameEnum.Poker,
+    title: 'Cathedral Poker',
+    tagline: "Texas Hold'em, Omaha & Stud variants with high-stakes sanctuary blinds.",
+    codePrefix: GameCodePrefixEnum.Poker,
+    minPlayers: 2,
+    maxPlayers: 9,
+    icon: 'token',
+    badgeText: 'Phase 6 In Architecture',
+    isAvailable: false,
+    phaseNumber: 6
   }
 };
 
@@ -86,18 +99,19 @@ export interface RouteResolution {
 }
 
 /**
- * Detects the game type from a session code prefix (e.g. SANCT-, BJK-, AVALON-, UNO-, P10-).
+ * Detects the game type from a session code prefix (e.g. SANCT-, BJK-, AVALON-, UNO-, P10-, POKER-).
  */
 export function detectGameFromSessionCode(code: string): ArcadeGameType {
   const normalized = code.trim().toUpperCase();
-  if (normalized.startsWith('SANCT-')) return 'chess';
-  if (normalized.startsWith('BJK-')) return 'blackjack';
-  if (normalized.startsWith('AVALON-')) return 'avalon';
-  if (normalized.startsWith('UNO-')) return 'uno';
-  if (normalized.startsWith('P10-')) return 'phase10';
+  if (normalized.startsWith(GameCodePrefixEnum.Sanctuary)) return ArcadeGameEnum.Chess;
+  if (normalized.startsWith(GameCodePrefixEnum.Blackjack)) return ArcadeGameEnum.Blackjack;
+  if (normalized.startsWith(GameCodePrefixEnum.Avalon)) return ArcadeGameEnum.Avalon;
+  if (normalized.startsWith(GameCodePrefixEnum.Uno)) return ArcadeGameEnum.Uno;
+  if (normalized.startsWith(GameCodePrefixEnum.Phase10)) return ArcadeGameEnum.Phase10;
+  if (normalized.startsWith(GameCodePrefixEnum.Poker)) return ArcadeGameEnum.Poker;
 
   // Default fallback for legacy or custom session codes
-  return 'chess';
+  return ArcadeGameEnum.Chess;
 }
 
 /**

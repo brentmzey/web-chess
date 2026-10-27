@@ -128,4 +128,33 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
     expect(p10Res.getOrThrow().session_code).toBe('P10-DELTA');
     expect(p10Res.getOrThrow().do_not_delete).toBe(1);
   });
+
+  it('manages Cathedral Poker sessions, multi-seats, and snapshot archival', () => {
+    const db = initDb();
+    const service = new MultiGameService(db);
+
+    const pokerRes = service.createPokerSession('POKER-EPSILON', 'texas-holdem', 10, 20, true);
+    expect(pokerRes.isSuccess()).toBe(true);
+    const session = pokerRes.getOrThrow();
+    expect(session.session_code).toBe('POKER-EPSILON');
+    expect(session.do_not_delete).toBe(1);
+
+    // Register seats
+    const seat1 = service.registerPokerSeat(session.id, 1, 'usr_p1', 'HighRoller', false, 2500);
+    const seat2 = service.registerPokerSeat(session.id, 2, 'bot_p2', 'PokerBot #2', true, 1000, 'micro-neural');
+    expect(seat1.isSuccess()).toBe(true);
+    expect(seat2.isSuccess()).toBe(true);
+
+    // Archive snapshot
+    const snapRes = service.archivePokerSnapshot(
+      'POKER-EPSILON',
+      'HighRoller',
+      'texas-holdem',
+      500,
+      { winningHand: 'Full House' },
+      true
+    );
+    expect(snapRes.isSuccess()).toBe(true);
+    expect(snapRes.getOrThrow().bln_do_not_delete).toBe(1);
+  });
 });

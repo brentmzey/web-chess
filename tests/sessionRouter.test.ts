@@ -19,6 +19,8 @@ describe('Sanctuary Arcade Session Router & URL Deep-Linking', () => {
     expect(detectGameFromSessionCode('uno-reverse')).toBe('uno');
     expect(detectGameFromSessionCode('P10-RITE10')).toBe('phase10');
     expect(detectGameFromSessionCode('p10-meld')).toBe('phase10');
+    expect(detectGameFromSessionCode('POKER-ROYAL')).toBe('poker');
+    expect(detectGameFromSessionCode('poker-texas')).toBe('poker');
 
     // Unknown or legacy code defaults gracefully to chess
     expect(detectGameFromSessionCode('UNKNOWN-CODE')).toBe('chess');
@@ -104,8 +106,8 @@ describe('Sanctuary Arcade Session Router & URL Deep-Linking', () => {
     expect(bjkUrl).toBe('https://web-chess.netlify.app/?game=blackjack&session=BJK-1122');
   });
 
-  it('contains complete metadata for all 5 Sanctuary Arcade games in ARCADE_GAMES', () => {
-    const expectedGames = ['chess', 'blackjack', 'avalon', 'uno', 'phase10'] as const;
+  it('contains complete metadata for all Sanctuary Arcade games in ARCADE_GAMES', () => {
+    const expectedGames = ['chess', 'blackjack', 'avalon', 'uno', 'phase10', 'poker'] as const;
     for (const g of expectedGames) {
       const meta = ARCADE_GAMES[g];
       expect(meta).toBeDefined();

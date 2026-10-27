@@ -345,4 +345,118 @@ export class MultiGameService {
       err => `Failed to create phase 10 session: ${String(err)}`
     );
   }
+
+  // ============================================================================
+  // 5. CATHEDRAL POKER (tbl_pok_*)
+  // ============================================================================
+
+  public createPokerSession(
+    sessionCode: string,
+    variant: string = 'texas-holdem',
+    smallBlind: number = 10,
+    bigBlind: number = 20,
+    doNotDelete: boolean = false
+  ): Result<MultiGameSessionRecord, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        this.db
+          .prepare(
+            `INSERT INTO tbl_pok_sessions (id, session_code, variant, status, pot, current_bet, small_blind, big_blind, dealer_seat, do_not_delete, created_at, updated_at)
+             VALUES (?, ?, ?, 'lobby', 0, 0, ?, ?, 1, ?, ?, ?)`
+          )
+          .run(id, sessionCode, variant, smallBlind, bigBlind, doNotDelete ? 1 : 0, now, now);
+
+        logger.info(`[SERVER_SIDE] [POKER_TRACE] Created Poker session ${sessionCode} (${variant}, id=${id})`);
+
+        return {
+          id,
+          session_code: sessionCode,
+          status: 'lobby',
+          do_not_delete: doNotDelete ? 1 : 0,
+          created_at: now,
+          updated_at: now
+        };
+      },
+      err => `Failed to create poker session: ${String(err)}`
+    );
+  }
+
+  public registerPokerSeat(
+    sessionId: string,
+    seatNumber: number,
+    playerId: string,
+    playerName: string,
+    isBot: boolean,
+    chips: number = 1000,
+    botModel?: string
+  ): Result<MultiGameSeatRecord, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        this.db
+          .prepare(
+            `INSERT OR REPLACE INTO tbl_pok_seats (id, session_id, seat_number, player_id, player_name, is_bot, bot_model, chips, current_bet, folded, is_all_in, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)`
+          )
+          .run(id, sessionId, seatNumber, playerId, playerName, isBot ? 1 : 0, botModel ?? null, chips, now, now);
+
+        logger.info(
+          `[SERVER_SIDE] [POKER_TRACE] Seat ${seatNumber} registered for Poker ${sessionId}: ${playerName} (chips=${chips}, isBot=${isBot})`
+        );
+
+        return {
+          id,
+          session_id: sessionId,
+          seat_number: seatNumber,
+          player_id: playerId,
+          player_name: playerName,
+          is_bot: isBot ? 1 : 0,
+          bot_model: botModel,
+          created_at: now,
+          updated_at: now
+        };
+      },
+      err => `Failed to register poker seat: ${String(err)}`
+    );
+  }
+
+  public archivePokerSnapshot(
+    sessionCode: string,
+    winnerName: string,
+    variant: string,
+    finalPot: number,
+    payload: Record<string, unknown>,
+    doNotDelete: boolean = false
+  ): Result<MultiGameSnapshotRecord, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        const payloadJson = JSON.stringify(payload);
+
+        this.db
+          .prepare(
+            `INSERT OR REPLACE INTO tbl_archived_pok_snapshots
+             (id, txt_session_code, txt_winner_name, txt_variant, int_final_pot, bln_do_not_delete, json_snapshot_payload, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .run(id, sessionCode, winnerName, variant, finalPot, doNotDelete ? 1 : 0, payloadJson, now);
+
+        logger.info(`[SERVER_SIDE] [POKER_TRACE] Archived snapshot for ${sessionCode} into tbl_archived_pok_snapshots`);
+
+        return {
+          id,
+          txt_session_code: sessionCode,
+          txt_outcome: winnerName,
+          bln_do_not_delete: doNotDelete ? 1 : 0,
+          json_snapshot_payload: payloadJson,
+          created_at: now
+        };
+      },
+      err => `Failed to archive poker snapshot: ${String(err)}`
+    );
+  }
 }

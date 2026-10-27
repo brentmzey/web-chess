@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.20] - 2026-10-26
+### Added
+- **Centralized Game Enums & Constants Suite (`src/constants/gameEnums.ts`, `src/types/index.ts`)**:
+  - Eliminated ad-hoc string literals across the game engine architectures by creating strict TypeScript Enums and constant types.
+  - Added `ArcadeGameEnum` (`Chess`, `Blackjack`, `Avalon`, `Uno`, `Phase10`, `Poker`) and `GameCodePrefixEnum` (`SANCT-`, `BJK-`, `AVALON-`, `UNO-`, `P10-`, `POKER-`).
+  - Added `CardSuitEnum` (`Hearts`, `Diamonds`, `Clubs`, `Spades`), `CardValueEnum` (`Two` through `Ace`), `CARD_SUITS`, `CARD_VALUES`.
+  - Added `AIModelEnum`, `DifficultyEnum`, `BlackjackActionEnum`, `BlackjackStageEnum`, `BlackjackOutcomeEnum`.
+  - Added `HotSwapActionEnum`, `SeatHandStatusEnum`, `LiveRoleEnum`.
+  - Added `PokerVariantEnum`, `PokerStageEnum`, `PokerActionEnum`, `PokerHandRankEnum`, and `POKER_HAND_VALUES`.
+  - Re-exported all enums and constants through `src/types/index.ts` for unified import patterns.
+- **Cathedral Poker Multi-Variant Engine & Hand Evaluator (`src/games/poker/pokerEngine.ts`)**:
+  - Engineered pure functional `CathedralPokerEngine` supporting Texas Hold'em and Omaha variants.
+  - Implemented exhaustive 10-tier poker hand evaluator (`RoyalFlush`, `StraightFlush`, `FourOfAKind`, `FullHouse`, `Flush`, `Straight`, `ThreeOfAKind`, `TwoPair`, `OnePair`, `HighCard`) with support for A-2-3-4-5 wheel straights and deep kicker tie-breaking.
+  - Multi-seat betting engine featuring blind deductions, dealing phases (PreFlop, Flop, Turn, River, Showdown), action handling (`Fold`, `Check`, `Call`, `Bet`, `Raise`), and side-pot capable pot distribution.
+- **Dedicated Poker Hungarian Database Schema & Observability (`src/server/db/multiGameSchema.sql`, `src/server/services/multiGameService.ts`)**:
+  - Added Hungarian-prefixed tables: `tbl_pok_sessions`, `tbl_pok_seats`, `tbl_pok_moves`, `tbl_pok_events`, `tbl_archived_pok_snapshots`, and `tbl_archived_pok_snapshots_history`.
+  - Enhanced `MultiGameService` with structured tracing (`[SERVER_SIDE] [POKER_TRACE]`), snapshot persistence, and cold storage partition transfers.
+- **Universal Session Router Poker Support (`src/routing/sessionRouter.ts`)**:
+  - Added `ArcadeGameEnum.Poker` routing metadata, display titles, and `POKER-` session code recognition.
+- **Comprehensive Unit Testing Suite (`tests/pokerEngine.test.ts`, `tests/multiGameService.test.ts`, `tests/sessionRouter.test.ts`)**:
+  - Added 5 new poker evaluator tests covering Texas Hold'em & Omaha rounds, hand rank calculations, and betting dynamics.
+  - Expanded `MultiGameService` and `SessionRouter` test suites to cover poker session lifecycle and routing.
+  - All 267 tests passing with >98.8% line and branch coverage.
+
 ## [1.2.0-rc.19] - 2026-10-26
 ### Added
 - **Dynamic Multi-Seat Table Allocation & Bot Hot-Swapping (`src/games/multiplayer/tableSeatManager.ts`)**:

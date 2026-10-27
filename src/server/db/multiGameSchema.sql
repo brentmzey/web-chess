@@ -341,3 +341,94 @@ CREATE TABLE IF NOT EXISTS tbl_archived_p10_snapshots_history (
     json_snapshot_payload TEXT NOT NULL,
     created_at INTEGER NOT NULL
 );
+
+-- ============================================================================
+-- 5. CATHEDRAL POKER TABLES
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tbl_pok_sessions (
+    id TEXT PRIMARY KEY,
+    session_code TEXT NOT NULL UNIQUE,
+    variant TEXT NOT NULL DEFAULT 'texas-holdem',
+    status TEXT NOT NULL CHECK (status IN ('lobby', 'pre-flop', 'flop', 'turn', 'river', 'showdown', 'settled')),
+    pot REAL NOT NULL DEFAULT 0,
+    current_bet REAL NOT NULL DEFAULT 0,
+    small_blind REAL NOT NULL DEFAULT 10,
+    big_blind REAL NOT NULL DEFAULT 20,
+    dealer_seat INTEGER NOT NULL DEFAULT 1,
+    do_not_delete INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pok_session_code ON tbl_pok_sessions (session_code);
+CREATE INDEX IF NOT EXISTS idx_pok_status ON tbl_pok_sessions (status);
+CREATE INDEX IF NOT EXISTS idx_pok_do_not_delete ON tbl_pok_sessions (do_not_delete);
+
+CREATE TABLE IF NOT EXISTS tbl_pok_seats (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    is_bot INTEGER NOT NULL DEFAULT 1,
+    bot_model TEXT,
+    chips REAL NOT NULL DEFAULT 1000,
+    current_bet REAL NOT NULL DEFAULT 0,
+    folded INTEGER NOT NULL DEFAULT 0,
+    is_all_in INTEGER NOT NULL DEFAULT 0,
+    cards_json TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_pok_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, seat_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pok_seats_session ON tbl_pok_seats (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_pok_moves (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    stage TEXT NOT NULL,
+    action TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_pok_sessions (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_pok_moves_session ON tbl_pok_moves (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_pok_events (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    event_seq INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_pok_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, event_seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pok_events_session ON tbl_pok_events (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_archived_pok_snapshots (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL UNIQUE,
+    txt_winner_name TEXT,
+    txt_variant TEXT NOT NULL,
+    int_final_pot REAL NOT NULL,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    json_snapshot_payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tbl_archived_pok_snapshots_history (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL,
+    txt_winner_name TEXT,
+    txt_variant TEXT NOT NULL,
+    int_final_pot REAL NOT NULL,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    json_snapshot_payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);

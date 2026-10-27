@@ -270,4 +270,7 @@ export interface DeviceProfileConfig {
   notice: string;
 }
 
+export * from '../constants/gameEnums';
+
+
 

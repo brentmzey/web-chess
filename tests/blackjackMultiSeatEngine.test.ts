@@ -12,6 +12,23 @@ describe('BlackjackMultiSeatEngine - Multi-Player (>2) Table Dynamics & Bot Fill
     expect(engine.seatManager.getHumanCount()).toBe(0);
   });
 
+  it('automatically plays full round for AI bot seats across all AI models', () => {
+    const engine = new BlackjackMultiSeatEngine(3, 10, 500);
+    engine.seatManager.fillEmptySeatsWithBots('minimax', 'BotMinimax');
+    engine.seatManager.getSeat(2).map(s => {
+      s.botModel = s.botModel.map(() => 'gemini-nano');
+    });
+    engine.seatManager.getSeat(3).map(s => {
+      s.botModel = s.botModel.map(() => 'micro-neural');
+    });
+
+    const startRes = engine.startRound();
+    expect(startRes.isSuccess()).toBe(true);
+    // Since all 3 seats are bots, all 3 seats auto-play and advance to dealer automatically!
+    expect(engine.state.stage).toBe('round-settled');
+    expect(engine.seatManager.getOccupiedSeats().every(s => s.extraData.status === 'settled')).toBe(true);
+  });
+
   it('allows multiple human players (>2) to sit alongside bots', () => {
     const engine = new BlackjackMultiSeatEngine(5, 10, 500);
     engine.populateBotOpponents('minimax');

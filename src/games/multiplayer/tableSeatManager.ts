@@ -1,5 +1,6 @@
 import { Option, Result, fromNullable, none, some, success, failure } from '../../utils/fp';
 import { logger } from '../../utils/logger';
+import { HotSwapActionEnum, AIModelEnum } from '../../constants/gameEnums';
 
 export interface TableSeat<TPlayerData = Record<string, unknown>> {
   seatNumber: number;
@@ -13,7 +14,7 @@ export interface TableSeat<TPlayerData = Record<string, unknown>> {
 
 export interface HotSwapEvent {
   seatNumber: number;
-  action: 'bot_filled' | 'human_claimed' | 'human_vacated_bot_restored';
+  action: HotSwapActionEnum | 'bot_filled' | 'human_claimed' | 'human_vacated_bot_restored';
   previousPlayerName: string;
   newPlayerName: string;
   isBot: boolean;
@@ -31,7 +32,7 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
   constructor(
     maxSeats: number,
     minSeats: number = 2,
-    defaultBotModel: string = 'micro-neural'
+    defaultBotModel: string = AIModelEnum.MicroNeural
   ) {
     this.maxSeats = maxSeats;
     this.minSeats = minSeats;

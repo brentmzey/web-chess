@@ -8,14 +8,20 @@ import {
 } from './blackjackEngine';
 import { TableSeatManager, TableSeat } from '../multiplayer/tableSeatManager';
 import { logger } from '../../utils/logger';
+import {
+  SeatHandStatusEnum,
+  BlackjackOutcomeEnum,
+  BlackjackStageEnum,
+  AIModelEnum
+} from '../../constants/gameEnums';
 
 export interface MultiSeatPlayerData {
   chipBank: number;
   currentBet: number;
   cards: PlayingCard[];
   evaluation: BlackjackHandEvaluation;
-  status: 'waiting' | 'betting' | 'playing' | 'stood' | 'busted' | 'blackjack' | 'settled';
-  outcome: 'in-progress' | 'won' | 'lost' | 'push' | 'blackjack';
+  status: SeatHandStatusEnum | 'waiting' | 'betting' | 'playing' | 'stood' | 'busted' | 'blackjack' | 'settled';
+  outcome: BlackjackOutcomeEnum | 'in-progress' | 'won' | 'lost' | 'push' | 'blackjack';
 }
 
 export interface MultiSeatBlackjackState {
@@ -23,7 +29,7 @@ export interface MultiSeatBlackjackState {
   dealerHand: PlayingCard[];
   dealerEvaluation: BlackjackHandEvaluation;
   activeSeatTurn: Option<number>;
-  stage: 'betting' | 'dealing' | 'player-turns' | 'dealer-turn' | 'round-settled';
+  stage: BlackjackStageEnum | 'betting' | 'dealing' | 'player-turns' | 'dealer-turn' | 'round-settled';
   roundNumber: number;
   historyText: string[];
 }
@@ -38,7 +44,7 @@ export class BlackjackMultiSeatEngine {
     maxSeats: number = 5,
     minBet: number = 10,
     maxBet: number = 500,
-    defaultBotModel: BlackjackAIModel = 'micro-neural'
+    defaultBotModel: BlackjackAIModel = AIModelEnum.MicroNeural
   ) {
     this.minBet = minBet;
     this.maxBet = maxBet;

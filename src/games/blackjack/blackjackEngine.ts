@@ -1,8 +1,18 @@
 import { match } from '../../utils/fp';
 import { DeviceTierEnum } from '../../types';
+import {
+  CardSuitEnum,
+  CardValueEnum,
+  CARD_SUITS,
+  CARD_VALUES,
+  AIModelEnum,
+  DifficultyEnum,
+  BlackjackOutcomeEnum,
+  BlackjackStageEnum
+} from '../../constants/gameEnums';
 
-export type CardSuit = 'hearts' | 'diamonds' | 'clubs' | 'spades';
-export type CardValue = '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K' | 'A';
+export type CardSuit = CardSuitEnum | 'hearts' | 'diamonds' | 'clubs' | 'spades';
+export type CardValue = CardValueEnum | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K' | 'A';
 
 export interface PlayingCard {
   suit: CardSuit;
@@ -10,8 +20,8 @@ export interface PlayingCard {
   faceUp: boolean;
 }
 
-export type BlackjackAIModel = 'minimax' | 'micro-neural' | 'gemini-nano';
-export type BlackjackDifficulty = 'cautious' | 'balanced' | 'ruthless';
+export type BlackjackAIModel = AIModelEnum | 'minimax' | 'micro-neural' | 'gemini-nano';
+export type BlackjackDifficulty = DifficultyEnum | 'cautious' | 'balanced' | 'ruthless';
 
 export interface BlackjackHandEvaluation {
   total: number;
@@ -26,31 +36,37 @@ export interface BlackjackGameState {
   dealerHand: PlayingCard[];
   chipBank: number;
   currentBet: number;
-  stage: 'betting' | 'player-turn' | 'dealer-turn' | 'round-over';
-  outcome: 'in-progress' | 'player-won' | 'player-blackjack' | 'dealer-won' | 'push' | 'player-busted' | 'dealer-busted';
+  stage: BlackjackStageEnum | 'betting' | 'player-turn' | 'dealer-turn' | 'round-over';
+  outcome:
+    | BlackjackOutcomeEnum
+    | 'in-progress'
+    | 'player-won'
+    | 'player-blackjack'
+    | 'dealer-won'
+    | 'push'
+    | 'player-busted'
+    | 'dealer-busted';
   aiModel: BlackjackAIModel;
   difficulty: BlackjackDifficulty;
   historyText: string[];
 }
 
 const SUIT_SYMBOLS: Record<CardSuit, string> = {
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
-  spades: '♠'
+  [CardSuitEnum.Hearts]: '♥',
+  [CardSuitEnum.Diamonds]: '♦',
+  [CardSuitEnum.Clubs]: '♣',
+  [CardSuitEnum.Spades]: '♠'
 };
 
 /**
  * Creates a standard shuffled deck shoe of playing cards.
  */
 export function createShoe(deckCount: number = 2): PlayingCard[] {
-  const suits: CardSuit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
-  const values: CardValue[] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   const shoe: PlayingCard[] = [];
 
   for (let d = 0; d < deckCount; d++) {
-    for (const suit of suits) {
-      for (const value of values) {
+    for (const suit of CARD_SUITS) {
+      for (const value of CARD_VALUES) {
         shoe.push({ suit, value, faceUp: true });
       }
     }
@@ -246,7 +262,8 @@ export class BlackjackEngine {
     const standThreshold = match(this.state.difficulty, {
       cautious: () => 16,
       balanced: () => 17,
-      ruthless: () => 18
+      ruthless: () => 18,
+      aggressive: () => 18
     });
 
     let dealerEval = evaluateHand(this.state.dealerHand);
