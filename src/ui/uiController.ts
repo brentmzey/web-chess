@@ -106,6 +106,9 @@ export interface UIControllerElements {
   btnPersistentLeaveLive: HTMLButtonElement | null;
   blackjackModal: HTMLElement | null;
   btnCloseBlackjack: HTMLButtonElement | null;
+  pokerModal: HTMLElement | null;
+  skipboModal: HTMLElement | null;
+  phase10Modal: HTMLElement | null;
 }
 
 export class UIController {
@@ -185,6 +188,9 @@ export class UIController {
       btnPersistentLeaveLive: document.getElementById('btn-persistent-leave-live') as HTMLButtonElement | null,
       blackjackModal: document.getElementById('blackjack-modal'),
       btnCloseBlackjack: document.getElementById('btn-close-blackjack') as HTMLButtonElement | null,
+      pokerModal: document.getElementById('poker-modal'),
+      skipboModal: document.getElementById('skipbo-modal'),
+      phase10Modal: document.getElementById('phase10-modal'),
       pregameModeLockNotice: document.getElementById('pregame-mode-lock-notice')
     };
   }
@@ -693,6 +699,60 @@ export class UIController {
 
   public isBlackjackVisible(): boolean {
     return fromNullable(this.el.blackjackModal)
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
+  public showPoker(): void {
+    fromNullable(this.el.pokerModal).map(modal => {
+      modal.classList.remove('hidden');
+    });
+  }
+
+  public hidePoker(): void {
+    fromNullable(this.el.pokerModal).map(modal => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  public isPokerVisible(): boolean {
+    return fromNullable(this.el.pokerModal)
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
+  public showSkipBo(): void {
+    fromNullable(this.el.skipboModal).map(modal => {
+      modal.classList.remove('hidden');
+    });
+  }
+
+  public hideSkipBo(): void {
+    fromNullable(this.el.skipboModal).map(modal => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  public isSkipBoVisible(): boolean {
+    return fromNullable(this.el.skipboModal)
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
+  public showPhase10(): void {
+    fromNullable(this.el.phase10Modal).map(modal => {
+      modal.classList.remove('hidden');
+    });
+  }
+
+  public hidePhase10(): void {
+    fromNullable(this.el.phase10Modal).map(modal => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  public isPhase10Visible(): boolean {
+    return fromNullable(this.el.phase10Modal)
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }

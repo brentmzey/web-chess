@@ -157,4 +157,22 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
     expect(snapRes.isSuccess()).toBe(true);
     expect(snapRes.getOrThrow().bln_do_not_delete).toBe(1);
   });
+
+  it('manages Sacred Skip-Bo sessions, seats, and snapshot archival', () => {
+    const db = initDb();
+    const service = new MultiGameService(db);
+
+    const skpRes = service.createSkipBoSession('SKIP-ZETA', 15, true);
+    expect(skpRes.isSuccess()).toBe(true);
+    const sessionId = skpRes.getOrThrow();
+
+    const seat1 = service.registerSkipBoSeat(sessionId, 1, 'usr_s1', 'Speedy', false, 15);
+    const seat2 = service.registerSkipBoSeat(sessionId, 2, 'bot_s2', 'SkipBot #2', true, 15);
+    expect(seat1.isSuccess()).toBe(true);
+    expect(seat2.isSuccess()).toBe(true);
+
+    const snapRes = service.archiveSkipBoSnapshot('SKIP-ZETA', 'Speedy', { turnsPlayed: 8 }, true);
+    expect(snapRes.isSuccess()).toBe(true);
+    expect(snapRes.getOrThrow().bln_do_not_delete).toBe(1);
+  });
 });

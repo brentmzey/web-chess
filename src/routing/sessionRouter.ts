@@ -1,7 +1,7 @@
 import { fromNullable, Option, some, none } from '../utils/fp';
 import { ArcadeGameEnum, GameCodePrefixEnum } from '../constants/gameEnums';
 
-export type ArcadeGameType = 'chess' | 'blackjack' | 'avalon' | 'uno' | 'phase10' | 'poker' | ArcadeGameEnum;
+export type ArcadeGameType = 'chess' | 'blackjack' | 'avalon' | 'uno' | 'phase10' | 'poker' | 'skipbo' | ArcadeGameEnum;
 
 export interface ArcadeGameMetadata {
   id: ArcadeGameType;
@@ -73,21 +73,33 @@ export const ARCADE_GAMES: Record<string, ArcadeGameMetadata> = {
     minPlayers: 2,
     maxPlayers: 6,
     icon: 'auto_stories',
-    badgeText: 'Phase 5 Preview',
-    isAvailable: false,
+    badgeText: 'Live & Playable',
+    isAvailable: true,
     phaseNumber: 5
   },
   [ArcadeGameEnum.Poker]: {
     id: ArcadeGameEnum.Poker,
     title: 'Cathedral Poker',
-    tagline: "Texas Hold'em, Omaha & Stud variants with high-stakes sanctuary blinds.",
+    tagline: "Texas Hold'em, Omaha, Stud & Draw variants with high-stakes sanctuary blinds.",
     codePrefix: GameCodePrefixEnum.Poker,
     minPlayers: 2,
     maxPlayers: 9,
     icon: 'token',
-    badgeText: 'Phase 6 In Architecture',
-    isAvailable: false,
+    badgeText: 'Live & Playable',
+    isAvailable: true,
     phaseNumber: 6
+  },
+  [ArcadeGameEnum.SkipBo]: {
+    id: ArcadeGameEnum.SkipBo,
+    title: 'Sacred Skip-Bo',
+    tagline: 'Race to deplete your 15-card stockpile onto 4 shared ascending building piles.',
+    codePrefix: GameCodePrefixEnum.SkipBo,
+    minPlayers: 2,
+    maxPlayers: 4,
+    icon: 'counter_1',
+    badgeText: 'Live & Playable',
+    isAvailable: true,
+    phaseNumber: 7
   }
 };
 
@@ -99,7 +111,7 @@ export interface RouteResolution {
 }
 
 /**
- * Detects the game type from a session code prefix (e.g. SANCT-, BJK-, AVALON-, UNO-, P10-, POKER-).
+ * Detects the game type from a session code prefix (e.g. SANCT-, BJK-, AVALON-, UNO-, P10-, POKER-, SKIP-).
  */
 export function detectGameFromSessionCode(code: string): ArcadeGameType {
   const normalized = code.trim().toUpperCase();
@@ -109,6 +121,7 @@ export function detectGameFromSessionCode(code: string): ArcadeGameType {
   if (normalized.startsWith(GameCodePrefixEnum.Uno)) return ArcadeGameEnum.Uno;
   if (normalized.startsWith(GameCodePrefixEnum.Phase10)) return ArcadeGameEnum.Phase10;
   if (normalized.startsWith(GameCodePrefixEnum.Poker)) return ArcadeGameEnum.Poker;
+  if (normalized.startsWith(GameCodePrefixEnum.SkipBo)) return ArcadeGameEnum.SkipBo;
 
   // Default fallback for legacy or custom session codes
   return ArcadeGameEnum.Chess;

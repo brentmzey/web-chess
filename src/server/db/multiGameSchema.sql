@@ -432,3 +432,84 @@ CREATE TABLE IF NOT EXISTS tbl_archived_pok_snapshots_history (
     json_snapshot_payload TEXT NOT NULL,
     created_at INTEGER NOT NULL
 );
+
+-- ============================================================================
+-- 6. SACRED SKIP-BO TABLES
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tbl_skp_sessions (
+    id TEXT PRIMARY KEY,
+    session_code TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL,
+    stockpile_size INTEGER NOT NULL DEFAULT 15,
+    current_turn_index INTEGER NOT NULL DEFAULT 0,
+    building_piles_json TEXT NOT NULL,
+    do_not_delete INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_skp_session_code ON tbl_skp_sessions (session_code);
+CREATE INDEX IF NOT EXISTS idx_skp_do_not_delete ON tbl_skp_sessions (do_not_delete);
+
+CREATE TABLE IF NOT EXISTS tbl_skp_seats (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    is_bot INTEGER NOT NULL DEFAULT 0,
+    stockpile_remaining INTEGER NOT NULL,
+    hand_count INTEGER NOT NULL,
+    discard_piles_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_skp_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, seat_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_skp_seats_session ON tbl_skp_seats (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_skp_moves (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    action_type TEXT NOT NULL,
+    source TEXT NOT NULL,
+    target_pile INTEGER NOT NULL,
+    card_value INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_skp_sessions (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_skp_moves_session ON tbl_skp_moves (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_skp_events (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    event_seq INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_skp_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, event_seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_skp_events_session ON tbl_skp_events (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_archived_skp_snapshots (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL UNIQUE,
+    txt_winner_name TEXT,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    json_snapshot_payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tbl_archived_skp_snapshots_history (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL,
+    txt_winner_name TEXT,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    json_snapshot_payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);

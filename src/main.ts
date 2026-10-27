@@ -61,6 +61,26 @@ import {
   type BlackjackDifficulty
 } from './games/blackjack/blackjackEngine';
 import {
+  CathedralPokerEngine,
+  evaluatePokerHand,
+  type PokerPlayerData
+} from './games/poker/pokerEngine';
+import {
+  SkipBoEngine
+} from './games/skipbo/skipboEngine';
+import {
+  Phase10Engine,
+  PHASE_10_REQUIREMENTS
+} from './games/phase10/phase10Engine';
+import {
+  GameCodePrefixEnum,
+  PokerVariantEnum,
+  PokerActionEnum,
+  PokerStageEnum,
+  SkipBoSourcePileEnum,
+  SkipBoCardTypeEnum
+} from './constants/gameEnums';
+import {
   ARCADE_GAMES,
   extractSessionCodeOrUrl,
   resolveRoute,
@@ -1925,6 +1945,18 @@ function main(): void {
     {
       id: 'blackjack-modal',
       close: () => ui.hideBlackjack()
+    },
+    {
+      id: 'poker-modal',
+      close: () => ui.hidePoker()
+    },
+    {
+      id: 'skipbo-modal',
+      close: () => ui.hideSkipBo()
+    },
+    {
+      id: 'phase10-modal',
+      close: () => ui.hidePhase10()
     }
   ].forEach(({ id, close }) => {
     fromNullable(document.getElementById(id)).map(modalEl => {
@@ -1950,6 +1982,18 @@ function main(): void {
 
   fromNullable(document.getElementById('btn-close-blackjack')).map(btn =>
     btn.addEventListener('click', () => ui.hideBlackjack())
+  );
+
+  fromNullable(document.getElementById('btn-close-poker')).map(btn =>
+    btn.addEventListener('click', () => ui.hidePoker())
+  );
+
+  fromNullable(document.getElementById('btn-close-skipbo')).map(btn =>
+    btn.addEventListener('click', () => ui.hideSkipBo())
+  );
+
+  fromNullable(document.getElementById('btn-close-phase10')).map(btn =>
+    btn.addEventListener('click', () => ui.hidePhase10())
   );
 
   // Gothic Blackjack Table Engine & Event Binding
@@ -2103,6 +2147,649 @@ function main(): void {
     })
   );
 
+  // Common Arcade Live Session Sharing Helper
+  const generateArcadeCode = (prefix: string) =>
+    `${prefix}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+  const copyArcadeMatchLink = (code: string, btnEl: HTMLElement | null) => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?session=${code}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      if (btnEl) {
+        const originalText = btnEl.innerHTML;
+        btnEl.innerHTML = '<span class="material-symbols-rounded text-xs">done</span><span>Copied!</span>';
+        setTimeout(() => {
+          btnEl.innerHTML = originalText;
+        }, 2000);
+      }
+    });
+  };
+
+  // --- Gothic Blackjack Mode Switcher ---
+  let bjkLiveCode = generateArcadeCode(GameCodePrefixEnum.Blackjack);
+  const setBlackjackMode = (isLive: boolean) => {
+    fromNullable(document.getElementById('bjk-live-session-info')).map(el => {
+      if (isLive) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    fromNullable(document.getElementById('bjk-live-code')).map(el => {
+      el.textContent = bjkLiveCode;
+    });
+    fromNullable(document.getElementById('bjk-tab-ai')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-purple-300 font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-purple-600 text-white font-bold text-[11px]';
+    });
+    fromNullable(document.getElementById('bjk-tab-live')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-purple-600 text-white font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-purple-300 font-bold text-[11px]';
+    });
+  };
+  fromNullable(document.getElementById('bjk-tab-ai')).map(b => b.addEventListener('click', () => setBlackjackMode(false)));
+  fromNullable(document.getElementById('bjk-tab-live')).map(b => b.addEventListener('click', () => setBlackjackMode(true)));
+  fromNullable(document.getElementById('btn-bjk-copy-link')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchLink(bjkLiveCode, b))
+  );
+
+  // =========================================================================
+  // Cathedral Poker Engine & Table Controls
+  // =========================================================================
+  let pokerVariant = PokerVariantEnum.TexasHoldem;
+  let pokerEngine = new CathedralPokerEngine(pokerVariant, 6, 10, 20);
+  pokerEngine.populateBotOpponents();
+  let pokerLiveCode = generateArcadeCode(GameCodePrefixEnum.Poker);
+
+  const formatCardHtml = (card: { suit: string; value: string; faceUp: boolean }) => `
+    <div class="px-2.5 py-2.5 rounded-xl border font-bold font-mono text-xs shadow-md transition ${
+      card.faceUp
+        ? ['hearts', 'diamonds'].includes(card.suit)
+          ? 'bg-stone-100 text-red-600 border-red-400/40'
+          : 'bg-stone-100 text-stone-900 border-stone-400/40'
+        : 'bg-amber-950 text-amber-300 border-amber-500/50'
+    }">
+      ${
+        card.faceUp
+          ? `${card.value}<span class="text-[10px]">${
+              card.suit === 'hearts' ? '♥' : card.suit === 'diamonds' ? '♦' : card.suit === 'clubs' ? '♣' : '♠'
+            }</span>`
+          : '🂠'
+      }
+    </div>
+  `;
+
+  const renderPokerTable = () => {
+    const s = pokerEngine.state;
+    fromNullable(document.getElementById('poker-pot-val')).map(el => {
+      el.textContent = `$${s.pot}`;
+    });
+    fromNullable(document.getElementById('poker-current-bet-val')).map(el => {
+      el.textContent = `Current Bet: $${s.currentBet}`;
+    });
+    fromNullable(document.getElementById('poker-stage-badge')).map(el => {
+      el.textContent = s.stage;
+    });
+    fromNullable(document.getElementById('poker-status-banner')).map(el => {
+      el.textContent = s.historyText[s.historyText.length - 1] || 'Select action.';
+    });
+
+    fromNullable(document.getElementById('poker-community-cards')).map(c => {
+      if (s.communityCards.length === 0) {
+        c.innerHTML = '<span class="text-xs text-stone-500 italic">No community cards yet</span>';
+      } else {
+        c.innerHTML = s.communityCards.map(formatCardHtml).join('');
+      }
+    });
+
+    const seat1Opt = pokerEngine.seatManager.getSeat(1);
+    const p1Data: PokerPlayerData = seat1Opt.match({
+      Some: seat => seat.extraData,
+      None: (): PokerPlayerData => ({ holeCards: [], currentBet: 0, chipBank: 1000, folded: false, isAllIn: false })
+    });
+
+    fromNullable(document.getElementById('poker-player-cards')).map(c => {
+      if (p1Data.holeCards.length === 0) {
+        c.innerHTML = '<span class="text-xs text-stone-500 italic">No hole cards dealt</span>';
+      } else {
+        c.innerHTML = p1Data.holeCards.map(formatCardHtml).join('');
+      }
+    });
+
+    fromNullable(document.getElementById('poker-chip-bank')).map(el => {
+      el.textContent = `$${p1Data.chipBank}`;
+    });
+
+    if (p1Data.holeCards.length > 0) {
+      const combined = [...p1Data.holeCards, ...s.communityCards];
+      const evaluated = evaluatePokerHand(combined, s.variant, p1Data.holeCards);
+      fromNullable(document.getElementById('poker-hand-rank')).map(el => {
+        el.textContent = evaluated.description;
+      });
+    }
+
+    const canAct = s.stage !== PokerStageEnum.Lobby && s.stage !== PokerStageEnum.Settled && !p1Data.folded;
+    fromNullable(document.getElementById('poker-btn-deal') as HTMLButtonElement | null).map(b => {
+      b.disabled = s.stage !== PokerStageEnum.Lobby && s.stage !== PokerStageEnum.Settled;
+    });
+    fromNullable(document.getElementById('poker-btn-check') as HTMLButtonElement | null).map(b => {
+      b.disabled = !canAct || p1Data.currentBet < s.currentBet;
+    });
+    fromNullable(document.getElementById('poker-btn-call') as HTMLButtonElement | null).map(b => {
+      b.disabled = !canAct || p1Data.currentBet >= s.currentBet;
+    });
+    fromNullable(document.getElementById('poker-btn-raise') as HTMLButtonElement | null).map(b => {
+      b.disabled = !canAct || p1Data.chipBank < 20;
+    });
+    fromNullable(document.getElementById('poker-btn-fold') as HTMLButtonElement | null).map(b => {
+      b.disabled = !canAct;
+    });
+    fromNullable(document.getElementById('poker-btn-next-street') as HTMLButtonElement | null).map(b => {
+      b.disabled = s.stage === PokerStageEnum.Lobby || s.stage === PokerStageEnum.Settled;
+    });
+    fromNullable(document.getElementById('poker-btn-draw-exchange') as HTMLButtonElement | null).map(b => {
+      b.disabled = s.variant !== PokerVariantEnum.FiveCardDraw || s.stage === PokerStageEnum.Lobby || s.stage === PokerStageEnum.Settled;
+    });
+  };
+
+  const setPokerMode = (isLive: boolean) => {
+    fromNullable(document.getElementById('poker-live-session-info')).map(el => {
+      if (isLive) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    fromNullable(document.getElementById('poker-live-code')).map(el => {
+      el.textContent = pokerLiveCode;
+    });
+    fromNullable(document.getElementById('poker-tab-ai')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-amber-300 font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-amber-500 text-stone-950 font-bold text-[11px]';
+    });
+    fromNullable(document.getElementById('poker-tab-live')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-amber-500 text-stone-950 font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-amber-300 font-bold text-[11px]';
+    });
+  };
+
+  fromNullable(document.getElementById('poker-tab-ai')).map(b => b.addEventListener('click', () => setPokerMode(false)));
+  fromNullable(document.getElementById('poker-tab-live')).map(b => b.addEventListener('click', () => setPokerMode(true)));
+  fromNullable(document.getElementById('btn-poker-copy-link')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchLink(pokerLiveCode, b))
+  );
+
+  fromNullable(document.getElementById('poker-variant-select') as HTMLSelectElement | null).map(sel =>
+    sel.addEventListener('change', () => {
+      pokerVariant = sel.value as PokerVariantEnum;
+      pokerEngine = new CathedralPokerEngine(pokerVariant, 6, 10, 20);
+      pokerEngine.populateBotOpponents();
+      renderPokerTable();
+    })
+  );
+
+  fromNullable(document.getElementById('poker-btn-deal')).map(b =>
+    b.addEventListener('click', () => {
+      pokerEngine.startHand();
+      soundFX.playSelect();
+      renderPokerTable();
+    })
+  );
+
+  fromNullable(document.getElementById('poker-btn-check')).map(b =>
+    b.addEventListener('click', () => {
+      pokerEngine.playerAction(1, PokerActionEnum.Check);
+      soundFX.playSelect();
+      renderPokerTable();
+    })
+  );
+
+  fromNullable(document.getElementById('poker-btn-call')).map(b =>
+    b.addEventListener('click', () => {
+      pokerEngine.playerAction(1, PokerActionEnum.Call);
+      soundFX.playSelect();
+      renderPokerTable();
+    })
+  );
+
+  fromNullable(document.getElementById('poker-btn-raise')).map(b =>
+    b.addEventListener('click', () => {
+      pokerEngine.playerAction(1, PokerActionEnum.Raise, pokerEngine.state.currentBet + 20);
+      soundFX.playCathedralOrganAndBell();
+      renderPokerTable();
+    })
+  );
+
+  fromNullable(document.getElementById('poker-btn-fold')).map(b =>
+    b.addEventListener('click', () => {
+      pokerEngine.playerAction(1, PokerActionEnum.Fold);
+      soundFX.playSelect();
+      renderPokerTable();
+    })
+  );
+
+  fromNullable(document.getElementById('poker-btn-next-street')).map(b =>
+    b.addEventListener('click', () => {
+      const stage = pokerEngine.state.stage;
+      if (stage === PokerStageEnum.PreFlop) {
+        pokerEngine.dealFlop();
+      } else if (stage === PokerStageEnum.Flop) {
+        pokerEngine.dealTurn();
+      } else if (stage === PokerStageEnum.Turn) {
+        pokerEngine.dealRiver();
+      } else if (stage === PokerStageEnum.River) {
+        pokerEngine.resolveShowdown();
+      }
+      soundFX.playSelect();
+      renderPokerTable();
+    })
+  );
+
+  fromNullable(document.getElementById('poker-btn-draw-exchange')).map(b =>
+    b.addEventListener('click', () => {
+      pokerEngine.drawCardsFiveCardDraw(1, [0, 1]);
+      soundFX.playSelect();
+      renderPokerTable();
+    })
+  );
+
+  // =========================================================================
+  // Sacred Skip-Bo Engine & Table Controls
+  // =========================================================================
+  let skipboEngine = new SkipBoEngine('Pilgrim', 'Cathedral Abbot', 15);
+  let skipboLiveCode = generateArcadeCode(GameCodePrefixEnum.SkipBo);
+  let selectedSkipBoSource: SkipBoSourcePileEnum = SkipBoSourcePileEnum.Hand;
+  let selectedSkipBoIndex: number = 0;
+
+  const renderSkipBoTable = () => {
+    const s = skipboEngine.state;
+    const p1 = s.players[0]!;
+    const p2 = s.players[1]!;
+
+    fromNullable(document.getElementById('skipbo-opp-stock')).map(el => {
+      el.textContent = `${p2.stockpile.length} remaining`;
+    });
+    fromNullable(document.getElementById('skipbo-player-stock-count')).map(el => {
+      el.textContent = `${p1.stockpile.length} remaining`;
+    });
+    fromNullable(document.getElementById('skipbo-draw-deck-count')).map(el => {
+      el.textContent = `${s.drawPile.length} cards`;
+    });
+    fromNullable(document.getElementById('skipbo-status-banner')).map(el => {
+      el.textContent = s.historyText[s.historyText.length - 1] || 'Play cards or discard.';
+    });
+
+    // 4 Building piles
+    fromNullable(document.getElementById('skipbo-building-piles')).map(container => {
+      container.innerHTML = s.buildingPiles
+        .map((pile, idx) => {
+          const top = pile.length > 0 ? pile[pile.length - 1] : null;
+          const label = top ? (top.type === SkipBoCardTypeEnum.Wild ? 'WILD' : `${top.value}`) : 'Empty';
+          return `
+          <div data-skipbo-building="${idx}" class="p-3 rounded-2xl bg-blue-950/60 border-2 border-blue-400/40 hover:border-blue-300 text-center cursor-pointer transition">
+            <span class="text-[10px] uppercase font-bold text-blue-300">Pile ${idx + 1}</span>
+            <div class="text-lg font-bold font-mono text-white mt-1">${label}</div>
+            <span class="text-[10px] text-stone-400">(${pile.length}/12)</span>
+          </div>
+        `;
+        })
+        .join('');
+
+      container.querySelectorAll('[data-skipbo-building]').forEach(pileEl => {
+        pileEl.addEventListener('click', () => {
+          const targetPile = parseInt(pileEl.getAttribute('data-skipbo-building') || '0', 10);
+          skipboEngine.playToBuilding(selectedSkipBoSource, selectedSkipBoIndex, targetPile);
+          soundFX.playSelect();
+          renderSkipBoTable();
+        });
+      });
+    });
+
+    // Stockpile top card
+    fromNullable(document.getElementById('skipbo-stockpile-top')).map(el => {
+      if (p1.stockpile.length > 0) {
+        const top = p1.stockpile[p1.stockpile.length - 1]!;
+        el.textContent = top.type === SkipBoCardTypeEnum.Wild ? 'WILD' : `${top.value}`;
+      } else {
+        el.textContent = 'None';
+      }
+      el.onclick = () => {
+        selectedSkipBoSource = SkipBoSourcePileEnum.Stockpile;
+        selectedSkipBoIndex = 0;
+        soundFX.playSelect();
+        renderSkipBoTable();
+      };
+    });
+
+    // Hand cards
+    fromNullable(document.getElementById('skipbo-player-hand')).map(container => {
+      container.innerHTML = p1.hand
+        .map(
+          (c, idx) => `
+        <div data-skipbo-hand="${idx}" class="w-12 h-16 rounded-xl border-2 flex items-center justify-center font-bold font-mono text-sm shadow-md cursor-pointer transition ${
+          selectedSkipBoSource === SkipBoSourcePileEnum.Hand && selectedSkipBoIndex === idx
+            ? 'bg-amber-400 text-stone-950 border-white scale-105'
+            : 'bg-stone-800 text-stone-100 border-white/20 hover:border-blue-400'
+        }">
+          ${c.type === SkipBoCardTypeEnum.Wild ? 'W' : c.value}
+        </div>
+      `
+        )
+        .join('');
+
+      container.querySelectorAll('[data-skipbo-hand]').forEach(cardEl => {
+        cardEl.addEventListener('click', () => {
+          selectedSkipBoSource = SkipBoSourcePileEnum.Hand;
+          selectedSkipBoIndex = parseInt(cardEl.getAttribute('data-skipbo-hand') || '0', 10);
+          soundFX.playSelect();
+          renderSkipBoTable();
+        });
+      });
+    });
+
+    // 4 Discard piles
+    fromNullable(document.getElementById('skipbo-discard-piles')).map(container => {
+      container.innerHTML = p1.discardPiles
+        .map((pile, idx) => {
+          const top = pile.length > 0 ? pile[pile.length - 1] : null;
+          const val = top ? (top.type === SkipBoCardTypeEnum.Wild ? 'W' : `${top.value}`) : '—';
+          return `
+          <div data-skipbo-discard="${idx}" class="p-2 rounded-xl bg-black/60 border border-white/20 text-center cursor-pointer hover:border-purple-400 transition">
+            <span class="text-[9px] uppercase font-bold text-stone-400">D${idx + 1}</span>
+            <div class="text-xs font-mono font-bold text-purple-200">${val}</div>
+          </div>
+        `;
+        })
+        .join('');
+
+      container.querySelectorAll('[data-skipbo-discard]').forEach(discEl => {
+        discEl.addEventListener('click', () => {
+          const discIdx = parseInt(discEl.getAttribute('data-skipbo-discard') || '0', 10);
+          // If hand card selected -> discard to this pile and end turn
+          if (selectedSkipBoSource === SkipBoSourcePileEnum.Hand) {
+            skipboEngine.discardAndEndTurn(selectedSkipBoIndex, discIdx);
+            soundFX.playCathedralOrganAndBell();
+            renderSkipBoTable();
+          } else {
+            selectedSkipBoSource = SkipBoSourcePileEnum.Discard;
+            selectedSkipBoIndex = discIdx;
+            renderSkipBoTable();
+          }
+        });
+      });
+    });
+  };
+
+  const setSkipBoMode = (isLive: boolean) => {
+    fromNullable(document.getElementById('skipbo-live-session-info')).map(el => {
+      if (isLive) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    fromNullable(document.getElementById('skipbo-live-code')).map(el => {
+      el.textContent = skipboLiveCode;
+    });
+    fromNullable(document.getElementById('skipbo-tab-ai')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-blue-300 font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-blue-600 text-white font-bold text-[11px]';
+    });
+    fromNullable(document.getElementById('skipbo-tab-live')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-blue-600 text-white font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-blue-300 font-bold text-[11px]';
+    });
+  };
+
+  fromNullable(document.getElementById('skipbo-tab-ai')).map(b => b.addEventListener('click', () => setSkipBoMode(false)));
+  fromNullable(document.getElementById('skipbo-tab-live')).map(b => b.addEventListener('click', () => setSkipBoMode(true)));
+  fromNullable(document.getElementById('btn-skipbo-copy-link')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchLink(skipboLiveCode, b))
+  );
+
+  fromNullable(document.getElementById('skipbo-btn-play-selected')).map(b =>
+    b.addEventListener('click', () => {
+      // Find lowest legal building pile
+      let played = false;
+      for (let p = 0; p < 4; p++) {
+        const res = skipboEngine.playToBuilding(selectedSkipBoSource, selectedSkipBoIndex, p);
+        if (res.isSuccess()) {
+          soundFX.playSelect();
+          played = true;
+          break;
+        }
+      }
+      if (!played) {
+        skipboEngine.state.historyText.push('No building pile accepts this card currently.');
+      }
+      renderSkipBoTable();
+    })
+  );
+
+  fromNullable(document.getElementById('skipbo-btn-discard-selected')).map(b =>
+    b.addEventListener('click', () => {
+      if (selectedSkipBoSource === SkipBoSourcePileEnum.Hand) {
+        skipboEngine.discardAndEndTurn(selectedSkipBoIndex, 0);
+        soundFX.playSelect();
+        renderSkipBoTable();
+      }
+    })
+  );
+
+  fromNullable(document.getElementById('skipbo-btn-bot-step')).map(b =>
+    b.addEventListener('click', () => {
+      skipboEngine.autoPlayBotTurn();
+      soundFX.playCathedralOrganAndBell();
+      renderSkipBoTable();
+    })
+  );
+
+  // =========================================================================
+  // Ten Rites (Phase 10) Engine & Table Controls
+  // =========================================================================
+  let phase10Engine = new Phase10Engine('Pilgrim', 'Cathedral Prior');
+  let phase10LiveCode = generateArcadeCode(GameCodePrefixEnum.Phase10);
+  let selectedPhase10Indices: number[] = [];
+
+  const renderPhase10Table = () => {
+    const s = phase10Engine.state;
+    const p1 = s.players[0]!;
+
+    const contract = PHASE_10_REQUIREMENTS[p1.currentPhase - 1] || { description: 'Mastery', shortLabel: 'Complete' };
+    fromNullable(document.getElementById('phase10-target-contract')).map(el => {
+      el.textContent = `Phase ${p1.currentPhase}: ${contract.description}`;
+    });
+    fromNullable(document.getElementById('phase10-player-score')).map(el => {
+      el.textContent = `${p1.score} pts`;
+    });
+    fromNullable(document.getElementById('phase10-hand-count')).map(el => {
+      el.textContent = `${p1.hand.length} cards`;
+    });
+    fromNullable(document.getElementById('phase10-status-banner')).map(el => {
+      el.textContent = s.historyText[s.historyText.length - 1] || 'Draw from deck or discard to begin.';
+    });
+
+    // Discard pile top
+    fromNullable(document.getElementById('phase10-discard-pile-btn')).map(el => {
+      if (s.discardPile.length > 0) {
+        const top = s.discardPile[s.discardPile.length - 1]!;
+        el.textContent = `${top.color.substring(0, 1).toUpperCase()} ${top.value || top.special}`;
+        el.className = `w-16 h-22 rounded-xl border-2 flex items-center justify-center font-bold text-xs shadow-lg cursor-pointer transition ${
+          top.color === 'red'
+            ? 'bg-red-950 text-red-200 border-red-500/50'
+            : top.color === 'blue'
+            ? 'bg-blue-950 text-blue-200 border-blue-500/50'
+            : top.color === 'green'
+            ? 'bg-emerald-950 text-emerald-200 border-emerald-500/50'
+            : 'bg-amber-950 text-amber-200 border-amber-500/50'
+        }`;
+      } else {
+        el.textContent = 'Empty';
+      }
+    });
+
+    // Laid Groups
+    fromNullable(document.getElementById('phase10-laid-groups')).map(container => {
+      const allLaid = s.players.flatMap(p => p.laidGroups);
+      if (allLaid.length === 0) {
+        container.innerHTML = '<span class="text-xs text-stone-500 italic">No melds laid down yet this round</span>';
+      } else {
+        container.innerHTML = allLaid
+          .map(
+            g => `
+          <div class="p-2 rounded-xl bg-black/60 border border-emerald-400/40 flex items-center gap-1.5">
+            ${g.cards
+              .map(
+                c => `
+              <span class="px-2 py-1 rounded-lg text-[10px] font-mono font-bold ${
+                c.color === 'red'
+                  ? 'bg-red-950 text-red-300'
+                  : c.color === 'blue'
+                  ? 'bg-blue-950 text-blue-300'
+                  : c.color === 'green'
+                  ? 'bg-emerald-950 text-emerald-300'
+                  : 'bg-amber-950 text-amber-300'
+              }">
+                ${c.value || c.special}
+              </span>
+            `
+              )
+              .join('')}
+          </div>
+        `
+          )
+          .join('');
+      }
+    });
+
+    // Player Hand Cards
+    fromNullable(document.getElementById('phase10-player-hand')).map(container => {
+      container.innerHTML = p1.hand
+        .map((c, idx) => {
+          const isSelected = selectedPhase10Indices.includes(idx);
+          return `
+          <div data-p10-hand="${idx}" class="px-3 py-2 rounded-xl border-2 font-bold font-mono text-xs shadow-md cursor-pointer transition ${
+            isSelected ? 'border-amber-400 scale-105 bg-amber-500/20' : 'border-white/20 hover:border-emerald-400'
+          } ${
+            c.color === 'red'
+              ? 'bg-red-950/80 text-red-200'
+              : c.color === 'blue'
+              ? 'bg-blue-950/80 text-blue-200'
+              : c.color === 'green'
+              ? 'bg-emerald-950/80 text-emerald-200'
+              : 'bg-amber-950/80 text-amber-200'
+          }">
+            ${c.value || c.special}
+          </div>
+        `;
+        })
+        .join('');
+
+      container.querySelectorAll('[data-p10-hand]').forEach(el => {
+        el.addEventListener('click', () => {
+          const idx = parseInt(el.getAttribute('data-p10-hand') || '0', 10);
+          if (selectedPhase10Indices.includes(idx)) {
+            selectedPhase10Indices = selectedPhase10Indices.filter(i => i !== idx);
+          } else {
+            selectedPhase10Indices.push(idx);
+          }
+          soundFX.playSelect();
+          renderPhase10Table();
+        });
+      });
+    });
+
+    // Buttons
+    fromNullable(document.getElementById('phase10-btn-draw-deck') as HTMLButtonElement | null).map(b => {
+      b.disabled = s.hasDrawnThisTurn;
+    });
+    fromNullable(document.getElementById('phase10-btn-lay-phase') as HTMLButtonElement | null).map(b => {
+      b.disabled = !s.hasDrawnThisTurn || p1.phaseCompletedThisRound || selectedPhase10Indices.length < 6;
+    });
+    fromNullable(document.getElementById('phase10-btn-hit-card') as HTMLButtonElement | null).map(b => {
+      b.disabled = !s.hasDrawnThisTurn || !p1.phaseCompletedThisRound || selectedPhase10Indices.length !== 1;
+    });
+    fromNullable(document.getElementById('phase10-btn-discard') as HTMLButtonElement | null).map(b => {
+      b.disabled = !s.hasDrawnThisTurn || selectedPhase10Indices.length !== 1;
+    });
+  };
+
+  const setPhase10Mode = (isLive: boolean) => {
+    fromNullable(document.getElementById('phase10-live-session-info')).map(el => {
+      if (isLive) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    fromNullable(document.getElementById('phase10-live-code')).map(el => {
+      el.textContent = phase10LiveCode;
+    });
+    fromNullable(document.getElementById('phase10-tab-ai')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-300 font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px]';
+    });
+    fromNullable(document.getElementById('phase10-tab-live')).map(btn => {
+      btn.className = isLive
+        ? 'px-2.5 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px]'
+        : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-300 font-bold text-[11px]';
+    });
+  };
+
+  fromNullable(document.getElementById('phase10-tab-ai')).map(b => b.addEventListener('click', () => setPhase10Mode(false)));
+  fromNullable(document.getElementById('phase10-tab-live')).map(b => b.addEventListener('click', () => setPhase10Mode(true)));
+  fromNullable(document.getElementById('btn-phase10-copy-link')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchLink(phase10LiveCode, b))
+  );
+
+  fromNullable(document.getElementById('phase10-btn-draw-deck')).map(b =>
+    b.addEventListener('click', () => {
+      phase10Engine.drawCard(false);
+      soundFX.playSelect();
+      renderPhase10Table();
+    })
+  );
+
+  fromNullable(document.getElementById('phase10-discard-pile-btn')).map(b =>
+    b.addEventListener('click', () => {
+      if (!phase10Engine.state.hasDrawnThisTurn) {
+        phase10Engine.drawCard(true);
+        soundFX.playSelect();
+        renderPhase10Table();
+      }
+    })
+  );
+
+  fromNullable(document.getElementById('phase10-btn-lay-phase')).map(b =>
+    b.addEventListener('click', () => {
+      const half = Math.floor(selectedPhase10Indices.length / 2);
+      const g1 = selectedPhase10Indices.slice(0, half);
+      const g2 = selectedPhase10Indices.slice(half);
+      const res = phase10Engine.layDownPhase(g1, g2);
+      if (res.isSuccess()) {
+        selectedPhase10Indices = [];
+        soundFX.playCathedralOrganAndBell();
+      }
+      renderPhase10Table();
+    })
+  );
+
+  fromNullable(document.getElementById('phase10-btn-hit-card')).map(b =>
+    b.addEventListener('click', () => {
+      if (selectedPhase10Indices.length === 1) {
+        phase10Engine.hitCard(selectedPhase10Indices[0]!, 'p1', 0);
+        selectedPhase10Indices = [];
+        soundFX.playSelect();
+        renderPhase10Table();
+      }
+    })
+  );
+
+  fromNullable(document.getElementById('phase10-btn-discard')).map(b =>
+    b.addEventListener('click', () => {
+      if (selectedPhase10Indices.length === 1) {
+        phase10Engine.discardAndEndTurn(selectedPhase10Indices[0]!);
+        selectedPhase10Indices = [];
+        soundFX.playCathedralOrganAndBell();
+        renderPhase10Table();
+      }
+    })
+  );
+
   // Arcade Hub Dual Buttons (Play vs AI & Play Live)
   document.querySelectorAll('[data-game-ai]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2113,12 +2800,28 @@ function main(): void {
         ui.showPreGameModal();
       } else if (targetGame === 'blackjack') {
         ui.hideArcadeHub();
+        setBlackjackMode(false);
         renderBlackjackTable();
         ui.showBlackjack();
+      } else if (targetGame === 'poker') {
+        ui.hideArcadeHub();
+        setPokerMode(false);
+        renderPokerTable();
+        ui.showPoker();
+      } else if (targetGame === 'skipbo') {
+        ui.hideArcadeHub();
+        setSkipBoMode(false);
+        renderSkipBoTable();
+        ui.showSkipBo();
+      } else if (targetGame === 'phase10') {
+        ui.hideArcadeHub();
+        setPhase10Mode(false);
+        renderPhase10Table();
+        ui.showPhase10();
       } else if (targetGame && targetGame in ARCADE_GAMES) {
         const gameMeta = ARCADE_GAMES[targetGame];
         ui.setHubQuickJoinFeedback(
-          `${gameMeta.title} AI Opponents active (Minimax & Neural). Launching interactive table...`,
+          `${gameMeta.title} AI Opponents active. Launching table...`,
           false
         );
       }
@@ -2132,6 +2835,26 @@ function main(): void {
         ui.hideArcadeHub();
         ui.showLiveSessionModal();
         ui.switchLiveSessionTab('create');
+      } else if (targetGame === 'blackjack') {
+        ui.hideArcadeHub();
+        setBlackjackMode(true);
+        renderBlackjackTable();
+        ui.showBlackjack();
+      } else if (targetGame === 'poker') {
+        ui.hideArcadeHub();
+        setPokerMode(true);
+        renderPokerTable();
+        ui.showPoker();
+      } else if (targetGame === 'skipbo') {
+        ui.hideArcadeHub();
+        setSkipBoMode(true);
+        renderSkipBoTable();
+        ui.showSkipBo();
+      } else if (targetGame === 'phase10') {
+        ui.hideArcadeHub();
+        setPhase10Mode(true);
+        renderPhase10Table();
+        ui.showPhase10();
       } else if (targetGame && targetGame in ARCADE_GAMES) {
         const gameMeta = ARCADE_GAMES[targetGame];
         ui.setHubQuickJoinFeedback(
@@ -2156,17 +2879,41 @@ function main(): void {
           if (joinCodeInput) {
             joinCodeInput.value = code;
           }
+        } else if (game === 'blackjack') {
+          ui.hideArcadeHub();
+          bjkLiveCode = code;
+          setBlackjackMode(true);
+          renderBlackjackTable();
+          ui.showBlackjack();
+        } else if (game === 'poker') {
+          ui.hideArcadeHub();
+          pokerLiveCode = code;
+          setPokerMode(true);
+          renderPokerTable();
+          ui.showPoker();
+        } else if (game === 'skipbo') {
+          ui.hideArcadeHub();
+          skipboLiveCode = code;
+          setSkipBoMode(true);
+          renderSkipBoTable();
+          ui.showSkipBo();
+        } else if (game === 'phase10') {
+          ui.hideArcadeHub();
+          phase10LiveCode = code;
+          setPhase10Mode(true);
+          renderPhase10Table();
+          ui.showPhase10();
         } else {
           const gameMeta = ARCADE_GAMES[game];
           ui.setHubQuickJoinFeedback(
-            `Connecting to ${gameMeta.title} room ${code}... (Phase ${gameMeta.phaseNumber} multi-game server ready)`,
+            `Connecting to ${gameMeta.title} room ${code}...`,
             false
           );
         }
       },
       None: () => {
         ui.setHubQuickJoinFeedback(
-          'Please enter a valid session code (e.g. SANCT-XXXX, BJK-XXXX) or shareable match link.',
+          'Please enter a valid session code (e.g. SANCT-XXXX, BJK-XXXX, POKER-XXXX, SKIP-XXXX, P10-XXXX) or match link.',
           true
         );
       }
@@ -2436,11 +3183,31 @@ function main(): void {
             joinCodeInput.value = sessionCode.toUpperCase();
           }
         }
+      } else if (route.game === 'blackjack') {
+        bjkLiveCode = sessionCode;
+        setBlackjackMode(true);
+        renderBlackjackTable();
+        ui.showBlackjack();
+      } else if (route.game === 'poker') {
+        pokerLiveCode = sessionCode;
+        setPokerMode(true);
+        renderPokerTable();
+        ui.showPoker();
+      } else if (route.game === 'skipbo') {
+        skipboLiveCode = sessionCode;
+        setSkipBoMode(true);
+        renderSkipBoTable();
+        ui.showSkipBo();
+      } else if (route.game === 'phase10') {
+        phase10LiveCode = sessionCode;
+        setPhase10Mode(true);
+        renderPhase10Table();
+        ui.showPhase10();
       } else {
         ui.showArcadeHub();
         const gameMeta = ARCADE_GAMES[route.game];
         ui.setHubQuickJoinFeedback(
-          `Invited to ${gameMeta.title} match: ${sessionCode} (Phase ${gameMeta.phaseNumber} preview)`,
+          `Invited to ${gameMeta.title} match: ${sessionCode}`,
           false
         );
       }

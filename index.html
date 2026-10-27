@@ -970,24 +970,70 @@
                 </div>
 
                 <!-- 5. Ten Rites (Phase 10) -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-black/40 border border-white/10 hover:border-emerald-400/40 transition flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-emerald-950/30 via-stone-900/60 to-black/80 border border-emerald-400/50 hover:border-emerald-400/80 shadow-lg flex flex-col justify-between gap-4">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-emerald-400">auto_stories</span>
-                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Phase 5 Preview</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Live & Playable</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-stone-200">Ten Rites (Phase 10)</h3>
-                        <p class="text-xs text-stone-400 leading-relaxed">Complete ten consecutive liturgical phases (sets, runs, colors) before your opponents to achieve ultimate mastery.</p>
-                        <div class="text-[10px] text-emerald-300/80 font-mono">Prefix: P10- • 2-6 Players • Phase Contract AI</div>
+                        <h3 class="font-cathedral text-base font-bold text-emerald-100">Ten Rites (Phase 10)</h3>
+                        <p class="text-xs text-stone-300 leading-relaxed">Complete ten consecutive liturgical phases (sets, runs, colors) before your opponents. Draw, meld, and hit on consecrated sets.</p>
+                        <div class="text-[10px] text-emerald-300/80 font-mono">Prefix: P10- • 2-6 Players • AI Opponent & Live 1v1</div>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button type="button" data-game-ai="phase10" class="py-2 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 border border-emerald-400/30 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-1 transition">
+                        <button type="button" data-game-ai="phase10" class="py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
                             <span class="material-symbols-rounded text-sm">smart_toy</span>
-                            <span>VS PHASE AI</span>
+                            <span>PLAY VS AI</span>
                         </button>
-                        <button type="button" data-game-live="phase10" class="py-2 rounded-xl bg-white/10 hover:bg-white/20 text-stone-300 font-cathedral font-semibold text-xs tracking-wider flex items-center justify-center gap-1 transition">
+                        <button type="button" data-game-live="phase10" class="py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
                             <span class="material-symbols-rounded text-sm">sensors</span>
-                            <span>LIVE RITE</span>
+                            <span>LIVE 1v1</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 6. Cathedral Poker (Multi-Variant) -->
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-amber-950/30 via-stone-900/60 to-black/80 border border-amber-400/50 hover:border-amber-400/80 shadow-lg flex flex-col justify-between gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="material-symbols-rounded text-2xl text-amber-300">token</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">Live & Playable</span>
+                        </div>
+                        <h3 class="font-cathedral text-base font-bold text-amber-100">Cathedral Poker</h3>
+                        <p class="text-xs text-stone-300 leading-relaxed">Texas Hold'em, Omaha, Seven-Card Stud & Five-Card Draw with sanctuary blinds, deep hand evaluations, and AI bot bluffing.</p>
+                        <div class="text-[10px] text-amber-300/80 font-mono">Prefix: POKER- • 2-9 Players • 4 Variants Ready</div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" data-game-ai="poker" class="py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
+                            <span class="material-symbols-rounded text-sm">smart_toy</span>
+                            <span>PLAY VS AI</span>
+                        </button>
+                        <button type="button" data-game-live="poker" class="py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
+                            <span class="material-symbols-rounded text-sm">sensors</span>
+                            <span>LIVE 1v1</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 7. Sacred Skip-Bo -->
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-blue-950/30 via-stone-900/60 to-black/80 border border-blue-400/50 hover:border-blue-400/80 shadow-lg flex flex-col justify-between gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="material-symbols-rounded text-2xl text-blue-300">counter_1</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">Live & Playable</span>
+                        </div>
+                        <h3 class="font-cathedral text-base font-bold text-blue-100">Sacred Skip-Bo</h3>
+                        <p class="text-xs text-stone-300 leading-relaxed">Sequential sanctuary building from 1 to 12. Deplete your 15-card stockpile onto 4 shared ascending center piles before the AI Abbot.</p>
+                        <div class="text-[10px] text-blue-300/80 font-mono">Prefix: SKIP- • 2-4 Players • AI Opponent & Live 1v1</div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" data-game-ai="skipbo" class="py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
+                            <span class="material-symbols-rounded text-sm">smart_toy</span>
+                            <span>PLAY VS AI</span>
+                        </button>
+                        <button type="button" data-game-live="skipbo" class="py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
+                            <span class="material-symbols-rounded text-sm">sensors</span>
+                            <span>LIVE 1v1</span>
                         </button>
                     </div>
                 </div>
@@ -1012,6 +1058,22 @@
                 <button id="btn-close-blackjack" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Blackjack Table">
                     <span class="material-symbols-rounded text-xl">close</span>
                 </button>
+            </div>
+
+            <!-- Mode Toggle & Live Online Connection Bar -->
+            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-stone-400">Mode:</span>
+                    <button type="button" id="bjk-tab-ai" class="px-2.5 py-1 rounded-xl bg-purple-600 text-white font-bold text-[11px]">Play vs Dealer</button>
+                    <button type="button" id="bjk-tab-live" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-purple-300 font-bold text-[11px]">Live 1v1 Online</button>
+                </div>
+                <div id="bjk-live-session-info" class="hidden flex items-center gap-2">
+                    <span id="bjk-live-code" class="font-mono text-amber-300 text-xs font-bold tracking-wider">BJK-7K9P</span>
+                    <button type="button" id="btn-bjk-copy-link" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-amber-200 text-[10px] flex items-center gap-1">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                        <span>Copy Link</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Opponent AI & Difficulty Bar -->
@@ -1098,6 +1160,349 @@
                 <button type="button" id="bjk-btn-double" disabled class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
                     <span class="material-symbols-rounded text-sm">stars</span>
                     <span>Double</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- CATHEDRAL POKER MULTI-VARIANT SANCTUARY TABLE MODAL                   -->
+    <!-- ===================================================================== -->
+    <div id="poker-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md hidden pointer-events-auto">
+        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-amber-400/50 w-full max-w-3xl max-h-[94vh] overflow-y-auto space-y-4 bg-gradient-to-b from-[#14120e] to-[#0c0908]">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-amber-500/30 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-rounded text-2xl text-amber-300">token</span>
+                    <div>
+                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100">CATHEDRAL POKER</h2>
+                        <p class="text-[11px] text-stone-400">High Gothic Sanctuary Tables • Deep Hand Evaluation & Blinds</p>
+                    </div>
+                </div>
+                <button id="btn-close-poker" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Poker Table">
+                    <span class="material-symbols-rounded text-xl">close</span>
+                </button>
+            </div>
+
+            <!-- Variant & Mode Switcher Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="text-stone-400 font-semibold">Variant:</span>
+                    <select id="poker-variant-select" class="bg-black/60 border border-amber-400/30 rounded-xl px-2.5 py-1 text-xs text-amber-200 focus:outline-none">
+                        <option value="texas-holdem" selected>Texas Hold'em (2 Hole, 5 Community)</option>
+                        <option value="omaha">Omaha (4 Hole, Pick Exactly 2)</option>
+                        <option value="seven-card-stud">Seven-Card Stud (2 Down, 4 Up, 1 Down)</option>
+                        <option value="five-card-draw">Five-Card Draw (5 Hole, Exchange Up to 3)</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" id="poker-tab-ai" class="px-2.5 py-1 rounded-xl bg-amber-500 text-stone-950 font-bold text-[11px]">Play vs AI</button>
+                    <button type="button" id="poker-tab-live" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-amber-300 font-bold text-[11px]">Live 1v1 Online</button>
+                </div>
+            </div>
+
+            <div id="poker-live-session-info" class="hidden p-2.5 rounded-2xl bg-amber-950/40 border border-amber-400/40 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-rounded text-sm text-amber-300">sensors</span>
+                    <span class="text-stone-300">Live Match Code:</span>
+                    <span id="poker-live-code" class="font-mono text-amber-300 font-bold tracking-wider">POKER-ALPHA</span>
+                </div>
+                <button type="button" id="btn-poker-copy-link" class="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-1">
+                    <span class="material-symbols-rounded text-sm">content_copy</span>
+                    <span>Copy Link</span>
+                </button>
+            </div>
+
+            <!-- Felt Poker Table -->
+            <div class="rounded-3xl p-5 border-2 border-emerald-600/30 bg-emerald-950/40 shadow-inner space-y-5">
+                <!-- Pot & Stage Indicator -->
+                <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-rounded text-amber-300 text-sm">savings</span>
+                        <span class="text-xs text-stone-300">Total Pot:</span>
+                        <span id="poker-pot-val" class="font-mono text-amber-200 font-bold text-sm">$30</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="poker-stage-badge" class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 font-cathedral text-[10px] uppercase font-bold tracking-wider">Pre-Flop</span>
+                        <span id="poker-current-bet-val" class="text-xs text-stone-400 font-mono">Current Bet: $20</span>
+                    </div>
+                </div>
+
+                <!-- Community Cards / Shared Table -->
+                <div class="space-y-1.5 text-center">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 flex items-center justify-center gap-2">
+                        <span>Community Flop / Turn / River</span>
+                    </div>
+                    <div id="poker-community-cards" class="flex items-center justify-center gap-2 min-h-[70px]">
+                        <span class="text-xs text-stone-500 italic">Waiting for hand to start</span>
+                    </div>
+                </div>
+
+                <!-- Status Banner -->
+                <div id="poker-status-banner" class="p-2 rounded-xl bg-black/60 border border-amber-400/30 text-center text-xs font-cathedral font-bold text-amber-200 tracking-wide">
+                    Select your variant and click Deal to start the hand.
+                </div>
+
+                <!-- Player Hand Area -->
+                <div class="space-y-1.5 text-center">
+                    <div id="poker-player-cards" class="flex items-center justify-center gap-2 min-h-[70px]">
+                        <span class="text-xs text-stone-500 italic">No cards in hand</span>
+                    </div>
+                    <div class="flex items-center justify-center gap-3">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your Hand:</span>
+                        <span id="poker-hand-rank" class="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 text-xs font-bold font-cathedral">High Card</span>
+                        <span class="text-[11px] text-stone-400 font-mono">Chips: <span id="poker-chip-bank" class="text-amber-300 font-bold">$1000</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Poker Action Controls -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <button type="button" id="poker-btn-deal" class="py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-1 shadow-md transition">
+                    <span class="material-symbols-rounded text-sm">play_arrow</span>
+                    <span>Deal Hand</span>
+                </button>
+                <button type="button" id="poker-btn-check" disabled class="py-2.5 rounded-xl bg-stone-700 hover:bg-stone-600 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">check</span>
+                    <span>Check</span>
+                </button>
+                <button type="button" id="poker-btn-call" disabled class="py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">toll</span>
+                    <span>Call</span>
+                </button>
+                <button type="button" id="poker-btn-raise" disabled class="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">trending_up</span>
+                    <span>Raise</span>
+                </button>
+                <button type="button" id="poker-btn-fold" disabled class="py-2.5 rounded-xl bg-red-800 hover:bg-red-700 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition col-span-2 sm:col-span-1">
+                    <span class="material-symbols-rounded text-sm">close</span>
+                    <span>Fold</span>
+                </button>
+            </div>
+            <div class="flex items-center justify-between gap-2 pt-1">
+                <button type="button" id="poker-btn-next-street" disabled class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center gap-1">
+                    <span class="material-symbols-rounded text-sm">forward</span>
+                    <span>Deal Next Street</span>
+                </button>
+                <button type="button" id="poker-btn-draw-exchange" disabled class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-30 disabled:pointer-events-none text-stone-950 font-bold text-xs flex items-center gap-1">
+                    <span class="material-symbols-rounded text-sm">swap_horiz</span>
+                    <span>Exchange Selected Cards</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- SACRED SKIP-BO SANCTUARY TABLE MODAL                                  -->
+    <!-- ===================================================================== -->
+    <div id="skipbo-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md hidden pointer-events-auto">
+        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-blue-400/50 w-full max-w-3xl max-h-[94vh] overflow-y-auto space-y-4 bg-gradient-to-b from-[#0e1219] to-[#080a0e]">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-blue-500/30 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-rounded text-2xl text-blue-300">counter_1</span>
+                    <div>
+                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100">SACRED SKIP-BO</h2>
+                        <p class="text-[11px] text-stone-400">Sequential Building 1-12 • Deplete Your 15-Card Stockpile</p>
+                    </div>
+                </div>
+                <button id="btn-close-skipbo" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Skip-Bo Table">
+                    <span class="material-symbols-rounded text-xl">close</span>
+                </button>
+            </div>
+
+            <!-- Mode Switcher -->
+            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-stone-400">Mode:</span>
+                    <button type="button" id="skipbo-tab-ai" class="px-2.5 py-1 rounded-xl bg-blue-600 text-white font-bold text-[11px]">Play vs AI</button>
+                    <button type="button" id="skipbo-tab-live" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-blue-300 font-bold text-[11px]">Live 1v1 Online</button>
+                </div>
+                <div id="skipbo-live-session-info" class="hidden flex items-center gap-2">
+                    <span id="skipbo-live-code" class="font-mono text-amber-300 font-bold tracking-wider">SKIP-ALPHA</span>
+                    <button type="button" id="btn-skipbo-copy-link" class="px-2.5 py-1 rounded-xl bg-blue-500 hover:bg-blue-400 text-white font-bold text-xs flex items-center gap-1">
+                        <span class="material-symbols-rounded text-sm">content_copy</span>
+                        <span>Copy Link</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Felt -->
+            <div class="rounded-3xl p-5 border-2 border-blue-500/30 bg-blue-950/20 shadow-inner space-y-5">
+                <!-- Opponent Info & 4 Building Piles -->
+                <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div class="text-xs text-stone-300">
+                        <span>Opponent Stockpile: </span>
+                        <span id="skipbo-opp-stock" class="font-mono text-amber-300 font-bold">15 remaining</span>
+                    </div>
+                    <div class="text-xs text-stone-300">
+                        <span>Draw Deck: </span>
+                        <span id="skipbo-draw-deck-count" class="font-mono text-blue-300 font-bold">132 cards</span>
+                    </div>
+                </div>
+
+                <!-- 4 Shared Building Piles -->
+                <div class="space-y-1.5 text-center">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400">4 Shared Building Piles (Must start at 1, build up to 12)</div>
+                    <div id="skipbo-building-piles" class="grid grid-cols-4 gap-2.5 max-w-md mx-auto">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Status Banner -->
+                <div id="skipbo-status-banner" class="p-2 rounded-xl bg-black/60 border border-blue-400/30 text-center text-xs font-cathedral font-bold text-blue-200 tracking-wide">
+                    Play cards to building piles or discard to end your turn.
+                </div>
+
+                <!-- Player Hand & Stockpile -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-xs text-stone-400 font-semibold px-1">
+                        <span>Your 5-Card Hand</span>
+                        <span>Your Stockpile: <span id="skipbo-player-stock-count" class="font-mono text-amber-300 font-bold">15 remaining</span></span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-center gap-4 justify-between">
+                        <!-- Hand Cards -->
+                        <div id="skipbo-player-hand" class="flex flex-wrap items-center justify-center gap-2 flex-1">
+                            <!-- Populated dynamically -->
+                        </div>
+                        <!-- Top Stockpile Card -->
+                        <div class="flex flex-col items-center gap-1 border-l border-white/10 pl-4">
+                            <span class="text-[10px] uppercase font-bold text-amber-300">Stock Top</span>
+                            <div id="skipbo-stockpile-top" class="w-14 h-20 rounded-xl bg-amber-500 text-stone-950 font-bold text-lg flex items-center justify-center shadow-lg cursor-pointer border-2 border-amber-300">1</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4 Discard Piles -->
+                <div class="space-y-1 text-center">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your 4 Personal Discard Piles</div>
+                    <div id="skipbo-discard-piles" class="grid grid-cols-4 gap-2 max-w-sm mx-auto">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="grid grid-cols-3 gap-2">
+                <button type="button" id="skipbo-btn-play-selected" class="py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">upload</span>
+                    <span>Play to Pile</span>
+                </button>
+                <button type="button" id="skipbo-btn-discard-selected" class="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">download</span>
+                    <span>Discard & End</span>
+                </button>
+                <button type="button" id="skipbo-btn-bot-step" class="py-2.5 rounded-xl bg-stone-700 hover:bg-stone-600 text-stone-200 font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">smart_toy</span>
+                    <span>Auto AI Turn</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TEN RITES (PHASE 10) SANCTUARY TABLE MODAL                            -->
+    <!-- ===================================================================== -->
+    <div id="phase10-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md hidden pointer-events-auto">
+        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-emerald-400/50 w-full max-w-3xl max-h-[94vh] overflow-y-auto space-y-4 bg-gradient-to-b from-[#0e1612] to-[#080d0a]">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-emerald-500/30 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-rounded text-2xl text-emerald-300">auto_stories</span>
+                    <div>
+                        <h2 class="font-cathedral text-base sm:text-lg font-bold text-amber-100">TEN RITES (PHASE 10)</h2>
+                        <p class="text-[11px] text-stone-400">Master the 10 Liturgical Card Rites • Sets, Runs & Consecrations</p>
+                    </div>
+                </div>
+                <button id="btn-close-phase10" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Phase 10 Table">
+                    <span class="material-symbols-rounded text-xl">close</span>
+                </button>
+            </div>
+
+            <!-- Mode Switcher -->
+            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-stone-400">Mode:</span>
+                    <button type="button" id="phase10-tab-ai" class="px-2.5 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px]">Play vs AI</button>
+                    <button type="button" id="phase10-tab-live" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-300 font-bold text-[11px]">Live 1v1 Online</button>
+                </div>
+                <div id="phase10-live-session-info" class="hidden flex items-center gap-2">
+                    <span id="phase10-live-code" class="font-mono text-amber-300 font-bold tracking-wider">P10-ALPHA</span>
+                    <button type="button" id="btn-phase10-copy-link" class="px-2.5 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-xs flex items-center gap-1">
+                        <span class="material-symbols-rounded text-sm">content_copy</span>
+                        <span>Copy Link</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Liturgical Phase Contract Banner -->
+            <div class="p-3 rounded-2xl bg-emerald-950/50 border border-emerald-400/40 flex items-center justify-between text-xs">
+                <div class="space-y-0.5">
+                    <div class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Current Liturgical Rite:</div>
+                    <div id="phase10-target-contract" class="font-cathedral text-sm font-bold text-amber-100">Phase 1: 2 Sets of 3</div>
+                </div>
+                <div class="text-right space-y-0.5">
+                    <div class="text-[10px] uppercase font-bold text-stone-400">Score Penalty:</div>
+                    <div id="phase10-player-score" class="font-mono font-bold text-amber-300">0 pts</div>
+                </div>
+            </div>
+
+            <!-- Table Felt -->
+            <div class="rounded-3xl p-5 border-2 border-emerald-500/30 bg-emerald-950/20 shadow-inner space-y-5">
+                <!-- Center Piles: Draw Deck & Discard Pile -->
+                <div class="flex items-center justify-center gap-8 border-b border-white/10 pb-4">
+                    <div class="text-center space-y-1">
+                        <span class="text-[10px] uppercase font-bold text-stone-400">Draw Deck</span>
+                        <div id="phase10-draw-deck-btn" class="w-16 h-22 rounded-xl bg-stone-800 hover:bg-stone-700 border-2 border-emerald-500/40 text-emerald-300 font-mono font-bold text-sm flex items-center justify-center cursor-pointer shadow-lg transition">🂠 Draw</div>
+                    </div>
+                    <div class="text-center space-y-1">
+                        <span class="text-[10px] uppercase font-bold text-stone-400">Discard Pile</span>
+                        <div id="phase10-discard-pile-btn" class="w-16 h-22 rounded-xl bg-stone-900 border-2 border-white/20 text-stone-200 font-mono font-bold text-sm flex items-center justify-center cursor-pointer shadow-lg transition">Empty</div>
+                    </div>
+                </div>
+
+                <!-- Laid Phase Melds on Table -->
+                <div class="space-y-1.5">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 text-center">Laid Phase Melds</div>
+                    <div id="phase10-laid-groups" class="min-h-[60px] p-2.5 rounded-2xl bg-black/40 border border-white/10 flex flex-wrap items-center justify-center gap-3">
+                        <span class="text-xs text-stone-500 italic">No melds laid down yet this round</span>
+                    </div>
+                </div>
+
+                <!-- Status Banner -->
+                <div id="phase10-status-banner" class="p-2 rounded-xl bg-black/60 border border-emerald-400/30 text-center text-xs font-cathedral font-bold text-emerald-200 tracking-wide">
+                    Draw a card from the deck or discard pile to begin your turn.
+                </div>
+
+                <!-- Hand Cards -->
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-xs text-stone-400 font-semibold px-1">
+                        <span>Your Consecrated Hand (Select cards to meld or discard)</span>
+                        <span id="phase10-hand-count" class="font-mono text-emerald-300">10 cards</span>
+                    </div>
+                    <div id="phase10-player-hand" class="flex flex-wrap items-center justify-center gap-2 min-h-[75px]">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button type="button" id="phase10-btn-draw-deck" class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">download</span>
+                    <span>Draw Deck</span>
+                </button>
+                <button type="button" id="phase10-btn-lay-phase" disabled class="py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:pointer-events-none text-stone-950 font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">verified</span>
+                    <span>Lay Down Phase</span>
+                </button>
+                <button type="button" id="phase10-btn-hit-card" disabled class="py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">add_box</span>
+                    <span>Hit on Meld</span>
+                </button>
+                <button type="button" id="phase10-btn-discard" disabled class="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <span class="material-symbols-rounded text-sm">logout</span>
+                    <span>Discard & End</span>
                 </button>
             </div>
         </div>

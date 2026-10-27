@@ -106,7 +106,13 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'btn-live-banner-copy-link': new MockElement(),
       'icon-banner-copy-link': new MockElement(),
       'label-banner-copy-link': new MockElement(),
-      'pregame-mode-lock-notice': new MockElement()
+      'pregame-mode-lock-notice': new MockElement(),
+      'poker-modal': new MockElement(),
+      'btn-close-poker': new MockElement(),
+      'skipbo-modal': new MockElement(),
+      'btn-close-skipbo': new MockElement(),
+      'phase10-modal': new MockElement(),
+      'btn-close-phase10': new MockElement()
     };
 
     (globalThis as any).document = {
@@ -436,6 +442,34 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     ui.hideBlackjack();
     expect(domElements['blackjack-modal'].classList.contains('hidden')).toBe(true);
     expect(ui.isBlackjackVisible()).toBe(false);
+  });
+
+  it('controls Poker, Skip-Bo, and Phase 10 modal visibility', () => {
+    const ui = new UIController();
+
+    // Poker
+    domElements['poker-modal'].classList.add('hidden');
+    expect(ui.isPokerVisible()).toBe(false);
+    ui.showPoker();
+    expect(ui.isPokerVisible()).toBe(true);
+    ui.hidePoker();
+    expect(ui.isPokerVisible()).toBe(false);
+
+    // Skip-Bo
+    domElements['skipbo-modal'].classList.add('hidden');
+    expect(ui.isSkipBoVisible()).toBe(false);
+    ui.showSkipBo();
+    expect(ui.isSkipBoVisible()).toBe(true);
+    ui.hideSkipBo();
+    expect(ui.isSkipBoVisible()).toBe(false);
+
+    // Phase 10
+    domElements['phase10-modal'].classList.add('hidden');
+    expect(ui.isPhase10Visible()).toBe(false);
+    ui.showPhase10();
+    expect(ui.isPhase10Visible()).toBe(true);
+    ui.hidePhase10();
+    expect(ui.isPhase10Visible()).toBe(false);
   });
 });
 

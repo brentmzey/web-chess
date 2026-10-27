@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.21] - 2026-10-26
+### Added
+- **Complete Multi-Game Suite: Phase 10, Skip-Bo, Blackjack, & Multi-Variant Poker with Play vs Computer & Live 1v1 Online**:
+  - **Ten Rites (Phase 10) Interactive Engine (`src/games/phase10/phase10Engine.ts`, `index.html`, `src/main.ts`)**:
+    - Built complete functional Phase 10 engine with all 10 liturgical phases, set and run validators, deck recycling, card drawing from deck or discard pile, phase laying down, hitting on melds, and tournament scoring.
+    - Added dedicated sanctuary interactive modal (`#phase10-modal`) with live phase tracker, multi-card hand selectors, and seamless toggle between **Play vs Computer (Prior AI)** and **Live 1v1 Online** (`P10-XXXX` codes & share links).
+  - **Sacred Skip-Bo Engine (`src/games/skipbo/skipboEngine.ts`, `index.html`, `src/main.ts`)**:
+    - Created 162-card sequential building engine (1-12 ascending building piles + Skip-Bo Wilds, 15-card stockpiles, 4 personal discard piles).
+    - Autonomous AI Abbot solver with optimal play sequencing (stockpile -> hand -> discard) and strategic end-of-turn discards.
+    - Dedicated sanctuary table modal (`#skipbo-modal`) with shared building piles, hand view, stockpile counter, and toggle between **Play vs Computer** and **Live 1v1 Online** (`SKIP-XXXX` codes & share links).
+  - **Expanded Cathedral Poker Engine (4 Variants) (`src/games/poker/pokerEngine.ts`, `index.html`, `src/main.ts`)**:
+    - Added **Seven-Card Stud** (2 down, 4 up, 1 down) and **Five-Card Draw** (card exchange up to 3 cards) alongside **Texas Hold'em** and **Omaha**.
+    - Dedicated sanctuary table modal (`#poker-modal`) with variant switcher, community board, pot display, betting actions (Check, Call, Raise, Fold, All-In), next street progression, and toggle between **Play vs Computer** and **Live 1v1 Online** (`POKER-XXXX` codes & share links).
+  - **Gothic Blackjack Live 1v1 Online Toggle (`index.html`, `src/main.ts`)**:
+    - Added Live 1v1 Online mode toggle bar to `#blackjack-modal` with auto-generated session code (`BJK-XXXX`) and one-click share link copying.
+  - **Hungarian Database Schemas & Observability for Skip-Bo (`src/server/db/multiGameSchema.sql`, `src/server/services/multiGameService.ts`)**:
+    - Added `tbl_skp_sessions`, `tbl_skp_seats`, `tbl_skp_moves`, `tbl_skp_events`, `tbl_archived_skp_snapshots`, and `tbl_archived_skp_snapshots_history`.
+    - Integrated `[SERVER_SIDE] [SKIPBO_TRACE]` structured logging and snapshot archival in `MultiGameService`.
+  - **Universal Deep-Linking & Routing (`src/routing/sessionRouter.ts`, `src/main.ts`)**:
+    - Updated Arcade Hub cards to "Live & Playable" for Phase 10, Skip-Bo, Blackjack, and Poker.
+    - Deep-linking and quick join router directly boots into the respective game modal in Live 1v1 mode upon receiving codes (`SANCT-`, `BJK-`, `POKER-`, `SKIP-`, `P10-`).
+- **Comprehensive Unit & Integration Testing**:
+  - Added unit test suites for Skip-Bo (`tests/skipboEngine.test.ts`), Phase 10 (`tests/phase10Engine.test.ts`), expanded Poker (`tests/pokerEngine.test.ts`), and UIController (`tests/uiController.test.ts`).
+  - Total passing tests increased to **292 / 292 passing** across 38 files with >98.6% line and branch coverage.
+
 ## [1.2.0-rc.20] - 2026-10-26
 ### Added
 - **Centralized Game Enums & Constants Suite (`src/constants/gameEnums.ts`, `src/types/index.ts`)**:

@@ -55,7 +55,8 @@ export enum ArcadeGameEnum {
   Avalon = 'avalon',
   Uno = 'uno',
   Phase10 = 'phase10',
-  Poker = 'poker'
+  Poker = 'poker',
+  SkipBo = 'skipbo'
 }
 
 export enum GameCodePrefixEnum {
@@ -64,7 +65,8 @@ export enum GameCodePrefixEnum {
   Avalon = 'AVALON-',
   Uno = 'UNO-',
   Phase10 = 'P10-',
-  Poker = 'POKER-'
+  Poker = 'POKER-',
+  SkipBo = 'SKIP-'
 }
 
 export enum AIModelEnum {
@@ -189,3 +191,54 @@ export const POKER_HAND_VALUES: Record<PokerHandRankEnum, number> = {
   [PokerHandRankEnum.StraightFlush]: 9,
   [PokerHandRankEnum.RoyalFlush]: 10
 };
+
+// ============================================================================
+// SKIP-BO ENUMS & CONSTANTS
+// ============================================================================
+
+export enum SkipBoCardTypeEnum {
+  Number = 'number',
+  Wild = 'wild'
+}
+
+export enum SkipBoSourcePileEnum {
+  Stockpile = 'stockpile',
+  Hand = 'hand',
+  Discard = 'discard'
+}
+
+// ============================================================================
+// PHASE 10 ENUMS & CONSTANTS
+// ============================================================================
+
+export enum Phase10ColorEnum {
+  Red = 'red',
+  Blue = 'blue',
+  Green = 'green',
+  Yellow = 'yellow'
+}
+
+export enum Phase10SpecialEnum {
+  Standard = 'standard',
+  Wild = 'wild',
+  Skip = 'skip'
+}
+
+export interface Phase10Requirement {
+  phaseNumber: number;
+  description: string;
+  shortLabel: string;
+}
+
+export const PHASE_10_REQUIREMENTS: readonly Phase10Requirement[] = [
+  { phaseNumber: 1, description: '2 sets of 3', shortLabel: '2 Sets of 3' },
+  { phaseNumber: 2, description: '1 set of 3 + 1 run of 4', shortLabel: 'Set of 3 & Run of 4' },
+  { phaseNumber: 3, description: '1 set of 4 + 1 run of 4', shortLabel: 'Set of 4 & Run of 4' },
+  { phaseNumber: 4, description: '1 run of 7', shortLabel: 'Run of 7' },
+  { phaseNumber: 5, description: '1 run of 8', shortLabel: 'Run of 8' },
+  { phaseNumber: 6, description: '1 run of 9', shortLabel: 'Run of 9' },
+  { phaseNumber: 7, description: '2 sets of 4', shortLabel: '2 Sets of 4' },
+  { phaseNumber: 8, description: '7 cards of one color', shortLabel: '7 of One Color' },
+  { phaseNumber: 9, description: '1 set of 5 + 1 set of 2', shortLabel: 'Set of 5 & Set of 2' },
+  { phaseNumber: 10, description: '1 set of 5 + 1 set of 3', shortLabel: 'Set of 5 & Set of 3' }
+];

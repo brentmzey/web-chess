@@ -459,4 +459,94 @@ export class MultiGameService {
       err => `Failed to archive poker snapshot: ${String(err)}`
     );
   }
+
+  // ==========================================================================
+  // SACRED SKIP-BO OBSERVABILITY & OPERATIONS
+  // ==========================================================================
+
+  public createSkipBoSession(
+    sessionCode: string,
+    stockpileSize: number = 15,
+    doNotDelete: boolean = false
+  ): Result<string, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        this.db
+          .prepare(
+            `INSERT INTO tbl_skp_sessions
+             (id, session_code, status, stockpile_size, current_turn_index, building_piles_json, do_not_delete, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .run(id, sessionCode, 'in_progress', stockpileSize, 0, JSON.stringify([[], [], [], []]), doNotDelete ? 1 : 0, now, now);
+
+        logger.info(`[SERVER_SIDE] [SKIPBO_TRACE] Created Skip-Bo session ${sessionCode} (${id})`);
+        return id;
+      },
+      err => `Failed to create Skip-Bo session: ${String(err)}`
+    );
+  }
+
+  public registerSkipBoSeat(
+    sessionId: string,
+    seatNumber: number,
+    playerId: string,
+    playerName: string,
+    isBot: boolean,
+    stockpileRemaining: number = 15
+  ): Result<string, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        this.db
+          .prepare(
+            `INSERT INTO tbl_skp_seats
+             (id, session_id, seat_number, player_id, player_name, is_bot, stockpile_remaining, hand_count, discard_piles_json, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .run(id, sessionId, seatNumber, playerId, playerName, isBot ? 1 : 0, stockpileRemaining, 5, JSON.stringify([[], [], [], []]), now, now);
+
+        logger.info(`[SERVER_SIDE] [SKIPBO_TRACE] Seat ${seatNumber} registered for Skip-Bo ${sessionId}: ${playerName}`);
+        return id;
+      },
+      err => `Failed to register Skip-Bo seat: ${String(err)}`
+    );
+  }
+
+  public archiveSkipBoSnapshot(
+    sessionCode: string,
+    winnerName: string,
+    payload: Record<string, unknown>,
+    doNotDelete: boolean = false
+  ): Result<MultiGameSnapshotRecord, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        const payloadJson = JSON.stringify(payload);
+
+        this.db
+          .prepare(
+            `INSERT OR REPLACE INTO tbl_archived_skp_snapshots
+             (id, txt_session_code, txt_winner_name, bln_do_not_delete, json_snapshot_payload, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`
+          )
+          .run(id, sessionCode, winnerName, doNotDelete ? 1 : 0, payloadJson, now);
+
+        logger.info(`[SERVER_SIDE] [SKIPBO_TRACE] Archived snapshot for ${sessionCode} into tbl_archived_skp_snapshots`);
+
+        return {
+          id,
+          txt_session_code: sessionCode,
+          txt_outcome: winnerName,
+          bln_do_not_delete: doNotDelete ? 1 : 0,
+          json_snapshot_payload: payloadJson,
+          created_at: now
+        };
+      },
+      err => `Failed to archive Skip-Bo snapshot: ${String(err)}`
+    );
+  }
 }

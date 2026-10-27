@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
   evaluatePokerHand,
-  PokerEngine
+  CathedralPokerEngine as PokerEngine
 } from '../src/games/poker/pokerEngine';
 import {
   CardSuitEnum,
@@ -254,5 +254,134 @@ describe('Cathedral Poker Engine - Hand Evaluator, Variants & Multi-Seat Table',
     winnerSeat.extraData.folded = true;
     runnerSeat.extraData.folded = true;
     expect(engine.resolveShowdown().isFailure()).toBe(true);
+  });
+
+  it('handles Turn, River, and Seven-Card Stud & Five-Card Draw variants', () => {
+    // Test Turn & River
+    const holdem = new PokerEngine(PokerVariantEnum.TexasHoldem, 2, 10, 20);
+    holdem.seatManager.claimSeat(1, 'h1', 'Alice');
+    holdem.seatManager.claimSeat(2, 'h2', 'Bob');
+    holdem.startHand();
+    holdem.dealFlop();
+
+    const turnRes = holdem.dealTurn();
+    expect(turnRes.isSuccess()).toBe(true);
+    expect(holdem.state.communityCards.length).toBe(4);
+    expect(holdem.state.stage).toBe(PokerStageEnum.Turn);
+
+    const riverRes = holdem.dealRiver();
+    expect(riverRes.isSuccess()).toBe(true);
+    expect(holdem.state.communityCards.length).toBe(5);
+    expect(holdem.state.stage).toBe(PokerStageEnum.River);
+
+    // Test Seven-Card Stud
+    const stud = new PokerEngine(PokerVariantEnum.SevenCardStud, 2, 5, 10);
+    stud.seatManager.claimSeat(1, 's1', 'StudPlayer1');
+    stud.seatManager.claimSeat(2, 's2', 'StudPlayer2');
+    stud.startHand();
+    expect(stud.seatManager.getSeat(1).getOrThrow().extraData.holeCards.length).toBe(3);
+
+    // Test Five-Card Draw & Card Exchange
+    const draw = new PokerEngine(PokerVariantEnum.FiveCardDraw, 2, 10, 20);
+    draw.seatManager.claimSeat(1, 'd1', 'DrawPlayer1');
+    draw.seatManager.claimSeat(2, 'd2', 'DrawPlayer2');
+    draw.startHand();
+    const d1Seat = draw.seatManager.getSeat(1).getOrThrow();
+    expect(d1Seat.extraData.holeCards.length).toBe(5);
+
+    // Discard 2 cards and draw 2 replacements
+    const exchangeRes = draw.drawCardsFiveCardDraw(1, [0, 1]);
+    expect(exchangeRes.isSuccess()).toBe(true);
+    expect(exchangeRes.getOrThrow().length).toBe(2);
+    expect(d1Seat.extraData.holeCards.length).toBe(5);
+
+    // Five-Card Draw Showdown
+    const drawShowdown = draw.resolveShowdown();
+    expect(drawShowdown.isSuccess()).toBe(true);
+  });
+
+  it('validates Omaha Showdown with strict 2-hole and 3-community cards', () => {
+    const omaha = new PokerEngine(PokerVariantEnum.Omaha, 2, 10, 20);
+    omaha.seatManager.claimSeat(1, 'o1', 'OmahaWinner');
+    omaha.seatManager.claimSeat(2, 'o2', 'OmahaChallenger');
+    omaha.startHand();
+
+    omaha.state.communityCards = [
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Ace, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.King, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Queen, faceUp: true },
+      { suit: CardSuitEnum.Hearts, value: CardValueEnum.Two, faceUp: true },
+      { suit: CardSuitEnum.Diamonds, value: CardValueEnum.Three, faceUp: true }
+    ];
+
+    const seat1 = omaha.seatManager.getSeat(1).getOrThrow();
+    // 2 Spades (Jack, 10) + 2 Hearts -> Makes Royal Flush in Spades with Ace, King, Queen community!
+    seat1.extraData.holeCards = [
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Jack, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Ten, faceUp: true },
+      { suit: CardSuitEnum.Hearts, value: CardValueEnum.Nine, faceUp: true },
+      { suit: CardSuitEnum.Hearts, value: CardValueEnum.Eight, faceUp: true }
+    ];
+
+    const seat2 = omaha.seatManager.getSeat(2).getOrThrow();
+    seat2.extraData.holeCards = [
+      { suit: CardSuitEnum.Clubs, value: CardValueEnum.Four, faceUp: true },
+      { suit: CardSuitEnum.Clubs, value: CardValueEnum.Five, faceUp: true },
+      { suit: CardSuitEnum.Clubs, value: CardValueEnum.Six, faceUp: true },
+      { suit: CardSuitEnum.Clubs, value: CardValueEnum.Seven, faceUp: true }
+    ];
+
+    const showdownRes = omaha.resolveShowdown();
+    expect(showdownRes.isSuccess()).toBe(true);
+    expect(showdownRes.getOrThrow().playerName).toBe('OmahaWinner');
+    expect(seat1.extraData.handRank?.rank).toBe(PokerHandRankEnum.RoyalFlush);
+  });
+
+  it('handles edge case errors for streets, draws, and numeric cards', () => {
+    const holdem = new PokerEngine(PokerVariantEnum.TexasHoldem, 2, 10, 20);
+    holdem.seatManager.claimSeat(1, 'h1', 'Alice');
+    holdem.seatManager.claimSeat(2, 'h2', 'Bob');
+
+    // Turn before flop -> failure
+    expect(holdem.dealTurn().isFailure()).toBe(true);
+    // River before turn -> failure
+    expect(holdem.dealRiver().isFailure()).toBe(true);
+
+    // Flop in stud or draw -> failure
+    const stud = new PokerEngine(PokerVariantEnum.SevenCardStud, 2, 5, 10);
+    expect(stud.dealFlop().isFailure()).toBe(true);
+
+    // Draw cards in non-draw variant -> failure
+    expect(holdem.drawCardsFiveCardDraw(1, [0]).isFailure()).toBe(true);
+
+    // Discarding > 3 cards in Five-Card Draw -> failure
+    const draw = new PokerEngine(PokerVariantEnum.FiveCardDraw, 2, 10, 20);
+    draw.seatManager.claimSeat(1, 'd1', 'David');
+    expect(draw.drawCardsFiveCardDraw(1, [0, 1, 2, 3]).isFailure()).toBe(true);
+
+    // Discard in non-existent seat -> failure
+    expect(draw.drawCardsFiveCardDraw(99, [0]).isFailure()).toBe(true);
+
+    // Start hand with fewer than 2 players -> failure
+    const single = new PokerEngine(PokerVariantEnum.TexasHoldem, 2, 10, 20);
+    single.seatManager.claimSeat(1, 'alone', 'Alone');
+    expect(single.startHand().isFailure()).toBe(true);
+
+    // Incomplete hand evaluation
+    expect(evaluatePokerHand([]).description).toBe('Incomplete hand');
+
+    // Unknown card value evaluates with fallback 0
+    expect(
+      evaluatePokerHand([
+        { suit: CardSuitEnum.Hearts, value: 'Unknown' as any, faceUp: true },
+        { suit: CardSuitEnum.Diamonds, value: '2' as any, faceUp: true },
+        { suit: CardSuitEnum.Clubs, value: '3' as any, faceUp: true },
+        { suit: CardSuitEnum.Spades, value: '4' as any, faceUp: true },
+        { suit: CardSuitEnum.Hearts, value: '7' as any, faceUp: true }
+      ]).rank
+    ).toBe(PokerHandRankEnum.HighCard);
+
+    // All-In action
+    expect(holdem.playerAction(1, PokerActionEnum.AllIn).isSuccess()).toBe(true);
   });
 });
