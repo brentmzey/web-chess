@@ -174,7 +174,9 @@ describe('3D Graphics, Procedural Textures, Pieces, Physics & Cathedral Audio', 
     );
 
     const whiteVictim = buildWizardPieceMesh('q', 'w', materials);
+    expect(shatter.hasActiveParticles()).toBe(false);
     shatter.spawnShatterExplosion(whiteVictim, new THREE.Vector3(1, 0, 0));
+    expect(shatter.hasActiveParticles()).toBe(true);
     expect(shatter.activeShards.length).toBe(34);
     expect(shatter.activeShockwaves.length).toBe(1);
 
@@ -190,8 +192,11 @@ describe('3D Graphics, Procedural Textures, Pieces, Physics & Cathedral Audio', 
     for (let step = 0; step < 30; step++) {
       shatter.update(0.15);
     }
+    shatter.cameraShakeIntensity = 0;
+    flashLight.intensity = 0;
     expect(shatter.activeShards.length).toBe(0);
     expect(shatter.activeShockwaves.length).toBe(0);
+    expect(shatter.hasActiveParticles()).toBe(false);
   });
 
   it('cycles CameraController presets and updates camera position with shake', () => {

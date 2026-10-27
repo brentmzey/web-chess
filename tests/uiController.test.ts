@@ -494,12 +494,21 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(ui.isAvalonVisible()).toBe(false);
 
     // SET
+    ui.hideArcadeHub();
+    ui.hideBlackjack();
     domElements['set-modal'].classList.add('hidden');
     expect(ui.isSetVisible()).toBe(false);
+    expect(ui.isAnyFullScreenArcadeModalVisible()).toBe(false);
     ui.showSet();
     expect(ui.isSetVisible()).toBe(true);
+    expect(ui.isAnyFullScreenArcadeModalVisible()).toBe(true);
     ui.hideSet();
     expect(ui.isSetVisible()).toBe(false);
+    expect(ui.isAnyFullScreenArcadeModalVisible()).toBe(false);
+
+    // Custom elements builder override test
+    const customUi = new UIController({});
+    expect(customUi.isSetVisible()).toBe(false);
   });
 });
 

@@ -3,20 +3,18 @@ import type { DeviceProfileConfig } from '../types';
 import { DESKTOP_PROFILE } from './deviceTier';
 
 export interface SceneContext {
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-  strikeFlashLight: THREE.PointLight;
-  altarWarmLight: THREE.PointLight;
-  boardKeyLight: THREE.PointLight;
-  hemiLight: THREE.HemisphereLight;
-  crossingSpot: THREE.SpotLight;
+  readonly scene: THREE.Scene;
+  readonly camera: THREE.PerspectiveCamera;
+  readonly renderer: THREE.WebGLRenderer;
+  readonly strikeFlashLight: THREE.PointLight;
+  readonly altarWarmLight: THREE.PointLight;
+  readonly boardKeyLight: THREE.PointLight;
+  readonly hemiLight: THREE.HemisphereLight;
+  readonly crossingSpot: THREE.SpotLight;
 }
 
-export function initScene(
-  container: HTMLElement,
-  profile: DeviceProfileConfig = DESKTOP_PROFILE
-): SceneContext {
+export function initScene(container: HTMLElement,
+                          profile: Readonly<DeviceProfileConfig> = DESKTOP_PROFILE): Readonly<SceneContext> {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x09070e);
   scene.fog = new THREE.FogExp2(0x0b0914, 0.0135);
@@ -29,12 +27,14 @@ export function initScene(
   );
   const renderer = new THREE.WebGLRenderer({
     antialias: profile.antialias,
-    powerPreference: 'high-performance'
+    powerPreference: 'default'
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, profile.maxPixelRatio));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate = false;
+  renderer.shadowMap.needsUpdate = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.18;
   container.appendChild(renderer.domElement);

@@ -7,6 +7,10 @@ import {
   failure,
   fromResult,
   toResult,
+  zipOptions,
+  zip3Options,
+  domById,
+  ImmutableBuilder,
   match,
   matchBool,
   tryCatch,
@@ -225,6 +229,50 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
         throw new Error('Async explosion');
       }, e => (e as Error).message);
       expect(bad.isFailure()).toBe(true);
+    });
+  });
+
+  describe('zipOptions, zip3Options, domById, and ImmutableBuilder', () => {
+    it('zips 2 and 3 Option instances into readonly tuples when all are Some', () => {
+      const z2 = zipOptions(some('a'), some(2));
+      expect(z2.isSome()).toBe(true);
+      expect(z2.getOrThrow()).toEqual(['a', 2]);
+
+      expect(zipOptions(some('a'), none<number>()).isNone()).toBe(true);
+      expect(zipOptions(none<string>(), some(2)).isNone()).toBe(true);
+
+      const z3 = zip3Options(some(1), some('two'), some(true));
+      expect(z3.isSome()).toBe(true);
+      expect(z3.getOrThrow()).toEqual([1, 'two', true]);
+      expect(zip3Options(some(1), none<string>(), some(true)).isNone()).toBe(true);
+    });
+
+    it('domById safely wraps document.getElementById into Option<HTMLElement>', () => {
+      const fakeEl = { id: 'sanctuary-node' } as unknown as HTMLElement;
+      const fakeDoc = {
+        getElementById: (id: string) => (id === 'sanctuary-node' ? fakeEl : null)
+      } as unknown as Document;
+
+      expect(domById('sanctuary-node', fakeDoc).isSome()).toBe(true);
+      expect(domById('missing-node', fakeDoc).isNone()).toBe(true);
+    });
+
+    it('ImmutableBuilder produces frozen immutable snapshots with fluent updates', () => {
+      interface SampleConfig {
+        readonly host: string;
+        readonly port: number;
+        readonly tls: boolean;
+      }
+
+      const initial: SampleConfig = { host: 'localhost', port: 8080, tls: false };
+      const built = ImmutableBuilder.from(initial)
+        .with('port', 8443)
+        .withOverrides({ tls: true })
+        .build();
+
+      expect(Object.isFrozen(built)).toBe(true);
+      expect(built).toEqual({ host: 'localhost', port: 8443, tls: true });
+      expect(initial.port).toBe(8080);
     });
   });
 });

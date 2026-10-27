@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.24] - 2026-10-27
+### Added
+- **Battery & GPU Power Governor (`src/graphics/renderGovernor.ts`, `src/graphics/scene.ts`, `src/graphics/shatter.ts`, `src/main.ts`, `src/styles/main.css`)**:
+  - **Zero-Wattage 3D Suspension Behind 2D Arcade Theaters & Hidden Tabs**: Completely suspends Three.js WebGL rendering (`renderer.render(scene, camera)`), particle buffer uploads, and trigonometry calculations (`RenderPowerStateEnum.Suspended`) whenever `document.hidden` is true or any full-screen 2D Arcade Game Theater (`#blackjack-modal`, `#poker-modal`, `#skipbo-modal`, `#phase10-modal`, `#uno-modal`, `#avalon-modal`, `#set-modal`, `#arcade-hub-modal`) is open.
+  - **Adaptive Frame-Rate Governor (60 FPS Active -> 20 FPS Ambient Idle)**: Caps active 3D rendering at `60 FPS` (`16ms` interval) so `120Hz` ProMotion displays do not burn double battery, and smoothly steps down to `20 FPS` (`50ms` interval) after `3.5s` of user inactivity (`RenderPowerStateEnum.AmbientIdle`), waking immediately on any pointer, wheel, touch, or keyboard interaction.
+  - **On-Demand Shadow Map Caching (`renderer.shadowMap.autoUpdate = false`)**: Disabled per-frame `2048 × 2048` `PCFSoftShadowMap` recalculation and only updates shadow maps when pieces move, shatter, or sync on the board.
+  - **Integrated GPU Power Profile & Geometry Reuse**: Switched WebGL `powerPreference` from `'high-performance'` to `'default'` so dual-GPU laptops remain on efficiency GPU cores, reused shared unit `OctahedronGeometry` and `DodecahedronGeometry` across shatter explosions, disposed expired shockwave geometries/materials, and applied CSS `content-visibility: auto; contain-intrinsic-size: auto none auto 28px;` to off-screen chronicle rows.
+- **Pure `Option<HTMLElement>` DOM Architecture & `ImmutableBuilder<T>` (`src/utils/fp.ts`, `src/ui/uiController.ts`)**:
+  - Replaced all 78 `HTMLElement | null` / `HTMLButtonElement | null` / `HTMLInputElement | null` fields in `UIControllerElements` with `readonly Option<HTMLElement>` fields constructed via `buildUIControllerElements` and `ImmutableBuilder<T>`.
+  - Added `domById`, `zipOptions`, `zip3Options`, and `ImmutableBuilder` to `src/utils/fp.ts`, enforcing `Readonly<T>` / `readonly` immutability and IntelliJ Java parameter alignment.
+
 ## [1.2.0-rc.23] - 2026-10-27
 ### Added
 - **Sacred Geometry SET ($\text{GF}(3)^4$ Finite Geometry Card Game) (`src/games/set/setEngine.ts`, `index.html`, `src/main.ts`, `tests/setEngine.test.ts`)**:

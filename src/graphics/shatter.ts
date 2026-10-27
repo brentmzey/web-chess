@@ -4,27 +4,34 @@ import { PieceColorEnum, type DeviceProfileConfig, type ShardParticle, type Shoc
 import { DESKTOP_PROFILE } from './deviceTier';
 import type { AppMaterials } from './materials';
 
+const SHARED_OCTA_GEO = new THREE.OctahedronGeometry(1, 0);
+const SHARED_DODECA_GEO = new THREE.DodecahedronGeometry(1, 0);
+
 export class ShatterSystem {
   public activeShards: ShardParticle[] = [];
   public activeShockwaves: ShockwaveRing[] = [];
   public cameraShakeIntensity: number = 0;
 
-  constructor(
-    private scene: THREE.Scene,
-    private materials: AppMaterials,
-    private soundFX: CathedralSoundEngine,
-    private strikeFlashLight: THREE.PointLight,
-    public profile: DeviceProfileConfig = DESKTOP_PROFILE
-  ) {}
+  constructor(private readonly scene: THREE.Scene,
+              private readonly materials: Readonly<AppMaterials>,
+              private readonly soundFX: Readonly<CathedralSoundEngine>,
+              private readonly strikeFlashLight: THREE.PointLight,
+              public profile: Readonly<DeviceProfileConfig> = DESKTOP_PROFILE) {}
+
+  public hasActiveParticles(): boolean {
+    return (
+      this.activeShards.length > 0 ||
+      this.activeShockwaves.length > 0 ||
+      this.cameraShakeIntensity > 0.005
+    );
+  }
 
   /**
    * Shatters a captured piece into physics-driven marble or obsidian stone shards
    * scaled to the active device profile (34 shadowed shards on Desktop, 12 non-shadowed on Mobile Lite).
    */
-  public spawnShatterExplosion(
-    victimPiece: THREE.Group,
-    impactDir: THREE.Vector3
-  ): void {
+  public spawnShatterExplosion(victimPiece: THREE.Group,
+                               impactDir: Readonly<THREE.Vector3>): void {
     const origin = victimPiece.position.clone();
     const color = victimPiece.userData?.color ?? PieceColorEnum.Black;
     const shardMat =
@@ -47,15 +54,12 @@ export class ShatterSystem {
 
     for (let i = 0; i < shardTotal; i++) {
       const size = 0.13 + Math.random() * 0.25;
-      const geo =
-        i % 3 === 0
-          ? new THREE.OctahedronGeometry(size, 0)
-          : new THREE.DodecahedronGeometry(size, 0);
+      const geo = i % 3 === 0 ? SHARED_OCTA_GEO : SHARED_DODECA_GEO;
       const mesh = new THREE.Mesh(geo, i % 5 === 0 ? accentMat : shardMat);
       mesh.scale.set(
-        0.6 + Math.random() * 0.9,
-        0.5 + Math.random() * 1.1,
-        0.6 + Math.random() * 0.9
+        size * (0.6 + Math.random() * 0.9),
+        size * (0.5 + Math.random() * 1.1),
+        size * (0.6 + Math.random() * 0.9)
       );
       mesh.position.set(
         origin.x + (Math.random() - 0.5) * 0.7,
@@ -145,6 +149,8 @@ export class ShatterSystem {
       (sw.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, sw.opacity);
       if (sw.opacity <= 0) {
         this.scene.remove(sw.mesh);
+        sw.mesh.geometry?.dispose?.();
+        (sw.mesh.material as THREE.Material)?.dispose?.();
         this.activeShockwaves.splice(i, 1);
       }
     }

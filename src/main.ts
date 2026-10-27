@@ -30,6 +30,7 @@ import { buildDustParticles } from './graphics/dust';
 import { applyThemePalette, createMaterials } from './graphics/materials';
 import { buildWizardPieceMesh } from './graphics/pieces';
 import { initScene } from './graphics/scene';
+import { RenderGovernor } from './graphics/renderGovernor';
 import { ShatterSystem } from './graphics/shatter';
 import { CameraController } from './interaction/camera';
 import { PocketBaseChessClient } from './realtime/pocketbaseClient';
@@ -99,7 +100,7 @@ import {
   resolveRoute,
   type ArcadeGameType
 } from './routing/sessionRouter';
-import { fromNullable, match, matchBool } from './utils/fp';
+import { domById, fromNullable, match, matchBool } from './utils/fp';
 import { logExecutionContext, logger } from './utils/logger';
 import { isDevMode } from './utils/env';
 
@@ -226,6 +227,7 @@ function main(): void {
         });
       }
     }
+    renderer.shadowMap.needsUpdate = true;
   }
 
   function updateHighlights(): void {
@@ -3539,35 +3541,49 @@ function main(): void {
       });
     });
 
-    fromNullable(document.getElementById('set-btn-claim') as HTMLButtonElement | null).map(b => {
+    domById<HTMLButtonElement>('set-btn-claim').map(b => {
       b.disabled = selectedSetIndices.length !== 3 || s.isGameOver;
     });
   };
 
   let setLiveCode = `SET-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   const setSetMode = (isLive: boolean) => {
-    const aiBtn = document.getElementById('set-mode-ai');
-    const liveBtn = document.getElementById('set-mode-live');
-    const liveBanner = document.getElementById('set-live-banner');
-    const codeVal = document.getElementById('set-live-code-val');
+    const aiBtn = domById('set-mode-ai');
+    const liveBtn = domById('set-mode-live');
+    const liveBanner = domById('set-live-banner');
+    const codeVal = domById('set-live-code-val');
     if (isLive) {
-      aiBtn?.classList.remove('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
-      aiBtn?.classList.add('text-stone-400');
-      liveBtn?.classList.add('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
-      liveBtn?.classList.remove('text-stone-400');
-      liveBanner?.classList.remove('hidden');
-      liveBanner?.classList.add('flex');
-      if (codeVal) codeVal.textContent = setLiveCode;
+      aiBtn.map(el => {
+        el.classList.remove('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
+        el.classList.add('text-stone-400');
+      });
+      liveBtn.map(el => {
+        el.classList.add('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
+        el.classList.remove('text-stone-400');
+      });
+      liveBanner.map(el => {
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+      });
+      codeVal.map(el => {
+        el.textContent = setLiveCode;
+      });
       setupArcadeRealtimeSession(ArcadeGameEnum.Set, setLiveCode, 'Sanctuary Geometer', () =>
         renderSetTable()
       );
     } else {
-      liveBtn?.classList.remove('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
-      liveBtn?.classList.add('text-stone-400');
-      aiBtn?.classList.add('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
-      aiBtn?.classList.remove('text-stone-400');
-      liveBanner?.classList.add('hidden');
-      liveBanner?.classList.remove('flex');
+      liveBtn.map(el => {
+        el.classList.remove('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
+        el.classList.add('text-stone-400');
+      });
+      aiBtn.map(el => {
+        el.classList.add('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
+        el.classList.remove('text-stone-400');
+      });
+      liveBanner.map(el => {
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+      });
     }
   };
 
@@ -3756,8 +3772,9 @@ function main(): void {
   });
 
   const handleHubQuickJoin = () => {
-    const input = document.getElementById('hub-quick-join-input') as HTMLInputElement | null;
-    const rawVal = input?.value || '';
+    const rawVal = domById<HTMLInputElement>('hub-quick-join-input')
+      .map(el => el.value)
+      .getOrElse('');
     const parsedOpt = extractSessionCodeOrUrl(rawVal);
     parsedOpt.match({
       Some: ({ game, code }) => {
@@ -3765,10 +3782,9 @@ function main(): void {
           ui.hideArcadeHub();
           ui.showLiveSessionModal();
           ui.switchLiveSessionTab('join');
-          const joinCodeInput = document.getElementById('live-join-code') as HTMLInputElement | null;
-          if (joinCodeInput) {
+          domById<HTMLInputElement>('live-join-code').map(joinCodeInput => {
             joinCodeInput.value = code;
-          }
+          });
         } else if (game === 'blackjack') {
           ui.hideArcadeHub();
           bjkLiveCode = code;
@@ -4086,10 +4102,9 @@ function main(): void {
         if (!activeLiveCode || activeLiveCode.toUpperCase() !== sessionCode.toUpperCase()) {
           ui.showLiveSessionModal();
           ui.switchLiveSessionTab('join');
-          const joinCodeInput = document.getElementById('live-join-code') as HTMLInputElement | null;
-          if (joinCodeInput) {
+          domById<HTMLInputElement>('live-join-code').map(joinCodeInput => {
             joinCodeInput.value = sessionCode.toUpperCase();
-          }
+          });
         }
       } else if (route.game === 'blackjack') {
         bjkLiveCode = sessionCode;
@@ -4152,13 +4167,38 @@ function main(): void {
   syncAllControlsUI();
   void restoreSessionIfEnabled();
 
-  // Main Render Animation Loop
+  // Main Render Animation Loop governed by Battery & Power Governor
   const clock = new THREE.Clock();
+  const renderGovernor = new RenderGovernor(undefined, performance.now());
+
+  const wakeRenderGovernor = (): void => {
+    renderGovernor.recordInteraction(performance.now());
+  };
+  ['pointerdown', 'pointermove', 'wheel', 'touchstart', 'keydown'].forEach(evtName => {
+    window.addEventListener(evtName, wakeRenderGovernor, { passive: true });
+  });
 
   function animateLoop(): void {
     requestAnimationFrame(animateLoop);
+
+    const hasActiveMotion = isAnimating || shatterSystem.hasActiveParticles();
+    const decision = renderGovernor.evaluateFrame({
+      nowMs: performance.now(),
+      isDocumentHidden: document.hidden,
+      isCoveredByFullScreenModal: ui.isAnyFullScreenArcadeModalVisible(),
+      hasActiveCombatOrMotion: hasActiveMotion
+    });
+
+    if (!decision.shouldRenderWebGL) {
+      return;
+    }
+
     const dt = Math.min(clock.getDelta(), 0.05);
     const elapsed = clock.getElapsedTime();
+
+    if (decision.shouldUpdateShadows) {
+      renderer.shadowMap.needsUpdate = true;
+    }
 
     // 1. Camera Orbit & Shake Interpolation
     camController.update(shatterSystem.cameraShakeIntensity);
@@ -4197,7 +4237,9 @@ function main(): void {
     altarWarmLight.intensity = 1.4 + Math.sin(elapsed * 9.5) * 0.12;
 
     // 5. Dust and Incense Motes
-    updateDust(dt, elapsed);
+    if (decision.shouldUpdateParticles) {
+      updateDust(dt, elapsed);
+    }
 
     // 6. Physics Shards & Shockwaves
     shatterSystem.update(dt);

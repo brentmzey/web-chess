@@ -15,15 +15,24 @@ import {
   type OpponentDifficulty,
   type PieceType
 } from '../types';
-import { fromNullable, match, type Result } from '../utils/fp';
+import {
+  domById,
+  fromNullable,
+  ImmutableBuilder,
+  match,
+  zipOptions,
+  zip3Options,
+  type Option,
+  type Result
+} from '../utils/fp';
 
-const HTML_ESCAPE_MAP: Readonly<Record<string, string>> = {
+const HTML_ESCAPE_MAP: Readonly<Record<string, string>> = Object.freeze({
   '&': '&amp;',
   '<': '&lt;',
   '>': '&gt;',
   '"': '&quot;',
   "'": '&#39;'
-};
+});
 
 /**
  * Escapes HTML metacharacters so untrusted strings (e.g. SAN move text restored from storage)
@@ -34,175 +43,186 @@ export function escapeHtml(raw: string): string {
 }
 
 export interface UIControllerElements {
-  turnDot: HTMLElement | null;
-  turnText: HTMLElement | null;
-  gameModeBadge: HTMLElement | null;
-  difficultyBadge: HTMLElement | null;
-  deviceTierBadge: HTMLElement | null;
-  mobileLiteBanner: HTMLElement | null;
-  mobileLiteBannerText: HTMLElement | null;
-  statusBanner: HTMLElement | null;
-  statusBannerText: HTMLElement | null;
-  capturedByWhite: HTMLElement | null;
-  capturedByBlack: HTMLElement | null;
-  shatteredBlackList: HTMLElement | null;
-  shatteredWhiteList: HTMLElement | null;
-  moveCountPill: HTMLElement | null;
-  moveHistoryContainer: HTMLElement | null;
-  logDrawer: HTMLElement | null;
-  gameoverModal: HTMLElement | null;
-  gameoverTitle: HTMLElement | null;
-  gameoverSubtitle: HTMLElement | null;
-  gameoverStandardActions: HTMLElement | null;
-  gameoverLiveActions: HTMLElement | null;
-  modalLeaveLive: HTMLButtonElement | null;
-  modalInspectLive: HTMLButtonElement | null;
-  promotionModal: HTMLElement | null;
-  pregameModal: HTMLElement | null;
-  storageAuditModal: HTMLElement | null;
-  storageAuditAlgo: HTMLElement | null;
-  storageAuditSummary: HTMLElement | null;
-  storageAuditJson: HTMLElement | null;
-  wipeConfirmRow: HTMLElement | null;
-  btnUndo: HTMLButtonElement | null;
-  undoIcon: HTMLElement | null;
-  undoLabel: HTMLElement | null;
-  undoRuleStatusPill: HTMLElement | null;
-  liveSessionModal: HTMLElement | null;
-  tabCreateLive: HTMLElement | null;
-  tabJoinLive: HTMLElement | null;
-  panelCreateLive: HTMLElement | null;
-  panelJoinLive: HTMLElement | null;
-  liveCreatedInfo: HTMLElement | null;
-  liveCreatedCode: HTMLElement | null;
-  liveCreatedUrl: HTMLInputElement | null;
-  liveJoinError: HTMLElement | null;
-  liveActiveBanner: HTMLElement | null;
-  liveActiveCode: HTMLElement | null;
-  btnLeaveLiveSession: HTMLButtonElement | null;
-  pregameModeLockNotice: HTMLElement | null;
-  btnToggleDoNotDelete: HTMLButtonElement | null;
-  iconDoNotDelete: HTMLElement | null;
-  labelDoNotDelete: HTMLElement | null;
-  liveHostDoNotDelete: HTMLInputElement | null;
-  arcadeHubModal: HTMLElement | null;
-  btnCloseArcadeHub: HTMLButtonElement | null;
-  btnArcadeHub: HTMLButtonElement | null;
-  hubQuickJoinInput: HTMLInputElement | null;
-  btnHubQuickJoin: HTMLButtonElement | null;
-  hubQuickJoinFeedback: HTMLElement | null;
-  livePersistentHud: HTMLElement | null;
-  livePersistentCode: HTMLElement | null;
-  btnPersistentCopyLink: HTMLButtonElement | null;
-  iconPersistentCopyLink: HTMLElement | null;
-  labelPersistentCopyLink: HTMLElement | null;
-  btnPersistentCopyCode: HTMLButtonElement | null;
-  btnPersistentTogglePin: HTMLButtonElement | null;
-  iconPersistentPin: HTMLElement | null;
-  labelPersistentPin: HTMLElement | null;
-  btnLiveBannerCopyLink: HTMLButtonElement | null;
-  iconBannerCopyLink: HTMLElement | null;
-  labelBannerCopyLink: HTMLElement | null;
-  btnPersistentLeaveLive: HTMLButtonElement | null;
-  blackjackModal: HTMLElement | null;
-  btnCloseBlackjack: HTMLButtonElement | null;
-  pokerModal: HTMLElement | null;
-  skipboModal: HTMLElement | null;
-  phase10Modal: HTMLElement | null;
-  unoModal: HTMLElement | null;
-  avalonModal: HTMLElement | null;
-  setModal: HTMLElement | null;
+  readonly turnDot: Option<HTMLElement>;
+  readonly turnText: Option<HTMLElement>;
+  readonly gameModeBadge: Option<HTMLElement>;
+  readonly difficultyBadge: Option<HTMLElement>;
+  readonly deviceTierBadge: Option<HTMLElement>;
+  readonly mobileLiteBanner: Option<HTMLElement>;
+  readonly mobileLiteBannerText: Option<HTMLElement>;
+  readonly statusBanner: Option<HTMLElement>;
+  readonly statusBannerText: Option<HTMLElement>;
+  readonly capturedByWhite: Option<HTMLElement>;
+  readonly capturedByBlack: Option<HTMLElement>;
+  readonly shatteredBlackList: Option<HTMLElement>;
+  readonly shatteredWhiteList: Option<HTMLElement>;
+  readonly moveCountPill: Option<HTMLElement>;
+  readonly moveHistoryContainer: Option<HTMLElement>;
+  readonly logDrawer: Option<HTMLElement>;
+  readonly gameoverModal: Option<HTMLElement>;
+  readonly gameoverTitle: Option<HTMLElement>;
+  readonly gameoverSubtitle: Option<HTMLElement>;
+  readonly gameoverStandardActions: Option<HTMLElement>;
+  readonly gameoverLiveActions: Option<HTMLElement>;
+  readonly modalLeaveLive: Option<HTMLButtonElement>;
+  readonly modalInspectLive: Option<HTMLButtonElement>;
+  readonly promotionModal: Option<HTMLElement>;
+  readonly pregameModal: Option<HTMLElement>;
+  readonly storageAuditModal: Option<HTMLElement>;
+  readonly storageAuditAlgo: Option<HTMLElement>;
+  readonly storageAuditSummary: Option<HTMLElement>;
+  readonly storageAuditJson: Option<HTMLElement>;
+  readonly wipeConfirmRow: Option<HTMLElement>;
+  readonly btnUndo: Option<HTMLButtonElement>;
+  readonly undoIcon: Option<HTMLElement>;
+  readonly undoLabel: Option<HTMLElement>;
+  readonly undoRuleStatusPill: Option<HTMLElement>;
+  readonly liveSessionModal: Option<HTMLElement>;
+  readonly tabCreateLive: Option<HTMLElement>;
+  readonly tabJoinLive: Option<HTMLElement>;
+  readonly panelCreateLive: Option<HTMLElement>;
+  readonly panelJoinLive: Option<HTMLElement>;
+  readonly liveCreatedInfo: Option<HTMLElement>;
+  readonly liveCreatedCode: Option<HTMLElement>;
+  readonly liveCreatedUrl: Option<HTMLInputElement>;
+  readonly liveJoinError: Option<HTMLElement>;
+  readonly liveActiveBanner: Option<HTMLElement>;
+  readonly liveActiveCode: Option<HTMLElement>;
+  readonly btnLeaveLiveSession: Option<HTMLButtonElement>;
+  readonly pregameModeLockNotice: Option<HTMLElement>;
+  readonly btnToggleDoNotDelete: Option<HTMLButtonElement>;
+  readonly iconDoNotDelete: Option<HTMLElement>;
+  readonly labelDoNotDelete: Option<HTMLElement>;
+  readonly liveHostDoNotDelete: Option<HTMLInputElement>;
+  readonly arcadeHubModal: Option<HTMLElement>;
+  readonly btnCloseArcadeHub: Option<HTMLButtonElement>;
+  readonly btnArcadeHub: Option<HTMLButtonElement>;
+  readonly hubQuickJoinInput: Option<HTMLInputElement>;
+  readonly btnHubQuickJoin: Option<HTMLButtonElement>;
+  readonly hubQuickJoinFeedback: Option<HTMLElement>;
+  readonly livePersistentHud: Option<HTMLElement>;
+  readonly livePersistentCode: Option<HTMLElement>;
+  readonly btnPersistentCopyLink: Option<HTMLButtonElement>;
+  readonly iconPersistentCopyLink: Option<HTMLElement>;
+  readonly labelPersistentCopyLink: Option<HTMLElement>;
+  readonly btnPersistentCopyCode: Option<HTMLButtonElement>;
+  readonly btnPersistentTogglePin: Option<HTMLButtonElement>;
+  readonly iconPersistentPin: Option<HTMLElement>;
+  readonly labelPersistentPin: Option<HTMLElement>;
+  readonly btnLiveBannerCopyLink: Option<HTMLButtonElement>;
+  readonly iconBannerCopyLink: Option<HTMLElement>;
+  readonly labelBannerCopyLink: Option<HTMLElement>;
+  readonly btnPersistentLeaveLive: Option<HTMLButtonElement>;
+  readonly blackjackModal: Option<HTMLElement>;
+  readonly btnCloseBlackjack: Option<HTMLButtonElement>;
+  readonly pokerModal: Option<HTMLElement>;
+  readonly skipboModal: Option<HTMLElement>;
+  readonly phase10Modal: Option<HTMLElement>;
+  readonly unoModal: Option<HTMLElement>;
+  readonly avalonModal: Option<HTMLElement>;
+  readonly setModal: Option<HTMLElement>;
+}
+
+/**
+ * Fluent Builder for constructing an immutable `Readonly<UIControllerElements>` registry
+ * where every DOM element reference is a pure `Option<HTMLElement>` rather than `HTMLElement | null`.
+ */
+export function buildUIControllerElements(overrides?: Readonly<Partial<UIControllerElements>>): Readonly<UIControllerElements> {
+  const baseElements: UIControllerElements = {
+    turnDot: domById('turn-dot'),
+    turnText: domById('turn-text'),
+    gameModeBadge: domById('game-mode-badge'),
+    difficultyBadge: domById('difficulty-badge'),
+    deviceTierBadge: domById('device-tier-badge'),
+    mobileLiteBanner: domById('mobile-lite-banner'),
+    mobileLiteBannerText: domById('mobile-lite-banner-text'),
+    statusBanner: domById('status-banner'),
+    statusBannerText: domById('status-banner-text'),
+    capturedByWhite: domById('captured-by-white'),
+    capturedByBlack: domById('captured-by-black'),
+    shatteredBlackList: domById('shattered-black-list'),
+    shatteredWhiteList: domById('shattered-white-list'),
+    moveCountPill: domById('move-count-pill'),
+    moveHistoryContainer: domById('move-history-container'),
+    logDrawer: domById('log-drawer'),
+    gameoverModal: domById('gameover-modal'),
+    gameoverTitle: domById('gameover-title'),
+    gameoverSubtitle: domById('gameover-subtitle'),
+    gameoverStandardActions: domById('gameover-standard-actions'),
+    gameoverLiveActions: domById('gameover-live-actions'),
+    modalLeaveLive: domById<HTMLButtonElement>('modal-leave-live'),
+    modalInspectLive: domById<HTMLButtonElement>('modal-inspect-live'),
+    promotionModal: domById('promotion-modal'),
+    pregameModal: domById('pregame-modal'),
+    storageAuditModal: domById('storage-audit-modal'),
+    storageAuditAlgo: domById('storage-audit-algo'),
+    storageAuditSummary: domById('storage-audit-summary'),
+    storageAuditJson: domById('storage-audit-json'),
+    wipeConfirmRow: domById('wipe-confirm-row'),
+    btnUndo: domById<HTMLButtonElement>('btn-undo'),
+    undoIcon: domById('undo-icon'),
+    undoLabel: domById('undo-label'),
+    undoRuleStatusPill: domById('undo-rule-status-pill'),
+    liveSessionModal: domById('live-session-modal'),
+    tabCreateLive: domById('tab-create-live'),
+    tabJoinLive: domById('tab-join-live'),
+    panelCreateLive: domById('panel-create-live'),
+    panelJoinLive: domById('panel-join-live'),
+    liveCreatedInfo: domById('live-created-info'),
+    liveCreatedCode: domById('live-created-code'),
+    liveCreatedUrl: domById<HTMLInputElement>('live-created-url'),
+    liveJoinError: domById('live-join-error'),
+    liveActiveBanner: domById('live-active-banner'),
+    liveActiveCode: domById('live-active-code'),
+    btnLeaveLiveSession: domById<HTMLButtonElement>('btn-leave-live-session'),
+    btnToggleDoNotDelete: domById<HTMLButtonElement>('btn-toggle-do-not-delete'),
+    iconDoNotDelete: domById('icon-do-not-delete'),
+    labelDoNotDelete: domById('label-do-not-delete'),
+    liveHostDoNotDelete: domById<HTMLInputElement>('live-host-do-not-delete'),
+    arcadeHubModal: domById('arcade-hub-modal'),
+    btnCloseArcadeHub: domById<HTMLButtonElement>('btn-close-arcade-hub'),
+    btnArcadeHub: domById<HTMLButtonElement>('btn-arcade-hub'),
+    hubQuickJoinInput: domById<HTMLInputElement>('hub-quick-join-input'),
+    btnHubQuickJoin: domById<HTMLButtonElement>('btn-hub-quick-join'),
+    hubQuickJoinFeedback: domById('hub-quick-join-feedback'),
+    livePersistentHud: domById('live-persistent-hud'),
+    livePersistentCode: domById('live-persistent-code'),
+    btnPersistentCopyLink: domById<HTMLButtonElement>('btn-persistent-copy-link'),
+    iconPersistentCopyLink: domById('icon-persistent-copy-link'),
+    labelPersistentCopyLink: domById('label-persistent-copy-link'),
+    btnPersistentCopyCode: domById<HTMLButtonElement>('btn-persistent-copy-code'),
+    btnPersistentTogglePin: domById<HTMLButtonElement>('btn-persistent-toggle-pin'),
+    iconPersistentPin: domById('icon-persistent-pin'),
+    labelPersistentPin: domById('label-persistent-pin'),
+    btnLiveBannerCopyLink: domById<HTMLButtonElement>('btn-live-banner-copy-link'),
+    iconBannerCopyLink: domById('icon-banner-copy-link'),
+    labelBannerCopyLink: domById('label-banner-copy-link'),
+    btnPersistentLeaveLive: domById<HTMLButtonElement>('btn-persistent-leave-live'),
+    blackjackModal: domById('blackjack-modal'),
+    btnCloseBlackjack: domById<HTMLButtonElement>('btn-close-blackjack'),
+    pokerModal: domById('poker-modal'),
+    skipboModal: domById('skipbo-modal'),
+    phase10Modal: domById('phase10-modal'),
+    unoModal: domById('uno-modal'),
+    avalonModal: domById('avalon-modal'),
+    setModal: domById('set-modal'),
+    pregameModeLockNotice: domById('pregame-mode-lock-notice')
+  };
+
+  const builder = ImmutableBuilder.from(baseElements);
+  return overrides ? builder.withOverrides(overrides).build() : builder.build();
 }
 
 export class UIController {
-  private el: UIControllerElements;
+  private readonly el: Readonly<UIControllerElements>;
   public drawerOpen: boolean = false;
 
-  constructor() {
-    this.el = {
-      turnDot: document.getElementById('turn-dot'),
-      turnText: document.getElementById('turn-text'),
-      gameModeBadge: document.getElementById('game-mode-badge'),
-      difficultyBadge: document.getElementById('difficulty-badge'),
-      deviceTierBadge: document.getElementById('device-tier-badge'),
-      mobileLiteBanner: document.getElementById('mobile-lite-banner'),
-      mobileLiteBannerText: document.getElementById('mobile-lite-banner-text'),
-      statusBanner: document.getElementById('status-banner'),
-      statusBannerText: document.getElementById('status-banner-text'),
-      capturedByWhite: document.getElementById('captured-by-white'),
-      capturedByBlack: document.getElementById('captured-by-black'),
-      shatteredBlackList: document.getElementById('shattered-black-list'),
-      shatteredWhiteList: document.getElementById('shattered-white-list'),
-      moveCountPill: document.getElementById('move-count-pill'),
-      moveHistoryContainer: document.getElementById('move-history-container'),
-      logDrawer: document.getElementById('log-drawer'),
-      gameoverModal: document.getElementById('gameover-modal'),
-      gameoverTitle: document.getElementById('gameover-title'),
-      gameoverSubtitle: document.getElementById('gameover-subtitle'),
-      gameoverStandardActions: document.getElementById('gameover-standard-actions'),
-      gameoverLiveActions: document.getElementById('gameover-live-actions'),
-      modalLeaveLive: document.getElementById('modal-leave-live') as HTMLButtonElement | null,
-      modalInspectLive: document.getElementById('modal-inspect-live') as HTMLButtonElement | null,
-      promotionModal: document.getElementById('promotion-modal'),
-      pregameModal: document.getElementById('pregame-modal'),
-      storageAuditModal: document.getElementById('storage-audit-modal'),
-      storageAuditAlgo: document.getElementById('storage-audit-algo'),
-      storageAuditSummary: document.getElementById('storage-audit-summary'),
-      storageAuditJson: document.getElementById('storage-audit-json'),
-      wipeConfirmRow: document.getElementById('wipe-confirm-row'),
-      btnUndo: document.getElementById('btn-undo') as HTMLButtonElement | null,
-      undoIcon: document.getElementById('undo-icon'),
-      undoLabel: document.getElementById('undo-label'),
-      undoRuleStatusPill: document.getElementById('undo-rule-status-pill'),
-      liveSessionModal: document.getElementById('live-session-modal'),
-      tabCreateLive: document.getElementById('tab-create-live'),
-      tabJoinLive: document.getElementById('tab-join-live'),
-      panelCreateLive: document.getElementById('panel-create-live'),
-      panelJoinLive: document.getElementById('panel-join-live'),
-      liveCreatedInfo: document.getElementById('live-created-info'),
-      liveCreatedCode: document.getElementById('live-created-code'),
-      liveCreatedUrl: document.getElementById('live-created-url') as HTMLInputElement | null,
-      liveJoinError: document.getElementById('live-join-error'),
-      liveActiveBanner: document.getElementById('live-active-banner'),
-      liveActiveCode: document.getElementById('live-active-code'),
-      btnLeaveLiveSession: document.getElementById('btn-leave-live-session') as HTMLButtonElement | null,
-      btnToggleDoNotDelete: document.getElementById('btn-toggle-do-not-delete') as HTMLButtonElement | null,
-      iconDoNotDelete: document.getElementById('icon-do-not-delete'),
-      labelDoNotDelete: document.getElementById('label-do-not-delete'),
-      liveHostDoNotDelete: document.getElementById('live-host-do-not-delete') as HTMLInputElement | null,
-      arcadeHubModal: document.getElementById('arcade-hub-modal'),
-      btnCloseArcadeHub: document.getElementById('btn-close-arcade-hub') as HTMLButtonElement | null,
-      btnArcadeHub: document.getElementById('btn-arcade-hub') as HTMLButtonElement | null,
-      hubQuickJoinInput: document.getElementById('hub-quick-join-input') as HTMLInputElement | null,
-      btnHubQuickJoin: document.getElementById('btn-hub-quick-join') as HTMLButtonElement | null,
-      hubQuickJoinFeedback: document.getElementById('hub-quick-join-feedback'),
-      livePersistentHud: document.getElementById('live-persistent-hud'),
-      livePersistentCode: document.getElementById('live-persistent-code'),
-      btnPersistentCopyLink: document.getElementById('btn-persistent-copy-link') as HTMLButtonElement | null,
-      iconPersistentCopyLink: document.getElementById('icon-persistent-copy-link'),
-      labelPersistentCopyLink: document.getElementById('label-persistent-copy-link'),
-      btnPersistentCopyCode: document.getElementById('btn-persistent-copy-code') as HTMLButtonElement | null,
-      btnPersistentTogglePin: document.getElementById('btn-persistent-toggle-pin') as HTMLButtonElement | null,
-      iconPersistentPin: document.getElementById('icon-persistent-pin'),
-      labelPersistentPin: document.getElementById('label-persistent-pin'),
-      btnLiveBannerCopyLink: document.getElementById('btn-live-banner-copy-link') as HTMLButtonElement | null,
-      iconBannerCopyLink: document.getElementById('icon-banner-copy-link'),
-      labelBannerCopyLink: document.getElementById('label-banner-copy-link'),
-      btnPersistentLeaveLive: document.getElementById('btn-persistent-leave-live') as HTMLButtonElement | null,
-      blackjackModal: document.getElementById('blackjack-modal'),
-      btnCloseBlackjack: document.getElementById('btn-close-blackjack') as HTMLButtonElement | null,
-      pokerModal: document.getElementById('poker-modal'),
-      skipboModal: document.getElementById('skipbo-modal'),
-      phase10Modal: document.getElementById('phase10-modal'),
-      unoModal: document.getElementById('uno-modal'),
-      avalonModal: document.getElementById('avalon-modal'),
-      setModal: document.getElementById('set-modal'),
-      pregameModeLockNotice: document.getElementById('pregame-mode-lock-notice')
-    };
+  constructor(customElements?: Readonly<Partial<UIControllerElements>>) {
+    this.el = buildUIControllerElements(customElements);
   }
 
-  public applyDeviceProfileUI(profile: DeviceProfileConfig): void {
-    fromNullable(this.el.deviceTierBadge).map(badge => {
+  public applyDeviceProfileUI(profile: Readonly<DeviceProfileConfig>): void {
+    this.el.deviceTierBadge.map(badge => {
       badge.textContent = profile.badge;
       if (profile.tier === DeviceTierEnum.MobileLite) {
         badge.className =
@@ -213,10 +233,10 @@ export class UIController {
       }
     });
 
-    fromNullable(this.el.mobileLiteBanner).map(banner => {
+    this.el.mobileLiteBanner.map(banner => {
       if (profile.tier === DeviceTierEnum.MobileLite) {
         banner.classList.remove('hidden');
-        fromNullable(this.el.mobileLiteBannerText).map(txt => {
+        this.el.mobileLiteBannerText.map(txt => {
           txt.textContent = profile.notice;
         });
       } else {
@@ -225,22 +245,20 @@ export class UIController {
     });
   }
 
-  public update(
-    chess: Chess,
-    mode: GameMode,
-    customStatus?: string,
-    difficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced,
-    allowUndo: boolean = true
-  ): void {
+  public update(chess: Readonly<Chess>,
+                mode: GameMode,
+                customStatus?: string,
+                difficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced,
+                allowUndo: boolean = true): void {
     const turn = chess.turn();
     const diffProfile = getDifficultyProfile(difficulty);
     const modeConfig = getGameModeConfig(mode);
 
-    fromNullable(this.el.gameModeBadge).map(badge => {
+    this.el.gameModeBadge.map(badge => {
       badge.textContent = modeConfig.badge;
     });
 
-    fromNullable(this.el.difficultyBadge).map(badge => {
+    this.el.difficultyBadge.map(badge => {
       if (mode === GameModeEnum.PassAndPlay || mode === GameModeEnum.Live) {
         badge.classList.add('hidden');
       } else {
@@ -249,15 +267,15 @@ export class UIController {
       }
     });
 
-    if (this.el.turnDot && this.el.turnText) {
+    zipOptions(this.el.turnDot, this.el.turnText).map(([turnDot, turnText]) => {
       if (turn === PieceColorEnum.White) {
-        this.el.turnDot.className =
+        turnDot.className =
           'w-2.5 h-2.5 rounded-full bg-stone-100 shadow-[0_0_8px_#fff] transition-colors duration-300';
-        this.el.turnText.textContent = "White Marble's Turn";
+        turnText.textContent = "White Marble's Turn";
       } else {
-        this.el.turnDot.className =
+        turnDot.className =
           'w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_#a855f7] transition-colors duration-300';
-        this.el.turnText.textContent = fromNullable(customStatus).getOrElse(
+        turnText.textContent = fromNullable(customStatus).getOrElse(
           match(mode as GameModeEnum, {
             [GameModeEnum.PassAndPlay]: () => "Black Obsidian's Turn",
             [GameModeEnum.Minimax]: () => `Minimax (${diffProfile.badge}) Thinking...`,
@@ -267,48 +285,48 @@ export class UIController {
           })
         );
       }
-    }
+    });
 
-    if (this.el.statusBanner && this.el.statusBannerText) {
+    zipOptions(this.el.statusBanner, this.el.statusBannerText).map(([statusBanner, statusBannerText]) => {
       if (chess.in_checkmate()) {
-        this.el.statusBanner.classList.remove('hidden');
-        this.el.statusBannerText.textContent = 'CHECKMATE!';
+        statusBanner.classList.remove('hidden');
+        statusBannerText.textContent = 'CHECKMATE!';
       } else if (chess.in_check()) {
-        this.el.statusBanner.classList.remove('hidden');
-        this.el.statusBannerText.textContent = 'KING IN CHECK!';
+        statusBanner.classList.remove('hidden');
+        statusBannerText.textContent = 'KING IN CHECK!';
       } else {
-        this.el.statusBanner.classList.add('hidden');
+        statusBanner.classList.add('hidden');
       }
-    }
+    });
 
     const history = chess.history({ verbose: true });
 
     // Update Undo button state based on pre-game allowUndo rule & move history
-    fromNullable(this.el.btnUndo).map(btn => {
+    this.el.btnUndo.map(btn => {
       if (!allowUndo) {
         btn.classList.add('opacity-45');
         btn.setAttribute('aria-disabled', 'true');
         btn.title = 'Undo Disabled for this Match (Strict Mode)';
-        fromNullable(this.el.undoIcon).map(ic => {
+        this.el.undoIcon.map(ic => {
           ic.textContent = 'lock';
         });
-        fromNullable(this.el.undoLabel).map(lbl => {
+        this.el.undoLabel.map(lbl => {
           lbl.textContent = 'Locked';
         });
       } else {
         btn.classList.remove('opacity-45');
         btn.setAttribute('aria-disabled', 'false');
         btn.title = history.length > 0 ? 'Undo Last Move' : 'No moves to undo yet';
-        fromNullable(this.el.undoIcon).map(ic => {
+        this.el.undoIcon.map(ic => {
           ic.textContent = 'undo';
         });
-        fromNullable(this.el.undoLabel).map(lbl => {
+        this.el.undoLabel.map(lbl => {
           lbl.textContent = 'Undo';
         });
       }
     });
 
-    fromNullable(this.el.undoRuleStatusPill).map(pill => {
+    this.el.undoRuleStatusPill.map(pill => {
       pill.textContent = allowUndo ? 'Undo: Allowed' : 'Undo: Locked (Strict)';
       pill.className = allowUndo
         ? 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30 font-semibold'
@@ -318,7 +336,7 @@ export class UIController {
     const shatteredBlack: string[] = [];
     const shatteredWhite: string[] = [];
 
-    history.forEach((m: Move) => {
+    history.forEach((m: Readonly<Move>) => {
       if (m.captured) {
         if (m.color === PieceColorEnum.White) {
           shatteredBlack.push(UNICODE_PIECES.b[m.captured as PieceType]);
@@ -328,35 +346,39 @@ export class UIController {
       }
     });
 
-    if (this.el.capturedByWhite) this.el.capturedByWhite.textContent = String(shatteredBlack.length);
-    if (this.el.capturedByBlack) this.el.capturedByBlack.textContent = String(shatteredWhite.length);
+    this.el.capturedByWhite.map(el => {
+      el.textContent = String(shatteredBlack.length);
+    });
+    this.el.capturedByBlack.map(el => {
+      el.textContent = String(shatteredWhite.length);
+    });
 
-    if (this.el.shatteredBlackList) {
-      this.el.shatteredBlackList.innerHTML = shatteredBlack.length
+    this.el.shatteredBlackList.map(el => {
+      el.innerHTML = shatteredBlack.length
         ? shatteredBlack
             .map(icon => `<span class="text-lg leading-none">${escapeHtml(icon)}</span>`)
             .join('')
         : '<span class="text-xs text-stone-600 italic">None yet</span>';
-    }
+    });
 
-    if (this.el.shatteredWhiteList) {
-      this.el.shatteredWhiteList.innerHTML = shatteredWhite.length
+    this.el.shatteredWhiteList.map(el => {
+      el.innerHTML = shatteredWhite.length
         ? shatteredWhite
             .map(icon => `<span class="text-lg leading-none">${escapeHtml(icon)}</span>`)
             .join('')
         : '<span class="text-xs text-stone-600 italic">None yet</span>';
-    }
+    });
 
-    if (this.el.moveCountPill) {
-      this.el.moveCountPill.textContent = String(history.length);
-    }
+    this.el.moveCountPill.map(el => {
+      el.textContent = String(history.length);
+    });
 
-    if (this.el.moveHistoryContainer) {
+    this.el.moveHistoryContainer.map(container => {
       if (history.length === 0) {
-        this.el.moveHistoryContainer.innerHTML =
+        container.innerHTML =
           '<div class="text-stone-500 italic text-center py-8">Select a piece on the Crossing Altar to command your forces.</div>';
       } else {
-        let html = '';
+        const rows: string[] = [];
         for (let i = 0; i < history.length; i += 2) {
           const moveNum = Math.floor(i / 2) + 1;
           const wMove = history[i]!;
@@ -365,115 +387,126 @@ export class UIController {
           const bCap = bMove && bMove.captured ? '⚔️' : '';
           const safeWSan = escapeHtml(wMove.san);
           const safeBSan = bMove ? `${escapeHtml(bMove.san)} ${bCap}` : '';
-          html += `
+          rows.push(`
             <div class="grid grid-cols-7 items-center py-1 px-2 rounded-lg ${moveNum % 2 === 0 ? 'bg-white/5' : ''}">
                 <span class="col-span-1 text-stone-500">${moveNum}.</span>
                 <span class="col-span-3 text-amber-100 font-medium">${safeWSan} ${wCap}</span>
                 <span class="col-span-3 text-purple-300 font-medium">${safeBSan}</span>
             </div>
-          `;
+          `);
         }
-        this.el.moveHistoryContainer.innerHTML = html;
-        this.el.moveHistoryContainer.scrollTop = this.el.moveHistoryContainer.scrollHeight;
+        container.innerHTML = rows.join('');
+        container.scrollTop = container.scrollHeight;
       }
-    }
+    });
   }
 
-  public showGameOver(chess: Chess, isLiveMode: boolean = false, sessionCode?: string): void {
-    if (!this.el.gameoverModal || !this.el.gameoverTitle || !this.el.gameoverSubtitle) return;
+  public showGameOver(chess: Readonly<Chess>,
+                      isLiveMode: boolean = false,
+                      sessionCode?: string): void {
+    zip3Options(this.el.gameoverModal, this.el.gameoverTitle, this.el.gameoverSubtitle).map(
+      ([gameoverModal, gameoverTitle, gameoverSubtitle]) => {
+        if (chess.in_checkmate()) {
+          const winner = chess.turn() === PieceColorEnum.White ? 'Black Obsidian' : 'White Marble';
+          gameoverTitle.textContent = 'CHECKMATE';
+          gameoverSubtitle.textContent = `${winner} triumphs inside the High Gothic Basilica!`;
+        } else {
+          gameoverTitle.textContent = 'STALEMATE / DRAW';
+          gameoverSubtitle.textContent = isLiveMode
+            ? `Stalemate reached in Live Match ${sessionCode || ''}. Both sides share sanctuary honors.`
+            : 'Neither army yields inside the sacred sanctuary.';
+        }
 
-    if (chess.in_checkmate()) {
-      const winner = chess.turn() === PieceColorEnum.White ? 'Black Obsidian' : 'White Marble';
-      this.el.gameoverTitle.textContent = 'CHECKMATE';
-      this.el.gameoverSubtitle.textContent = `${winner} triumphs inside the High Gothic Basilica!`;
-    } else {
-      this.el.gameoverTitle.textContent = 'STALEMATE / DRAW';
-      this.el.gameoverSubtitle.textContent = isLiveMode
-        ? `Stalemate reached in Live Match ${sessionCode || ''}. Both sides share sanctuary honors.`
-        : 'Neither army yields inside the sacred sanctuary.';
-    }
+        this.el.gameoverLiveActions.map(actions => {
+          actions.classList.toggle('hidden', !isLiveMode);
+          actions.classList.toggle('flex', isLiveMode);
+        });
+        this.el.gameoverStandardActions.map(actions => {
+          actions.classList.toggle('hidden', isLiveMode);
+          actions.classList.toggle('flex', !isLiveMode);
+        });
 
-    fromNullable(this.el.gameoverLiveActions).map(actions => {
-      actions.classList.toggle('hidden', !isLiveMode);
-      actions.classList.toggle('flex', isLiveMode);
-    });
-    fromNullable(this.el.gameoverStandardActions).map(actions => {
-      actions.classList.toggle('hidden', isLiveMode);
-      actions.classList.toggle('flex', !isLiveMode);
-    });
-
-    this.el.gameoverModal.classList.remove('hidden');
-    this.el.gameoverModal.classList.add('flex');
+        gameoverModal.classList.remove('hidden');
+        gameoverModal.classList.add('flex');
+      }
+    );
   }
 
   public hideGameOver(): void {
-    if (!this.el.gameoverModal) return;
-    this.el.gameoverModal.classList.add('hidden');
-    this.el.gameoverModal.classList.remove('flex');
+    this.el.gameoverModal.map(modal => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
   }
 
   public showPromotionModal(): void {
-    if (!this.el.promotionModal) return;
-    this.el.promotionModal.classList.remove('hidden');
-    this.el.promotionModal.classList.add('flex');
+    this.el.promotionModal.map(modal => {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
   }
 
   public hidePromotionModal(): void {
-    if (!this.el.promotionModal) return;
-    this.el.promotionModal.classList.add('hidden');
-    this.el.promotionModal.classList.remove('flex');
+    this.el.promotionModal.map(modal => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
   }
 
   public showPreGameModal(): void {
-    if (!this.el.pregameModal) return;
-    this.el.pregameModal.classList.remove('hidden');
-    this.el.pregameModal.classList.add('flex');
+    this.el.pregameModal.map(modal => {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
   }
 
   public hidePreGameModal(): void {
-    if (!this.el.pregameModal) return;
-    this.el.pregameModal.classList.add('hidden');
-    this.el.pregameModal.classList.remove('flex');
+    this.el.pregameModal.map(modal => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
   }
 
   public showStorageAuditModal(): void {
-    if (!this.el.storageAuditModal) return;
-    this.el.storageAuditModal.classList.remove('hidden');
-    this.el.storageAuditModal.classList.add('flex');
+    this.el.storageAuditModal.map(modal => {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
   }
 
   public hideStorageAuditModal(): void {
     this.hideWipeConfirm();
-    if (!this.el.storageAuditModal) return;
-    this.el.storageAuditModal.classList.add('hidden');
-    this.el.storageAuditModal.classList.remove('flex');
+    this.el.storageAuditModal.map(modal => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
   }
 
   public showWipeConfirm(): void {
-    fromNullable(this.el.wipeConfirmRow).map(row => {
+    this.el.wipeConfirmRow.map(row => {
       row.classList.remove('hidden');
       row.classList.add('flex');
     });
   }
 
   public hideWipeConfirm(): void {
-    fromNullable(this.el.wipeConfirmRow).map(row => {
+    this.el.wipeConfirmRow.map(row => {
       row.classList.add('hidden');
       row.classList.remove('flex');
     });
   }
 
-  public renderStorageAudit(auditResult: Result<EncryptedStorageAuditReport, string>): void {
+  public renderStorageAudit(auditResult: Readonly<Result<EncryptedStorageAuditReport, string>>): void {
     auditResult.fold(
       errMsg => {
-        fromNullable(this.el.storageAuditAlgo).map(el => {
+        this.el.storageAuditAlgo.map(el => {
           el.textContent =
             'AES-GCM-256 (Web Crypto CSPRNG Non-Extractable Key • 12-Byte Random IV • 128-Bit Auth Tag)';
         });
-        fromNullable(this.el.storageAuditSummary).map(el => {
+        this.el.storageAuditSummary.map(el => {
           el.textContent = `Storage Audit Notice: ${errMsg}`;
         });
-        fromNullable(this.el.storageAuditJson).map(el => {
+        this.el.storageAuditJson.map(el => {
           el.textContent = JSON.stringify(
             {
               algorithm: 'AES-GCM-256',
@@ -488,13 +521,13 @@ export class UIController {
         });
       },
       report => {
-        fromNullable(this.el.storageAuditAlgo).map(el => {
+        this.el.storageAuditAlgo.map(el => {
           el.textContent = `${report.algorithm} • ${report.keyLengthBits}-Bit Non-Extractable Key • ${report.ivLengthBytes}-Byte IV • ${report.cipherMode}`;
         });
-        fromNullable(this.el.storageAuditSummary).map(el => {
+        this.el.storageAuditSummary.map(el => {
           el.textContent = `DB: ${report.database}/${report.objectStore} • Encrypted Records: ${report.recordCount} • Key Extractable: ${String(report.keyExtractable)} • Hardcoded Key: ${String(report.hardcodedBundleKey)} • Plaintext Exposed: ${String(report.plaintextExposed)} • localStorage: ${String(report.localStorageUsed)}`;
         });
-        fromNullable(this.el.storageAuditJson).map(el => {
+        this.el.storageAuditJson.map(el => {
           el.textContent = JSON.stringify(report, null, 2);
         });
       }
@@ -502,65 +535,69 @@ export class UIController {
   }
 
   public toggleDrawer(): void {
-    if (!this.el.logDrawer) return;
-    this.drawerOpen = !this.drawerOpen;
-    if (this.drawerOpen) {
-      this.el.logDrawer.classList.remove('translate-x-[115%]', 'opacity-0');
-      this.el.logDrawer.classList.add('translate-x-0', 'opacity-100');
-    } else {
-      this.el.logDrawer.classList.add('translate-x-[115%]', 'opacity-0');
-      this.el.logDrawer.classList.remove('translate-x-0', 'opacity-100');
-    }
+    this.el.logDrawer.map(drawer => {
+      this.drawerOpen = !this.drawerOpen;
+      if (this.drawerOpen) {
+        drawer.classList.remove('translate-x-[115%]', 'opacity-0');
+        drawer.classList.add('translate-x-0', 'opacity-100');
+      } else {
+        drawer.classList.add('translate-x-[115%]', 'opacity-0');
+        drawer.classList.remove('translate-x-0', 'opacity-100');
+      }
+    });
   }
 
-  public showTemporaryBanner(message: string, durationMs: number = 3200): void {
-    if (!this.el.statusBanner || !this.el.statusBannerText) return;
-    this.el.statusBannerText.textContent = message;
-    this.el.statusBanner.classList.remove('hidden');
-    setTimeout(() => {
-      if (this.el.statusBanner) {
-        this.el.statusBanner.classList.add('hidden');
-      }
-    }, durationMs);
+  public showTemporaryBanner(message: string,
+                             durationMs: number = 3200): void {
+    zipOptions(this.el.statusBanner, this.el.statusBannerText).map(([statusBanner, statusBannerText]) => {
+      statusBannerText.textContent = message;
+      statusBanner.classList.remove('hidden');
+      setTimeout(() => {
+        statusBanner.classList.add('hidden');
+      }, durationMs);
+    });
   }
 
   public showLiveSessionModal(): void {
-    if (!this.el.liveSessionModal) return;
-    this.el.liveSessionModal.classList.remove('hidden');
-    this.el.liveSessionModal.classList.add('flex');
+    this.el.liveSessionModal.map(modal => {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
   }
 
   public hideLiveSessionModal(): void {
-    if (!this.el.liveSessionModal) return;
-    this.el.liveSessionModal.classList.add('hidden');
-    this.el.liveSessionModal.classList.remove('flex');
+    this.el.liveSessionModal.map(modal => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
     this.clearLiveJoinError();
   }
 
   public switchLiveSessionTab(tab: 'create' | 'join'): void {
     const isCreate = tab === 'create';
-    fromNullable(this.el.tabCreateLive).map(btn => {
+    this.el.tabCreateLive.map(btn => {
       btn.classList.toggle('active-chip', isCreate);
     });
-    fromNullable(this.el.tabJoinLive).map(btn => {
+    this.el.tabJoinLive.map(btn => {
       btn.classList.toggle('active-chip', !isCreate);
     });
-    fromNullable(this.el.panelCreateLive).map(panel => {
+    this.el.panelCreateLive.map(panel => {
       panel.classList.toggle('hidden', !isCreate);
     });
-    fromNullable(this.el.panelJoinLive).map(panel => {
+    this.el.panelJoinLive.map(panel => {
       panel.classList.toggle('hidden', isCreate);
     });
   }
 
-  public showLiveCreatedSession(sessionCode: string, inviteUrl?: string): void {
-    fromNullable(this.el.liveCreatedInfo).map(container => {
+  public showLiveCreatedSession(sessionCode: string,
+                                inviteUrl?: string): void {
+    this.el.liveCreatedInfo.map(container => {
       container.classList.remove('hidden');
     });
-    fromNullable(this.el.liveCreatedCode).map(codeEl => {
+    this.el.liveCreatedCode.map(codeEl => {
       codeEl.textContent = sessionCode;
     });
-    fromNullable(this.el.liveCreatedUrl).map(urlEl => {
+    this.el.liveCreatedUrl.map(urlEl => {
       urlEl.value =
         inviteUrl ||
         (typeof window !== 'undefined'
@@ -570,21 +607,21 @@ export class UIController {
   }
 
   public showLiveJoinError(message: string): void {
-    fromNullable(this.el.liveJoinError).map(errEl => {
+    this.el.liveJoinError.map(errEl => {
       errEl.textContent = message;
       errEl.classList.remove('hidden');
     });
   }
 
   public clearLiveJoinError(): void {
-    fromNullable(this.el.liveJoinError).map(errEl => {
+    this.el.liveJoinError.map(errEl => {
       errEl.textContent = '';
       errEl.classList.add('hidden');
     });
   }
 
   public setDoNotDeleteState(pinned: boolean): void {
-    fromNullable(this.el.btnToggleDoNotDelete).map(btn => {
+    this.el.btnToggleDoNotDelete.map(btn => {
       btn.classList.toggle('bg-amber-500/20', pinned);
       btn.classList.toggle('border-amber-400/50', pinned);
       btn.classList.toggle('text-amber-200', pinned);
@@ -592,14 +629,14 @@ export class UIController {
       btn.classList.toggle('border-white/20', !pinned);
       btn.classList.toggle('text-stone-300', !pinned);
     });
-    fromNullable(this.el.iconDoNotDelete).map(icon => {
+    this.el.iconDoNotDelete.map(icon => {
       icon.classList.toggle('text-amber-300', pinned);
     });
-    fromNullable(this.el.labelDoNotDelete).map(label => {
+    this.el.labelDoNotDelete.map(label => {
       label.textContent = pinned ? 'Protected (No Prune)' : 'Do Not Delete';
     });
 
-    fromNullable(this.el.btnPersistentTogglePin).map(btn => {
+    this.el.btnPersistentTogglePin.map(btn => {
       btn.classList.toggle('bg-amber-500/25', pinned);
       btn.classList.toggle('border-amber-400/50', pinned);
       btn.classList.toggle('text-amber-200', pinned);
@@ -607,71 +644,74 @@ export class UIController {
       btn.classList.toggle('border-white/20', !pinned);
       btn.classList.toggle('text-stone-300', !pinned);
     });
-    fromNullable(this.el.iconPersistentPin).map(icon => {
+    this.el.iconPersistentPin.map(icon => {
       icon.classList.toggle('text-amber-300', pinned);
     });
-    fromNullable(this.el.labelPersistentPin).map(label => {
+    this.el.labelPersistentPin.map(label => {
       label.textContent = pinned ? 'Pinned' : 'Pin';
     });
   }
 
-  public setLiveMatchActive(active: boolean, sessionCode?: string, doNotDelete?: boolean): void {
-    fromNullable(this.el.liveActiveBanner).map(banner => {
+  public setLiveMatchActive(active: boolean,
+                            sessionCode?: string,
+                            doNotDelete?: boolean): void {
+    this.el.liveActiveBanner.map(banner => {
       banner.classList.toggle('hidden', !active);
     });
-    fromNullable(this.el.liveActiveCode).map(codeEl => {
+    this.el.liveActiveCode.map(codeEl => {
       codeEl.textContent = sessionCode || '';
     });
-    fromNullable(this.el.livePersistentHud).map(hud => {
+    this.el.livePersistentHud.map(hud => {
       hud.classList.toggle('hidden', !active);
     });
-    fromNullable(this.el.livePersistentCode).map(codeEl => {
+    this.el.livePersistentCode.map(codeEl => {
       codeEl.textContent = sessionCode || '';
     });
-    fromNullable(this.el.pregameModeLockNotice).map(notice => {
+    this.el.pregameModeLockNotice.map(notice => {
       notice.classList.toggle('hidden', !active);
     });
     this.setDoNotDeleteState(Boolean(doNotDelete));
   }
 
   public setPersistentCopyLinkCopied(copied: boolean): void {
-    fromNullable(this.el.iconPersistentCopyLink).map(icon => {
+    this.el.iconPersistentCopyLink.map(icon => {
       icon.textContent = copied ? 'check' : 'link';
     });
-    fromNullable(this.el.labelPersistentCopyLink).map(label => {
+    this.el.labelPersistentCopyLink.map(label => {
       label.textContent = copied ? 'Copied!' : 'Copy Link';
     });
   }
 
   public setBannerCopyLinkCopied(copied: boolean): void {
-    fromNullable(this.el.iconBannerCopyLink).map(icon => {
+    this.el.iconBannerCopyLink.map(icon => {
       icon.textContent = copied ? 'check' : 'link';
     });
-    fromNullable(this.el.labelBannerCopyLink).map(label => {
+    this.el.labelBannerCopyLink.map(label => {
       label.textContent = copied ? 'Copied!' : 'Copy Link';
     });
   }
 
   public showArcadeHub(): void {
-    fromNullable(this.el.arcadeHubModal).map(modal => {
+    this.el.arcadeHubModal.map(modal => {
       modal.classList.remove('hidden');
     });
   }
 
   public hideArcadeHub(): void {
-    fromNullable(this.el.arcadeHubModal).map(modal => {
+    this.el.arcadeHubModal.map(modal => {
       modal.classList.add('hidden');
     });
   }
 
   public isArcadeHubVisible(): boolean {
-    return fromNullable(this.el.arcadeHubModal)
+    return this.el.arcadeHubModal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }
 
-  public setHubQuickJoinFeedback(message: string, isError: boolean): void {
-    fromNullable(this.el.hubQuickJoinFeedback).map(feedback => {
+  public setHubQuickJoinFeedback(message: string,
+                                 isError: boolean): void {
+    this.el.hubQuickJoinFeedback.map(feedback => {
       feedback.textContent = message;
       feedback.classList.remove('hidden');
       feedback.classList.toggle('bg-red-950/60', isError);
@@ -685,136 +725,152 @@ export class UIController {
   }
 
   public clearHubQuickJoinFeedback(): void {
-    fromNullable(this.el.hubQuickJoinFeedback).map(feedback => {
+    this.el.hubQuickJoinFeedback.map(feedback => {
       feedback.textContent = '';
       feedback.classList.add('hidden');
     });
   }
 
   public showBlackjack(): void {
-    fromNullable(this.el.blackjackModal).map(modal => {
+    this.el.blackjackModal.map(modal => {
       modal.classList.remove('hidden');
     });
   }
 
   public hideBlackjack(): void {
-    fromNullable(this.el.blackjackModal).map(modal => {
+    this.el.blackjackModal.map(modal => {
       modal.classList.add('hidden');
     });
   }
 
   public isBlackjackVisible(): boolean {
-    return fromNullable(this.el.blackjackModal)
+    return this.el.blackjackModal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }
 
   public showPoker(): void {
-    fromNullable(this.el.pokerModal).map(modal => {
+    this.el.pokerModal.map(modal => {
       modal.classList.remove('hidden');
     });
   }
 
   public hidePoker(): void {
-    fromNullable(this.el.pokerModal).map(modal => {
+    this.el.pokerModal.map(modal => {
       modal.classList.add('hidden');
     });
   }
 
   public isPokerVisible(): boolean {
-    return fromNullable(this.el.pokerModal)
+    return this.el.pokerModal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }
 
   public showSkipBo(): void {
-    fromNullable(this.el.skipboModal).map(modal => {
+    this.el.skipboModal.map(modal => {
       modal.classList.remove('hidden');
     });
   }
 
   public hideSkipBo(): void {
-    fromNullable(this.el.skipboModal).map(modal => {
+    this.el.skipboModal.map(modal => {
       modal.classList.add('hidden');
     });
   }
 
   public isSkipBoVisible(): boolean {
-    return fromNullable(this.el.skipboModal)
+    return this.el.skipboModal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }
 
   public showPhase10(): void {
-    fromNullable(this.el.phase10Modal).map(modal => {
+    this.el.phase10Modal.map(modal => {
       modal.classList.remove('hidden');
     });
   }
 
   public hidePhase10(): void {
-    fromNullable(this.el.phase10Modal).map(modal => {
+    this.el.phase10Modal.map(modal => {
       modal.classList.add('hidden');
     });
   }
 
   public isPhase10Visible(): boolean {
-    return fromNullable(this.el.phase10Modal)
+    return this.el.phase10Modal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }
 
   public showUno(): void {
-    fromNullable(this.el.unoModal).map(modal => {
+    this.el.unoModal.map(modal => {
       modal.classList.remove('hidden');
     });
   }
 
   public hideUno(): void {
-    fromNullable(this.el.unoModal).map(modal => {
+    this.el.unoModal.map(modal => {
       modal.classList.add('hidden');
     });
   }
 
   public isUnoVisible(): boolean {
-    return fromNullable(this.el.unoModal)
+    return this.el.unoModal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }
 
   public showAvalon(): void {
-    fromNullable(this.el.avalonModal).map(modal => {
+    this.el.avalonModal.map(modal => {
       modal.classList.remove('hidden');
     });
   }
 
   public hideAvalon(): void {
-    fromNullable(this.el.avalonModal).map(modal => {
+    this.el.avalonModal.map(modal => {
       modal.classList.add('hidden');
     });
   }
 
   public isAvalonVisible(): boolean {
-    return fromNullable(this.el.avalonModal)
+    return this.el.avalonModal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }
 
   public showSet(): void {
-    fromNullable(this.el.setModal).map(modal => {
+    this.el.setModal.map(modal => {
       modal.classList.remove('hidden');
     });
   }
 
   public hideSet(): void {
-    fromNullable(this.el.setModal).map(modal => {
+    this.el.setModal.map(modal => {
       modal.classList.add('hidden');
     });
   }
 
   public isSetVisible(): boolean {
-    return fromNullable(this.el.setModal)
+    return this.el.setModal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }
-}
 
+  /**
+   * Returns true if any full-screen 2D Arcade Game Theater or the Arcade Hub is open,
+   * allowing the 3D WebGL render governor to suspend background 3D rendering to save battery.
+   */
+  public isAnyFullScreenArcadeModalVisible(): boolean {
+    return (
+      this.isArcadeHubVisible() ||
+      this.isBlackjackVisible() ||
+      this.isPokerVisible() ||
+      this.isSkipBoVisible() ||
+      this.isPhase10Visible() ||
+      this.isUnoVisible() ||
+      this.isAvalonVisible() ||
+      this.isSetVisible()
+    );
+  }
+}
