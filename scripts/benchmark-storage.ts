@@ -19,6 +19,7 @@ import {
   type StoredSessionState
 } from '../src/types';
 import { none, some } from '../src/utils/fp';
+import { currentEpochMs, nowIso } from '../src/utils/dateTime';
 import { logger } from '../src/utils/logger';
 
 // Ensure dev mode logging does not flood the terminal during throughput benchmarking
@@ -63,7 +64,7 @@ function createSampleChessSession(): StoredSessionState {
       shadowQuality: 'high',
       particlesEnabled: true
     },
-    updatedAt: Date.now()
+    updatedAt: currentEpochMs()
   };
 }
 
@@ -174,7 +175,7 @@ async function runBenchmark(): Promise<BenchmarkMetrics[]> {
       $id: 'active_session',
       $context: 'active_session',
       $data: serializedPlaintext,
-      $updated_at: Date.now()
+      $updated_at: currentEpochMs()
     });
 
     const startWrite = performance.now();
@@ -183,7 +184,7 @@ async function runBenchmark(): Promise<BenchmarkMetrics[]> {
         $id: 'active_session',
         $context: 'active_session',
         $data: serializedPlaintext,
-        $updated_at: Date.now()
+        $updated_at: currentEpochMs()
       });
     }
     const writeDurationMs = performance.now() - startWrite;
@@ -218,7 +219,7 @@ async function runBenchmark(): Promise<BenchmarkMetrics[]> {
         $id: 'encrypted_session',
         $context: 'active_session',
         $data: encJson,
-        $updated_at: Date.now()
+        $updated_at: currentEpochMs()
       });
     }
     const encWriteMs = performance.now() - startEncWrite;
@@ -287,7 +288,7 @@ async function runBenchmark(): Promise<BenchmarkMetrics[]> {
         collectionId: 'col_chess_12345',
         collectionName: 'sanctuary_sessions',
         created: '2026-10-18 12:00:00.000Z',
-        updated: new Date().toISOString(),
+        updated: nowIso(),
         context: 'active_session',
         state: session
       };
@@ -372,7 +373,7 @@ async function runBenchmark(): Promise<BenchmarkMetrics[]> {
         $key: keyBytes,
         $ver: 1,
         $payload: binaryPayload,
-        $ts: Date.now()
+        $ts: currentEpochMs()
       });
     }
     const tbWriteMs = performance.now() - startWrite;
@@ -418,7 +419,7 @@ async function runBenchmark(): Promise<BenchmarkMetrics[]> {
           iv: 'r4nd0m1v1234',
           ciphertext: 'c1ph3rt3xt=='
         },
-        updatedAt: Date.now()
+        updatedAt: currentEpochMs()
       });
       mockStore.set('active_session', cloned);
     }

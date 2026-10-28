@@ -8,6 +8,8 @@ import {
   isoToEpochMs,
   nowIso,
   setTemporalOverride,
+  subtractDaysEpochMs,
+  subtractDaysIso,
   withFallback
 } from '../src/utils/dateTime';
 
@@ -39,6 +41,14 @@ describe('Temporal & Day.js Unified DateTime Utility', () => {
       expect(iso).toContain('2024');
       const parsedMs = isoToEpochMs(iso);
       expect(parsedMs).toBe(testMs);
+
+      const threeDaysAgoMs = subtractDaysEpochMs(3, testMs);
+      expect(threeDaysAgoMs).toBe(testMs - 3 * 24 * 60 * 60 * 1000);
+      expect(subtractDaysEpochMs(1)).toBeLessThan(currentEpochMs() + 1000);
+
+      const threeDaysAgoIso = subtractDaysIso(3, testMs);
+      expect(isoToEpochMs(threeDaysAgoIso)).toBe(threeDaysAgoMs);
+      expect(subtractDaysIso(1)).toContain('T');
     });
 
     it('formats ISO datetime strings with timezone offsets and plain datetimes', () => {
@@ -75,6 +85,12 @@ describe('Temporal & Day.js Unified DateTime Utility', () => {
       const testIso = epochMsToIso(testMs);
       expect(testIso).toContain('2024');
       expect(isoToEpochMs(testIso)).toBe(testMs);
+
+      const threeDaysAgoMs = subtractDaysEpochMs(3, testMs);
+      expect(threeDaysAgoMs).toBe(testMs - 3 * 24 * 60 * 60 * 1000);
+
+      const threeDaysAgoIso = subtractDaysIso(3, testMs);
+      expect(isoToEpochMs(threeDaysAgoIso)).toBe(threeDaysAgoMs);
 
       const formatted = formatDateTime(some('2024-10-25T18:00:00Z'));
       expect(formatted).toContain('10/25/2024');

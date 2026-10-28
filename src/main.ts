@@ -2090,17 +2090,17 @@ function main(): void {
     fromNullable(document.getElementById('bjk-status-banner')).map(el => {
       el.textContent = s.historyText[s.historyText.length - 1] || 'Place bet to deal.';
       el.className =
-        'p-2 rounded-xl border text-center text-xs font-cathedral font-bold tracking-wide transition ' +
+        'p-3 sm:p-3.5 rounded-2xl border text-center text-sm sm:text-base font-cathedral font-bold tracking-wide transition shadow-lg ' +
         (s.outcome === 'player-won' || s.outcome === 'player-blackjack'
-          ? 'bg-emerald-950/80 border-emerald-400/50 text-emerald-200'
+          ? 'bg-emerald-950/85 border-emerald-400/60 text-emerald-100'
           : s.outcome === 'player-busted' || s.outcome === 'dealer-won'
-          ? 'bg-red-950/80 border-red-400/50 text-red-200'
-          : 'bg-black/60 border-amber-400/30 text-amber-200');
+          ? 'bg-red-950/85 border-red-400/60 text-red-100'
+          : 'bg-black/65 border-amber-400/40 text-amber-200');
     });
 
     fromNullable(document.getElementById('bjk-dealer-cards')).map(container => {
       if (s.dealerHand.length === 0) {
-        container.innerHTML = '<span class="text-xs text-stone-500 italic">Place bet to deal</span>';
+        container.innerHTML = '<span class="text-sm sm:text-base text-stone-400 italic">Place bet to deal</span>';
       } else {
         container.innerHTML = s.dealerHand
           .map(
@@ -2108,22 +2108,22 @@ function main(): void {
               const isRed = ['hearts', 'diamonds'].includes(c.suit);
               const suitSymbol = c.suit === 'hearts' ? '♥' : c.suit === 'diamonds' ? '♦' : c.suit === 'clubs' ? '♣' : '♠';
               return `
-            <div class="playing-card-ui w-14 sm:w-16 h-20 sm:h-24 p-2 ${
+            <div class="playing-card-ui ${
               c.faceUp
                 ? isRed
-                  ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/60 shadow-lg'
-                  : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/60 shadow-lg'
-                : 'bg-gradient-to-br from-purple-950 via-stone-900 to-purple-950 text-purple-300 border-purple-500/50 shadow-lg items-center justify-center font-cathedral text-2xl'
+                  ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/70 shadow-xl'
+                  : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/70 shadow-xl'
+                : 'bg-gradient-to-br from-purple-950 via-stone-900 to-purple-950 text-purple-300 border-purple-500/60 shadow-xl items-center justify-center font-cathedral text-4xl'
             }">
               ${
                 c.faceUp
                   ? `
-                <div class="flex items-center justify-between text-xs font-bold leading-none">
+                <div class="playing-card-corner">
                   <span>${c.value}</span>
                   <span>${suitSymbol}</span>
                 </div>
-                <div class="text-xl sm:text-2xl text-center leading-none">${suitSymbol}</div>
-                <div class="flex items-center justify-between text-xs font-bold leading-none rotate-180">
+                <div class="playing-card-center">${suitSymbol}</div>
+                <div class="playing-card-corner rotate-180">
                   <span>${c.value}</span>
                   <span>${suitSymbol}</span>
                 </div>
@@ -2145,7 +2145,7 @@ function main(): void {
 
     fromNullable(document.getElementById('bjk-player-cards')).map(container => {
       if (s.playerHand.length === 0) {
-        container.innerHTML = '<span class="text-xs text-stone-500 italic">No cards in play</span>';
+        container.innerHTML = '<span class="text-sm sm:text-base text-stone-400 italic">No cards in play</span>';
       } else {
         container.innerHTML = s.playerHand
           .map(
@@ -2153,17 +2153,17 @@ function main(): void {
               const isRed = ['hearts', 'diamonds'].includes(c.suit);
               const suitSymbol = c.suit === 'hearts' ? '♥' : c.suit === 'diamonds' ? '♦' : c.suit === 'clubs' ? '♣' : '♠';
               return `
-            <div class="playing-card-ui w-14 sm:w-16 h-20 sm:h-24 p-2 ${
+            <div class="playing-card-ui ${
               isRed
-                ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/60 shadow-lg'
-                : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/60 shadow-lg'
+                ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/70 shadow-xl'
+                : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/70 shadow-xl'
             }">
-              <div class="flex items-center justify-between text-xs font-bold leading-none">
+              <div class="playing-card-corner">
                 <span>${c.value}</span>
                 <span>${suitSymbol}</span>
               </div>
-              <div class="text-xl sm:text-2xl text-center leading-none">${suitSymbol}</div>
-              <div class="flex items-center justify-between text-xs font-bold leading-none rotate-180">
+              <div class="playing-card-center">${suitSymbol}</div>
+              <div class="playing-card-corner rotate-180">
                 <span>${c.value}</span>
                 <span>${suitSymbol}</span>
               </div>
@@ -2347,26 +2347,26 @@ function main(): void {
   pokerEngine.populateBotOpponents();
   let pokerLiveCode = generateArcadeCode(GameCodePrefixEnum.Poker);
 
-  const formatCardHtml = (card: { suit: string; value: string; faceUp: boolean }) => {
+  const formatCardHtml = (card: { readonly suit: string; readonly value: string; readonly faceUp: boolean }) => {
     const isRed = ['hearts', 'diamonds'].includes(card.suit);
     const suitSymbol = card.suit === 'hearts' ? '♥' : card.suit === 'diamonds' ? '♦' : card.suit === 'clubs' ? '♣' : '♠';
     return `
-      <div class="playing-card-ui w-14 sm:w-16 h-20 sm:h-24 p-2 ${
+      <div class="playing-card-ui ${
         card.faceUp
           ? isRed
-            ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/60 shadow-lg'
-            : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/60 shadow-lg'
-          : 'bg-gradient-to-br from-amber-950 via-stone-900 to-amber-950 text-amber-300 border-amber-500/50 shadow-lg items-center justify-center font-cathedral text-2xl'
+            ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/70 shadow-xl'
+            : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/70 shadow-xl'
+          : 'bg-gradient-to-br from-amber-950 via-stone-900 to-amber-950 text-amber-300 border-amber-500/60 shadow-xl items-center justify-center font-cathedral text-4xl'
       }">
         ${
           card.faceUp
             ? `
-          <div class="flex items-center justify-between text-xs font-bold leading-none">
+          <div class="playing-card-corner">
             <span>${card.value}</span>
             <span>${suitSymbol}</span>
           </div>
-          <div class="text-xl sm:text-2xl text-center leading-none">${suitSymbol}</div>
-          <div class="flex items-center justify-between text-xs font-bold leading-none rotate-180">
+          <div class="playing-card-center">${suitSymbol}</div>
+          <div class="playing-card-corner rotate-180">
             <span>${card.value}</span>
             <span>${suitSymbol}</span>
           </div>
@@ -2394,7 +2394,7 @@ function main(): void {
 
     fromNullable(document.getElementById('poker-community-cards')).map(c => {
       if (s.communityCards.length === 0) {
-        c.innerHTML = '<span class="text-xs text-stone-500 italic">No community cards yet</span>';
+        c.innerHTML = '<span class="text-sm sm:text-base text-stone-400 italic">No community cards yet</span>';
       } else {
         c.innerHTML = s.communityCards.map(formatCardHtml).join('');
       }
@@ -2408,7 +2408,7 @@ function main(): void {
 
     fromNullable(document.getElementById('poker-player-cards')).map(c => {
       if (p1Data.holeCards.length === 0) {
-        c.innerHTML = '<span class="text-xs text-stone-500 italic">No hole cards dealt</span>';
+        c.innerHTML = '<span class="text-sm sm:text-base text-stone-400 italic">No hole cards dealt</span>';
       } else {
         c.innerHTML = p1Data.holeCards.map(formatCardHtml).join('');
       }
@@ -2584,13 +2584,13 @@ function main(): void {
           const label = top ? (top.type === SkipBoCardTypeEnum.Wild ? 'WILD' : `${top.value}`) : 'Empty';
           const nextNeeded = pile.length < 12 ? pile.length + 1 : 'Done';
           return `
-          <div data-skipbo-building="${idx}" class="p-3 sm:p-4 rounded-2xl bg-blue-950/70 border-2 border-blue-400/50 hover:border-blue-300 text-center cursor-pointer transition shadow-xl hover:-translate-y-1">
-            <div class="flex items-center justify-between text-[10px] uppercase font-bold text-blue-300">
+          <div data-skipbo-building="${idx}" class="p-4 sm:p-5 rounded-2xl bg-blue-950/75 border-2 border-blue-400/60 hover:border-blue-300 text-center cursor-pointer transition shadow-xl hover:-translate-y-1">
+            <div class="flex items-center justify-between text-xs uppercase font-extrabold text-blue-200">
               <span>Pile ${idx + 1}</span>
               <span class="text-amber-300">Next: ${nextNeeded}</span>
             </div>
-            <div class="text-2xl sm:text-3xl font-bold font-mono text-white my-2">${label}</div>
-            <span class="text-[10px] text-stone-400 font-mono">(${pile.length}/12)</span>
+            <div class="text-3xl sm:text-4xl font-extrabold font-mono text-white my-2.5">${label}</div>
+            <span class="text-xs text-stone-300 font-mono font-bold">(${pile.length}/12)</span>
           </div>
         `;
         })
@@ -2627,16 +2627,16 @@ function main(): void {
       container.innerHTML = p1.hand
         .map(
           (c, idx) => `
-        <div data-skipbo-hand="${idx}" class="playing-card-ui w-14 sm:w-16 h-20 sm:h-24 p-2 items-center justify-between text-center cursor-pointer transition ${
+        <div data-skipbo-hand="${idx}" class="playing-card-ui items-center justify-between text-center cursor-pointer transition ${
           selectedSkipBoSource === SkipBoSourcePileEnum.Hand && selectedSkipBoIndex === idx
-            ? 'card-selected bg-amber-400 text-stone-950 font-bold'
+            ? 'card-selected bg-amber-400 text-stone-950 font-extrabold'
             : c.type === SkipBoCardTypeEnum.Wild
-            ? 'bg-gradient-to-b from-amber-500 to-amber-700 text-stone-950 border-amber-300 hover:border-amber-200 shadow-lg'
-            : 'bg-gradient-to-b from-stone-800 to-stone-900 text-stone-100 border-white/20 hover:border-blue-400 shadow-lg'
+            ? 'bg-gradient-to-b from-amber-500 to-amber-700 text-stone-950 border-amber-300 hover:border-amber-200 shadow-xl'
+            : 'bg-gradient-to-b from-stone-800 to-stone-900 text-stone-100 border-white/25 hover:border-blue-400 shadow-xl'
         }">
-          <div class="text-[10px] uppercase font-bold opacity-75">${c.type === SkipBoCardTypeEnum.Wild ? 'Wild' : 'Number'}</div>
-          <div class="text-2xl sm:text-3xl font-mono font-bold leading-none my-1">${c.type === SkipBoCardTypeEnum.Wild ? '★' : c.value}</div>
-          <div class="text-[10px] font-mono opacity-75">${c.type === SkipBoCardTypeEnum.Wild ? 'W' : c.value}</div>
+          <div class="text-xs uppercase font-extrabold opacity-85">${c.type === SkipBoCardTypeEnum.Wild ? 'Wild' : 'Number'}</div>
+          <div class="playing-card-center font-mono font-extrabold my-1">${c.type === SkipBoCardTypeEnum.Wild ? '★' : c.value}</div>
+          <div class="text-xs sm:text-sm font-mono font-extrabold opacity-85">${c.type === SkipBoCardTypeEnum.Wild ? 'W' : c.value}</div>
         </div>
       `
         )
@@ -2659,9 +2659,9 @@ function main(): void {
           const top = pile.length > 0 ? pile[pile.length - 1] : null;
           const val = top ? (top.type === SkipBoCardTypeEnum.Wild ? 'W' : `${top.value}`) : '—';
           return `
-          <div data-skipbo-discard="${idx}" class="p-2 rounded-xl bg-black/60 border border-white/20 text-center cursor-pointer hover:border-purple-400 transition">
-            <span class="text-[9px] uppercase font-bold text-stone-400">D${idx + 1}</span>
-            <div class="text-xs font-mono font-bold text-purple-200">${val}</div>
+          <div data-skipbo-discard="${idx}" class="p-3 sm:p-3.5 rounded-xl bg-black/65 border-2 border-white/20 text-center cursor-pointer hover:border-purple-400 transition shadow-md">
+            <span class="text-xs uppercase font-extrabold text-stone-300">D${idx + 1}</span>
+            <div class="text-base sm:text-lg font-mono font-extrabold text-purple-200 mt-0.5">${val}</div>
           </div>
         `;
         })
@@ -2778,14 +2778,14 @@ function main(): void {
       if (s.discardPile.length > 0) {
         const top = s.discardPile[s.discardPile.length - 1]!;
         el.textContent = `${top.color.substring(0, 1).toUpperCase()} ${top.value || top.special}`;
-        el.className = `w-16 h-22 rounded-xl border-2 flex items-center justify-center font-bold text-xs shadow-lg cursor-pointer transition ${
+        el.className = `playing-card-ui items-center justify-center font-extrabold text-base sm:text-lg shadow-xl cursor-pointer transition ${
           top.color === 'red'
-            ? 'bg-red-950 text-red-200 border-red-500/50'
+            ? 'bg-red-950 text-red-100 border-red-500/60'
             : top.color === 'blue'
-            ? 'bg-blue-950 text-blue-200 border-blue-500/50'
+            ? 'bg-blue-950 text-blue-100 border-blue-500/60'
             : top.color === 'green'
-            ? 'bg-emerald-950 text-emerald-200 border-emerald-500/50'
-            : 'bg-amber-950 text-amber-200 border-amber-500/50'
+            ? 'bg-emerald-950 text-emerald-100 border-emerald-500/60'
+            : 'bg-amber-950 text-amber-100 border-amber-500/60'
         }`;
       } else {
         el.textContent = 'Empty';
@@ -2796,23 +2796,23 @@ function main(): void {
     fromNullable(document.getElementById('phase10-laid-groups')).map(container => {
       const allLaid = s.players.flatMap(p => p.laidGroups);
       if (allLaid.length === 0) {
-        container.innerHTML = '<span class="text-xs text-stone-500 italic">No melds laid down yet this round</span>';
+        container.innerHTML = '<span class="text-sm sm:text-base text-stone-400 italic">No melds laid down yet this round</span>';
       } else {
         container.innerHTML = allLaid
           .map(
             g => `
-          <div class="p-2 rounded-xl bg-black/60 border border-emerald-400/40 flex items-center gap-1.5">
+          <div class="p-2.5 sm:p-3 rounded-xl bg-black/65 border border-emerald-400/50 flex flex-wrap items-center gap-2 shadow-md">
             ${g.cards
               .map(
                 c => `
-              <span class="px-2 py-1 rounded-lg text-[10px] font-mono font-bold ${
+              <span class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-mono font-extrabold border border-white/15 ${
                 c.color === 'red'
-                  ? 'bg-red-950 text-red-300'
+                  ? 'bg-red-950 text-red-200'
                   : c.color === 'blue'
-                  ? 'bg-blue-950 text-blue-300'
+                  ? 'bg-blue-950 text-blue-200'
                   : c.color === 'green'
-                  ? 'bg-emerald-950 text-emerald-300'
-                  : 'bg-amber-950 text-amber-300'
+                  ? 'bg-emerald-950 text-emerald-200'
+                  : 'bg-amber-950 text-amber-200'
               }">
                 ${c.value || c.special}
               </span>
@@ -2832,20 +2832,20 @@ function main(): void {
         .map((c, idx) => {
           const isSelected = selectedPhase10Indices.includes(idx);
           return `
-          <div data-p10-hand="${idx}" class="playing-card-ui w-13 sm:w-15 h-19 sm:h-23 p-2 items-center justify-between cursor-pointer transition ${
+          <div data-p10-hand="${idx}" class="playing-card-ui items-center justify-between cursor-pointer transition ${
             isSelected ? 'card-selected' : ''
           } ${
             c.color === 'red'
-              ? 'bg-gradient-to-b from-red-950 to-red-900 text-red-100 border-red-500/60 shadow-lg'
+              ? 'bg-gradient-to-b from-red-950 to-red-900 text-red-100 border-red-500/70 shadow-xl'
               : c.color === 'blue'
-              ? 'bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-blue-500/60 shadow-lg'
+              ? 'bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-blue-500/70 shadow-xl'
               : c.color === 'green'
-              ? 'bg-gradient-to-b from-emerald-950 to-emerald-900 text-emerald-100 border-emerald-500/60 shadow-lg'
-              : 'bg-gradient-to-b from-amber-950 to-amber-900 text-amber-100 border-amber-500/60 shadow-lg'
+              ? 'bg-gradient-to-b from-emerald-950 to-emerald-900 text-emerald-100 border-emerald-500/70 shadow-xl'
+              : 'bg-gradient-to-b from-amber-950 to-amber-900 text-amber-100 border-amber-500/70 shadow-xl'
           }">
-            <div class="text-[9px] uppercase font-bold opacity-80">${c.special !== 'standard' ? c.special : c.color}</div>
-            <div class="text-xl sm:text-2xl font-mono font-bold">${c.special === 'wild' ? '★' : c.special === 'skip' ? '⊘' : c.value}</div>
-            <div class="text-[9px] font-mono opacity-80">${c.value || c.special}</div>
+            <div class="text-xs uppercase font-extrabold opacity-90">${c.special !== 'standard' ? c.special : c.color}</div>
+            <div class="playing-card-center font-mono font-extrabold">${c.special === 'wild' ? '★' : c.special === 'skip' ? '⊘' : c.value}</div>
+            <div class="text-xs sm:text-sm font-mono font-extrabold opacity-90">${c.value || c.special}</div>
           </div>
         `;
         })
@@ -2977,15 +2977,15 @@ function main(): void {
       container.innerHTML = opponents
         .map(
           (p, idx) => `
-        <div class="px-3 py-1.5 rounded-2xl bg-black/60 border ${
-          s.currentTurnIndex === idx + 1 ? 'border-amber-400 ring-2 ring-amber-400/40' : 'border-white/10'
-        } flex items-center gap-2 text-xs">
-          <div class="w-2 h-2 rounded-full ${p.isBot ? 'bg-purple-400' : 'bg-sky-400'}"></div>
-          <span class="font-bold text-stone-200">${p.name}</span>
-          <span class="px-2 py-0.5 rounded-full bg-red-950/80 border border-red-500/30 text-amber-300 font-mono text-[11px] font-bold">
+        <div class="px-4 py-2 rounded-2xl bg-black/65 border ${
+          s.currentTurnIndex === idx + 1 ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-white/15'
+        } flex items-center gap-2.5 text-sm shadow-md">
+          <div class="w-2.5 h-2.5 rounded-full ${p.isBot ? 'bg-purple-400' : 'bg-sky-400'}"></div>
+          <span class="font-bold text-stone-100">${p.name}</span>
+          <span class="px-2.5 py-0.5 rounded-full bg-red-950/85 border border-red-500/40 text-amber-300 font-mono text-xs sm:text-sm font-extrabold">
             ${p.hand.length} 🂠
           </span>
-          ${p.calledUno ? '<span class="text-[9px] font-bold text-amber-400 uppercase">UNO!</span>' : ''}
+          ${p.calledUno ? '<span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider">UNO!</span>' : ''}
         </div>
       `
         )
@@ -2996,13 +2996,13 @@ function main(): void {
     fromNullable(document.getElementById('uno-active-color-badge')).map(badge => {
       badge.textContent = s.activeColor.toUpperCase();
       const colorMap: Record<UnoColor, string> = {
-        red: 'bg-red-950/80 text-red-200 border-red-500/50',
-        blue: 'bg-blue-950/80 text-blue-200 border-blue-500/50',
-        green: 'bg-emerald-950/80 text-emerald-200 border-emerald-500/50',
-        yellow: 'bg-amber-950/80 text-amber-200 border-amber-500/50',
-        wild: 'bg-purple-950/80 text-purple-200 border-purple-500/50'
+        red: 'bg-red-950/85 text-red-100 border-red-500/60',
+        blue: 'bg-blue-950/85 text-blue-100 border-blue-500/60',
+        green: 'bg-emerald-950/85 text-emerald-100 border-emerald-500/60',
+        yellow: 'bg-amber-950/85 text-amber-100 border-amber-500/60',
+        wild: 'bg-purple-950/85 text-purple-100 border-purple-500/60'
       };
-      badge.className = `px-3.5 py-1.5 rounded-xl border font-cathedral font-bold text-xs uppercase tracking-wider shadow-md ${colorMap[s.activeColor] || ''}`;
+      badge.className = `px-4 py-2 rounded-xl border-2 font-cathedral font-extrabold text-sm sm:text-base uppercase tracking-wider shadow-lg ${colorMap[s.activeColor] || ''}`;
     });
 
     // Discard Pile Top
@@ -3010,21 +3010,21 @@ function main(): void {
       const top = unoEngine.getTopDiscard();
       const colorBg =
         top.color === 'red'
-          ? 'bg-gradient-to-b from-red-950 to-red-900 text-red-100 border-red-500/60'
+          ? 'bg-gradient-to-b from-red-950 to-red-900 text-red-100 border-red-500/70'
           : top.color === 'blue'
-          ? 'bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-blue-500/60'
+          ? 'bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-blue-500/70'
           : top.color === 'green'
-          ? 'bg-gradient-to-b from-emerald-950 to-emerald-900 text-emerald-100 border-emerald-500/60'
+          ? 'bg-gradient-to-b from-emerald-950 to-emerald-900 text-emerald-100 border-emerald-500/70'
           : top.color === 'yellow'
-          ? 'bg-gradient-to-b from-amber-950 to-amber-900 text-amber-100 border-amber-500/60'
-          : 'bg-gradient-to-br from-stone-900 via-purple-950 to-stone-900 text-purple-200 border-purple-400/60';
+          ? 'bg-gradient-to-b from-amber-950 to-amber-900 text-amber-100 border-amber-500/70'
+          : 'bg-gradient-to-br from-stone-900 via-purple-950 to-stone-900 text-purple-200 border-purple-400/70';
 
       const label = top.type === 'number' ? top.value : top.type === 'wild4' ? '+4' : top.type === 'draw2' ? '+2' : top.type === 'reverse' ? '⇄' : top.type === 'skip' ? '⊘' : '★';
-      el.className = `w-18 sm:w-20 h-24 sm:h-28 rounded-2xl border-2 flex flex-col items-center justify-between p-2 font-mono font-bold text-sm shadow-xl ${colorBg}`;
+      el.className = `playing-card-ui items-center justify-between font-mono font-extrabold text-base shadow-2xl ${colorBg}`;
       el.innerHTML = `
-        <div class="text-[9px] uppercase font-bold self-start">${top.color}</div>
-        <div class="text-2xl font-bold">${label}</div>
-        <div class="text-[9px] uppercase font-bold self-end">${label}</div>
+        <div class="text-xs uppercase font-extrabold self-start">${top.color}</div>
+        <div class="playing-card-center font-extrabold">${label}</div>
+        <div class="text-xs uppercase font-extrabold self-end">${label}</div>
       `;
     });
 
@@ -3044,24 +3044,24 @@ function main(): void {
           const playable = unoEngine.canPlayCard(c);
           const colorBg =
             c.color === 'red'
-              ? 'bg-gradient-to-b from-red-950 to-red-900 text-red-100 border-red-500/60'
+              ? 'bg-gradient-to-b from-red-950 to-red-900 text-red-100 border-red-500/70'
               : c.color === 'blue'
-              ? 'bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-blue-500/60'
+              ? 'bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-blue-500/70'
               : c.color === 'green'
-              ? 'bg-gradient-to-b from-emerald-950 to-emerald-900 text-emerald-100 border-emerald-500/60'
+              ? 'bg-gradient-to-b from-emerald-950 to-emerald-900 text-emerald-100 border-emerald-500/70'
               : c.color === 'yellow'
-              ? 'bg-gradient-to-b from-amber-950 to-amber-900 text-amber-100 border-amber-500/60'
-              : 'bg-gradient-to-br from-stone-900 via-purple-950 to-stone-900 text-purple-200 border-purple-400/60';
+              ? 'bg-gradient-to-b from-amber-950 to-amber-900 text-amber-100 border-amber-500/70'
+              : 'bg-gradient-to-br from-stone-900 via-purple-950 to-stone-900 text-purple-200 border-purple-400/70';
 
           const label = c.type === 'number' ? c.value : c.type === 'wild4' ? '+4' : c.type === 'draw2' ? '+2' : c.type === 'reverse' ? '⇄' : c.type === 'skip' ? '⊘' : '★';
 
           return `
-          <div data-uno-hand="${idx}" class="playing-card-ui w-13 sm:w-15 h-19 sm:h-23 p-2 items-center justify-between cursor-pointer transition ${colorBg} ${
-            playable ? 'ring-1 ring-amber-400/50 hover:scale-105' : 'opacity-50'
+          <div data-uno-hand="${idx}" class="playing-card-ui items-center justify-between cursor-pointer transition ${colorBg} ${
+            playable ? 'ring-2 ring-amber-400/60 hover:scale-105' : 'opacity-50'
           }">
-            <div class="text-[9px] uppercase font-bold self-start opacity-80">${c.color}</div>
-            <div class="text-xl sm:text-2xl font-mono font-bold">${label}</div>
-            <div class="text-[9px] font-mono self-end opacity-80">${label}</div>
+            <div class="text-xs uppercase font-extrabold self-start opacity-90">${c.color}</div>
+            <div class="playing-card-center font-mono font-extrabold">${label}</div>
+            <div class="text-xs font-mono font-extrabold self-end opacity-90">${label}</div>
           </div>
         `;
         })
@@ -3220,12 +3220,12 @@ function main(): void {
           const isCurrent = s.currentQuestIndex === idx;
           const statusBg = q.outcome.match({
             Some: o => (o === 'success' ? 'bg-emerald-600 text-stone-950 border-emerald-400' : 'bg-red-600 text-white border-red-400'),
-            None: () => (isCurrent ? 'bg-sky-600 text-white border-amber-400 ring-2 ring-amber-400/40' : 'bg-stone-900 text-stone-400 border-white/20')
+            None: () => (isCurrent ? 'bg-sky-600 text-white border-amber-400 ring-2 ring-amber-400/40' : 'bg-stone-900 text-stone-300 border-white/20')
           });
           return `
-          <div class="px-3 py-1.5 rounded-xl border font-mono font-bold text-xs flex flex-col items-center ${statusBg}">
+          <div class="px-4 py-2 rounded-xl border-2 font-mono font-extrabold text-sm flex flex-col items-center shadow-md ${statusBg}">
             <span>Q${q.questNumber} (${q.teamSize})</span>
-            <span class="text-[9px] uppercase">${q.outcome.match({ Some: o => o, None: () => (isCurrent ? 'Active' : 'Pending') })}</span>
+            <span class="text-xs uppercase">${q.outcome.match({ Some: o => o, None: () => (isCurrent ? 'Active' : 'Pending') })}</span>
           </div>
         `;
         })
@@ -3240,7 +3240,7 @@ function main(): void {
     // Role Herald
     fromNullable(document.getElementById('avalon-role-title')).map(el => {
       el.textContent = `${humanPlayer.role} (${humanPlayer.alignment === 'good' ? 'Good' : 'Evil'})`;
-      el.className = `font-cathedral text-base font-bold ${humanPlayer.alignment === 'good' ? 'text-sky-300' : 'text-red-400'}`;
+      el.className = `font-cathedral text-lg sm:text-xl font-bold ${humanPlayer.alignment === 'good' ? 'text-sky-300' : 'text-red-400'}`;
     });
     fromNullable(document.getElementById('avalon-role-desc')).map(el => {
       el.textContent =
@@ -3264,21 +3264,21 @@ function main(): void {
           const isSelected = selectedAvalonKnights.includes(p.id);
           const isProposed = currentQuest.proposedTeam.includes(p.id);
           return `
-          <div data-avalon-seat="${p.id}" class="p-2.5 rounded-2xl bg-black/60 border ${
+          <div data-avalon-seat="${p.id}" class="p-3.5 sm:p-4 rounded-2xl bg-black/65 border-2 ${
             isSelected
               ? 'border-amber-400 ring-2 ring-amber-400/50'
               : isProposed
               ? 'border-sky-400'
-              : 'border-white/10'
-          } flex flex-col items-center gap-1 cursor-pointer transition hover:bg-white/5">
-            <div class="flex items-center gap-1">
-              ${isLeader ? '<span class="text-amber-400 text-xs">👑</span>' : ''}
-              <span class="font-bold text-xs text-stone-200">${p.name}</span>
+              : 'border-white/15'
+          } flex flex-col items-center gap-1.5 cursor-pointer transition hover:bg-white/10 shadow-lg">
+            <div class="flex items-center gap-1.5">
+              ${isLeader ? '<span class="text-amber-400 text-base">👑</span>' : ''}
+              <span class="font-bold text-sm sm:text-base text-stone-100">${p.name}</span>
             </div>
-            <span class="text-[9px] px-2 py-0.5 rounded-full ${p.isBot ? 'bg-purple-950/80 text-purple-300 border border-purple-400/30' : 'bg-sky-950/80 text-sky-300 border border-sky-400/30'}">
+            <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold ${p.isBot ? 'bg-purple-950/85 text-purple-200 border border-purple-400/40' : 'bg-sky-950/85 text-sky-200 border border-sky-400/40'}">
               ${p.isBot ? 'Bot Knight' : 'Human Knight'}
             </span>
-            ${isProposed ? '<span class="text-[9px] font-bold text-sky-300 uppercase">On Quest</span>' : ''}
+            ${isProposed ? '<span class="text-xs font-extrabold text-sky-300 uppercase tracking-wider">On Quest</span>' : ''}
           </div>
         `;
         })
@@ -3462,7 +3462,7 @@ function main(): void {
         ? '#ef4444'
         : card.color === 'green'
           ? '#10b981'
-          : '#a855f7';
+          : '#c084fc';
     const patternId = `set-stripe-${card.id}`;
     const fillAttr =
       card.shading === 'solid'
@@ -3473,12 +3473,12 @@ function main(): void {
 
     const shapeElement =
       card.shape === 'diamond'
-        ? `<polygon points="32,4 60,20 32,36 4,20" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3" />`
+        ? `<polygon points="32,4 60,20 32,36 4,20" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3.2" />`
         : card.shape === 'oval'
-          ? `<rect x="6" y="6" width="52" height="28" rx="14" ry="14" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3" />`
-          : `<path d="M 8,24 C 12,6 28,6 32,18 C 36,30 52,30 56,14 C 54,32 38,34 30,22 C 22,10 10,16 8,24 Z" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3" />`;
+          ? `<rect x="6" y="6" width="52" height="28" rx="14" ry="14" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3.2" />`
+          : `<path d="M 8,24 C 12,6 28,6 32,18 C 36,30 52,30 56,14 C 54,32 38,34 30,22 C 22,10 10,16 8,24 Z" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3.2" />`;
 
-    const singleSvg = `<svg viewBox="0 0 64 40" class="w-12 h-7 sm:w-14 sm:h-8"><defs><pattern id="${patternId}" width="5" height="5" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="5" stroke="${colorHex}" stroke-width="2.2" /></pattern></defs>${shapeElement}</svg>`;
+    const singleSvg = `<svg viewBox="0 0 64 40" class="w-16 h-9 sm:w-20 sm:h-11 drop-shadow"><defs><pattern id="${patternId}" width="5" height="5" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="5" stroke="${colorHex}" stroke-width="2.4" /></pattern></defs>${shapeElement}</svg>`;
     return Array.from({ length: card.count }, () => singleSvg).join('');
   };
 
@@ -3486,58 +3486,68 @@ function main(): void {
     const s = setEngine.state;
     const validSets = setEngine.getAvailableSets();
 
-    fromNullable(document.getElementById('set-deck-count-val')).map(el => {
-      el.textContent = String(s.deck.length);
+    ['set-deck-remaining', 'set-deck-count-val'].forEach(id => {
+      domById(id).map(el => {
+        el.textContent = String(s.deck.length);
+      });
     });
-    fromNullable(document.getElementById('set-available-val')).map(el => {
-      el.textContent = String(validSets.length);
+    ['set-available-count', 'set-available-val'].forEach(id => {
+      domById(id).map(el => {
+        el.textContent = String(validSets.length);
+      });
     });
-    fromNullable(document.getElementById('set-Banner-msg')).map(el => {
-      el.textContent = s.historyText[s.historyText.length - 1] || 'Select 3 cards forming a SET.';
-    });
-
-    fromNullable(document.getElementById('set-players-strip')).map(strip => {
-      strip.innerHTML = '';
-      s.players.forEach(p => {
-        const badge = document.createElement('div');
-        badge.className = `px-3 py-1.5 rounded-xl border ${
-          p.id === 'p1'
-            ? 'border-cyan-400 bg-cyan-950/70'
-            : 'border-white/15 bg-black/50'
-        } text-xs flex items-center gap-2`;
-        badge.innerHTML = `<span class="font-bold text-stone-100">${p.name}</span><span class="text-cyan-300 font-mono">Sets: ${p.score}</span><span class="text-stone-400 font-mono text-[10px]">(-${p.penalties})</span>`;
-        strip.appendChild(badge);
+    ['set-status-banner', 'set-Banner-msg'].forEach(id => {
+      domById(id).map(el => {
+        el.textContent = s.historyText[s.historyText.length - 1] || 'Select 3 cards forming a SET.';
       });
     });
 
-    fromNullable(document.getElementById('set-board-grid')).map(grid => {
-      grid.innerHTML = '';
-      s.tableCards.forEach((card, idx) => {
-        const isSelected = selectedSetIndices.includes(idx);
-        const isHint = setHintIndex === idx;
-        const btn = document.createElement('button');
-        btn.className = `p-3 rounded-2xl border-2 transition flex flex-col items-center justify-center gap-1.5 min-h-[96px] bg-stone-950/90 hover:bg-stone-900 shadow-lg ${
-          isSelected
-            ? 'border-amber-400 ring-2 ring-amber-400/60 -translate-y-1'
-            : isHint
-              ? 'border-cyan-400 ring-2 ring-cyan-400/50'
-              : 'border-white/15'
-        }`;
-        btn.innerHTML = `
-          <div class="flex flex-col items-center justify-center gap-1">${renderSetSymbolSvg(card)}</div>
-          <span class="text-[9px] font-mono text-stone-400 uppercase tracking-wider">${card.count} ${card.color} ${card.shading} ${card.shape}</span>
-        `;
-        btn.addEventListener('click', () => {
-          setHintIndex = null;
-          if (selectedSetIndices.includes(idx)) {
-            selectedSetIndices = selectedSetIndices.filter(i => i !== idx);
-          } else if (selectedSetIndices.length < 3) {
-            selectedSetIndices.push(idx);
-          }
-          soundFX.playSelect();
-          renderSetTable();
+    ['set-players-scoreboard', 'set-players-strip'].forEach(id => {
+      domById(id).map(strip => {
+        strip.innerHTML = '';
+        s.players.forEach(p => {
+          const badge = document.createElement('div');
+          badge.className = `px-4 py-2 rounded-xl border-2 ${
+            p.id === 'p1'
+              ? 'border-fuchsia-400 bg-fuchsia-950/75'
+              : 'border-white/15 bg-black/55'
+          } text-xs sm:text-sm flex items-center gap-2.5 shadow-md`;
+          badge.innerHTML = `<span class="font-bold text-stone-100">${p.name}</span><span class="text-amber-300 font-mono font-bold">Sets: ${p.score}</span><span class="text-stone-300 font-mono text-xs">(-${p.penalties})</span>`;
+          strip.appendChild(badge);
         });
-        grid.appendChild(btn);
+      });
+    });
+
+    ['set-table-grid', 'set-board-grid'].forEach(id => {
+      domById(id).map(grid => {
+        grid.innerHTML = '';
+        s.tableCards.forEach((card, idx) => {
+          const isSelected = selectedSetIndices.includes(idx);
+          const isHint = setHintIndex === idx;
+          const btn = document.createElement('button');
+          btn.className = `arcade-set-card-ui border-2 flex flex-col items-center justify-center gap-2 bg-stone-950/92 hover:bg-stone-900 shadow-xl ${
+            isSelected
+              ? 'border-amber-400 ring-2 ring-amber-400/70 -translate-y-1.5'
+              : isHint
+                ? 'border-cyan-400 ring-2 ring-cyan-400/60'
+                : 'border-white/20'
+          }`;
+          btn.innerHTML = `
+            <div class="flex flex-col items-center justify-center gap-1.5">${renderSetSymbolSvg(card)}</div>
+            <span class="text-xs font-mono font-bold text-stone-200 uppercase tracking-wider">${card.count} ${card.color} ${card.shading} ${card.shape}</span>
+          `;
+          btn.addEventListener('click', () => {
+            setHintIndex = null;
+            if (selectedSetIndices.includes(idx)) {
+              selectedSetIndices = selectedSetIndices.filter(i => i !== idx);
+            } else if (selectedSetIndices.length < 3) {
+              selectedSetIndices.push(idx);
+            }
+            soundFX.playSelect();
+            renderSetTable();
+          });
+          grid.appendChild(btn);
+        });
       });
     });
 
@@ -3548,58 +3558,57 @@ function main(): void {
 
   let setLiveCode = `SET-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   const setSetMode = (isLive: boolean) => {
-    const aiBtn = domById('set-mode-ai');
-    const liveBtn = domById('set-mode-live');
-    const liveBanner = domById('set-live-banner');
-    const codeVal = domById('set-live-code-val');
-    if (isLive) {
-      aiBtn.map(el => {
-        el.classList.remove('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
-        el.classList.add('text-stone-400');
+    ['set-tab-ai', 'set-mode-ai'].forEach(id => {
+      domById(id).map(btn => {
+        btn.className = isLive
+          ? 'px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-fuchsia-300 font-bold text-xs transition'
+          : 'px-3 py-1.5 rounded-xl bg-fuchsia-600 text-white font-bold text-xs transition';
       });
-      liveBtn.map(el => {
-        el.classList.add('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
-        el.classList.remove('text-stone-400');
+    });
+    ['set-tab-live', 'set-mode-live'].forEach(id => {
+      domById(id).map(btn => {
+        btn.className = isLive
+          ? 'px-3 py-1.5 rounded-xl bg-fuchsia-600 text-white font-bold text-xs transition'
+          : 'px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-fuchsia-300 font-bold text-xs transition';
       });
-      liveBanner.map(el => {
-        el.classList.remove('hidden');
-        el.classList.add('flex');
+    });
+    ['set-live-session-info', 'set-live-banner'].forEach(id => {
+      domById(id).map(el => {
+        if (isLive) {
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+        } else {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+        }
       });
-      codeVal.map(el => {
+    });
+    ['set-live-code', 'set-live-code-val'].forEach(id => {
+      domById(id).map(el => {
         el.textContent = setLiveCode;
       });
+    });
+    if (isLive) {
       setupArcadeRealtimeSession(ArcadeGameEnum.Set, setLiveCode, 'Sanctuary Geometer', () =>
         renderSetTable()
       );
-    } else {
-      liveBtn.map(el => {
-        el.classList.remove('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
-        el.classList.add('text-stone-400');
-      });
-      aiBtn.map(el => {
-        el.classList.add('bg-cyan-500/20', 'border-cyan-400/50', 'text-cyan-200');
-        el.classList.remove('text-stone-400');
-      });
-      liveBanner.map(el => {
-        el.classList.add('hidden');
-        el.classList.remove('flex');
-      });
     }
   };
 
-  fromNullable(document.getElementById('set-mode-ai')).map(b =>
-    b.addEventListener('click', () => setSetMode(false))
-  );
-  fromNullable(document.getElementById('set-mode-live')).map(b =>
-    b.addEventListener('click', () => setSetMode(true))
-  );
-  fromNullable(document.getElementById('set-copy-code-btn')).map(b =>
-    b.addEventListener('click', () => {
-      const shareUrl = `${window.location.origin}${window.location.pathname}?game=set&session=${setLiveCode}`;
-      void navigator.clipboard?.writeText(shareUrl);
-      ui.showTemporaryBanner(`SET Room Link Copied: ${setLiveCode}`, 2500);
-    })
-  );
+  ['set-tab-ai', 'set-mode-ai'].forEach(id => {
+    domById(id).map(b => b.addEventListener('click', () => setSetMode(false)));
+  });
+  ['set-tab-live', 'set-mode-live'].forEach(id => {
+    domById(id).map(b => b.addEventListener('click', () => setSetMode(true)));
+  });
+  ['btn-set-copy-link', 'set-copy-code-btn'].forEach(id => {
+    domById(id).map(b =>
+      b.addEventListener('click', () => {
+        copyArcadeMatchLink(setLiveCode, b);
+        ui.showTemporaryBanner(`SET Room Link Copied: ${setLiveCode}`, 2500);
+      })
+    );
+  });
 
   fromNullable(document.getElementById('set-btn-claim')).map(b =>
     b.addEventListener('click', () => {

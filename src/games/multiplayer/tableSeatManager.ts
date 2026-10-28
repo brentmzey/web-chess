@@ -1,4 +1,5 @@
 import { Option, Result, fromNullable, none, some, success, failure } from '../../utils/fp';
+import { currentEpochMs } from '../../utils/dateTime';
 import { logger } from '../../utils/logger';
 import { HotSwapActionEnum, AIModelEnum } from '../../constants/gameEnums';
 
@@ -123,7 +124,7 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
           newPlayerName: botName,
           isBot: true,
           botModel: some(botModel),
-          timestamp: Date.now()
+          timestamp: currentEpochMs()
         };
         this.eventHistory.push(ev);
         logger.info(`[HOT_SWAP] [SEAT_FILLED] Seat ${i} filled by ${botName} (${botModel})`);
@@ -171,7 +172,7 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
       newPlayerName: humanPlayerName,
       isBot: false,
       botModel: none(),
-      timestamp: Date.now()
+      timestamp: currentEpochMs()
     };
     this.eventHistory.push(ev);
 
@@ -216,7 +217,7 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
       newPlayerName: botName,
       isBot: true,
       botModel: some(fallbackBotModel),
-      timestamp: Date.now()
+      timestamp: currentEpochMs()
     };
     this.eventHistory.push(ev);
 

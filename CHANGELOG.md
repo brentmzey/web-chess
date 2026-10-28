@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.26] - 2026-10-27
+### Added
+- **Grand Sanctuary Playing Card & Typography UI/UX Overhaul Across All 7 Arcade Game Theaters (`src/styles/main.css`, `src/main.ts`, `index.html`)**:
+  - **Fluid Grand Playing Card Scale (`.playing-card-ui`, `.playing-card-corner`, `.playing-card-center`, `.arcade-set-card-ui`)**: Upgraded playing card dimensions across Gothic Blackjack, Cathedral Poker, Sacred Skip-Bo, Ten Rites (Phase 10), and Cardinal Uno to `width: clamp(5.25rem, 8.2vw, 7.25rem); height: clamp(7.5rem, 11.8vw, 10.25rem)` with crisp corner indices (`clamp(0.92rem, 1.15vw, 1.15rem)`) and large center pips/ranks (`clamp(2.1rem, 3.2vw, 3rem)`), replacing tiny or non-standard Tailwind classes (`w-13`, `w-14`, `h-19`, `h-20`, `h-22`, `text-[9px]`).
+  - **Sacred Geometry SET Theater & SVG Card Upgrade (`renderSetSymbolSvg`, `renderSetTable`)**: Enlarged procedural SET SVG shapes (`w-16 h-9 sm:w-20 sm:h-11`), tactile `.arcade-set-card-ui` cards (`min-height: clamp(7.5rem, 12.5vh, 10rem)`), and unified DOM bindings across `#set-table-grid`, `#set-players-scoreboard`, `#set-deck-remaining`, `#set-available-count`, `#set-status-banner`, `#set-tab-ai`, and `#set-tab-live`.
+  - **Wider Full-Screen Arenas (`max-w-7xl`) & Tactile Controls**: Expanded all 7 arcade theater arenas to `max-w-7xl` with larger status banners (`text-sm sm:text-base`), opponent strips, Avalon quest/seat cards, Skip-Bo building/discard piles, and action buttons (`py-3.5 text-sm sm:text-base`).
+- **Universal ECMAScript `Temporal` API First with `dayjs` Fallback (`src/utils/dateTime.ts`, `src/games/multiplayer/tableSeatManager.ts`, `scripts/benchmark-storage.ts`, `AGENTS.md`)**:
+  - Added `subtractDaysEpochMs` and `subtractDaysIso` to `src/utils/dateTime.ts` using `Temporal.Instant` with automatic `dayjs` fallback (modeled after MST Notes UI).
+  - Replaced all remaining raw `Date.now()` and `new Date()` calls in `src/games/multiplayer/tableSeatManager.ts` and `scripts/benchmark-storage.ts` with `currentEpochMs()` and `nowIso()`, and codified the mandatory Temporal-first with Day.js fallback rule in `AGENTS.md`.
+
 ## [1.2.0-rc.25] - 2026-10-27
 ### Added
 - **Live PocketHost 32-Collection Multi-Game Migration, Hibernation-Resilient Cron Hook & Server-Side Cleanup Cron (`pb_hooks/cleanup.pb.js`, `src/server/pocketbase/migrator.ts`, `src/server/pocketbase/pruner.ts`, `src/server/pocketbase/multiGameSchema.json`, `src/server/server.ts`)**:

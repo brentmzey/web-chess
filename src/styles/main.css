@@ -170,29 +170,62 @@ canvas:active {
   box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.85), 0 0 40px rgba(168, 85, 247, 0.15);
 }
 
-/* Playing Card Component Styling */
+/* Playing Card Component Styling - Grand Sanctuary Scale */
 .playing-card-ui {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border-radius: 0.875rem;
+  width: clamp(5.25rem, 8.2vw, 7.25rem);
+  height: clamp(7.5rem, 11.8vw, 10.25rem);
+  min-width: 5.25rem;
+  min-height: 7.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 1rem;
   border-width: 2px;
   font-family: ui-monospace, monospace;
-  font-weight: 700;
-  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+  font-weight: 800;
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.7), 0 4px 8px -3px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.18s cubic-bezier(0.2, 0, 0, 1), border-color 0.18s ease;
   user-select: none;
 }
 
+.playing-card-corner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: clamp(0.92rem, 1.15vw, 1.15rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.playing-card-center {
+  font-size: clamp(2.1rem, 3.2vw, 3rem);
+  line-height: 1;
+  text-align: center;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.22));
+}
+
 .playing-card-ui:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 18px 28px -5px rgba(0, 0, 0, 0.75);
+  transform: translateY(-5px) scale(1.03);
+  box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.8);
 }
 
 .playing-card-ui.card-selected {
-  transform: translateY(-8px) scale(1.06);
+  transform: translateY(-10px) scale(1.07);
   border-color: #f59e0b !important;
-  box-shadow: 0 0 25px rgba(245, 158, 11, 0.6), 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 28px rgba(245, 158, 11, 0.68), 0 22px 28px -5px rgba(0, 0, 0, 0.85);
+}
+
+.arcade-set-card-ui {
+  min-height: clamp(7.5rem, 12.5vh, 10rem);
+  padding: 0.9rem 1rem;
+  border-radius: 1.15rem;
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.18s cubic-bezier(0.2, 0, 0, 1), border-color 0.18s ease;
+}
+
+.arcade-set-card-ui:hover {
+  transform: translateY(-3px) scale(1.015);
 }
 
 /* Defer layout/paint for off-screen move chronicle rows & scrollable hub cards */

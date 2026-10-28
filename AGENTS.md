@@ -83,6 +83,11 @@ When operating in this repository, agents must adhere to the following without e
 11. **Multi-Game Sanctuary Arcade Hub, Hungarian Database Schema & 3+ Day Stale Session Pruning**:
    - All 8 Sanctuary Arcade games (**Sanctuary Chess** `SANCT-`, **Gothic Blackjack** `BJK-`, **Cathedral Poker** `POKER-`, **Ten Rites / Phase 10** `P10-`, **Sacred Skip-Bo** `SKIP-`, **Cardinal Uno** `UNO-`, **The Resistance: Avalon** `AVALON-`, and **Sacred Geometry SET** `SET-`) must support both **Play vs AI** and **Real-Time Online Multiplayer** with full-screen theater views and real-life player capacities.
    - Maintain Hungarian-prefixed tables (`tbl_<game>_sessions`, `tbl_<game>_seats`, `tbl_<game>_moves`, `tbl_<game>_events`, `tbl_archived_<game>_snapshots`, `tbl_archived_<game>_snapshots_history`), composite cleanup indexes (`(do_not_delete, updated_at, status)`), and universal automated pruning of all stale sessions 3+ days old where `do_not_delete != true`.
+12. **Mandatory ECMAScript `Temporal` API First with `dayjs` Fallback (`src/utils/dateTime.ts`)**:
+   - **Always** use the ECMAScript `Temporal` API (`Temporal.Now.instant()`, `Temporal.Instant`, `Temporal.PlainDateTime`, `Temporal.ZonedDateTime`) for all date/time operations in TypeScript/JavaScript, and automatically fall back to `dayjs` (with `utc`, `timezone`, and `advancedFormat` plugins) when `Temporal` is not available in the runtime (modeled after MST Notes UI).
+   - **Never** invoke raw `Date.now()` or `new Date()` in application or server code; always import and call `currentEpochMs()`, `nowIso()`, `epochMsToIso()`, `isoToEpochMs()`, `subtractDaysEpochMs()`, `subtractDaysIso()`, `formatDateTime()`, or `withFallback()` from [`src/utils/dateTime.ts`](file:///Users/brentzey/personal/web-chess/src/utils/dateTime.ts).
+13. **Grand Sanctuary Playing Card & Typography Scale (`src/styles/main.css`)**:
+   - Maintain large, legible fluid playing cards (`.playing-card-ui` with `clamp(5.25rem, 8.2vw, 7.25rem)` width and `clamp(7.5rem, 11.8vw, 10.25rem)` height, `.playing-card-corner`, `.playing-card-center`, and `.arcade-set-card-ui`) and generous typography across all arcade game theaters so cards and text are never tiny or cramped on any device.
 
 
 

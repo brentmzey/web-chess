@@ -2,6 +2,15 @@ import { describe, expect, it } from 'bun:test';
 import { BlackjackMultiSeatEngine } from '../src/games/blackjack/blackjackMultiSeatEngine';
 
 describe('BlackjackMultiSeatEngine - Multi-Player (>2) Table Dynamics & Bot Fill', () => {
+  const createDeterministicShoe = (topCards: any[]): any[] => {
+    const dummy = Array.from({ length: 35 }, () => ({
+      suit: 'clubs',
+      value: '2',
+      faceUp: true
+    }));
+    return [...dummy, ...topCards];
+  };
+
   it('initializes 5-seat table and fills with AI bots', () => {
     const engine = new BlackjackMultiSeatEngine(5, 10, 500, 'micro-neural');
     expect(engine.seatManager.getMaxSeats()).toBe(5);
@@ -178,7 +187,13 @@ describe('BlackjackMultiSeatEngine - Multi-Player (>2) Table Dynamics & Bot Fill
     expect(engine.placeBet(1, 9999).isFailure()).toBe(true);
     expect(engine.placeBet(99, 50).isFailure()).toBe(true);
 
-    // Start round
+    // Start round with deterministic non-blackjack cards for SoloPlayer
+    engine.state.shoe = createDeterministicShoe([
+      { suit: 'clubs', value: '7', faceUp: true },
+      { suit: 'hearts', value: '10', faceUp: true },
+      { suit: 'spades', value: '7', faceUp: true },
+      { suit: 'spades', value: '10', faceUp: true }
+    ]);
     engine.startRound();
     // Cannot change bet once round starts
     expect(engine.placeBet(1, 50).isFailure()).toBe(true);
@@ -218,15 +233,6 @@ describe('BlackjackMultiSeatEngine - Multi-Player (>2) Table Dynamics & Bot Fill
     expect(engine.playerStand(1).isFailure()).toBe(true);
     expect(engine.playerDoubleDown(1).isFailure()).toBe(true);
   });
-
-  const createDeterministicShoe = (topCards: any[]): any[] => {
-    const dummy = Array.from({ length: 35 }, () => ({
-      suit: 'clubs',
-      value: '2',
-      faceUp: true
-    }));
-    return [...dummy, ...topCards];
-  };
 
   it('evaluates natural blackjack payouts and dealer bust/win/push outcomes', () => {
     // 1. Natural Blackjack solo win

@@ -31,7 +31,7 @@ export function setTemporalOverride(overrideOpt: Option<unknown>): void {
  */
 export function isTemporalSupported(): boolean {
   return temporalOverrideOpt.fold(
-    () => typeof (globalThis as unknown as { Temporal?: unknown }).Temporal !== 'undefined',
+    () => typeof (globalThis as unknown as { readonly Temporal?: unknown }).Temporal !== 'undefined',
     override => override !== null && override !== undefined && override !== false
   );
 }
@@ -50,11 +50,9 @@ const toError = (err: unknown): Error =>
  * Executes a date/datetime operation using Temporal, with graceful Day.js fallback
  * if Temporal is unsupported or throws an unexpected runtime exception.
  */
-export function withFallback<T>(
-  operationName: string,
-  temporalFn: (temporal: Record<string, any>) => T,
-  fallbackFn: () => T
-): T {
+export function withFallback<T>(operationName: string,
+                                temporalFn: (temporal: Record<string, any>) => T,
+                                fallbackFn: () => T): T {
   return matchBool(isTemporalSupported(), {
     true: () => {
       const res = tryCatch(() => temporalFn(getTemporal()), toError);
@@ -117,6 +115,36 @@ export function isoToEpochMs(iso: string): number {
     'isoToEpochMs',
     Temporal => Temporal.Instant.from(iso).epochMilliseconds,
     () => dayjs(iso).valueOf()
+  );
+}
+
+/**
+ * Subtracts a given number of days from an epoch millisecond timestamp and returns epoch milliseconds.
+ * Uses Temporal.Instant.fromEpochMilliseconds(baseMs).subtract({ hours: days * 24 }), falling back to Day.js.
+ */
+export function subtractDaysEpochMs(days: number,
+                                    baseEpochMs: number = currentEpochMs()): number {
+  return withFallback(
+    'subtractDaysEpochMs',
+    Temporal => Temporal.Instant.fromEpochMilliseconds(baseEpochMs)
+      .subtract({ hours: Math.round(days * 24) })
+      .epochMilliseconds,
+    () => dayjs(baseEpochMs).subtract(days, 'day').valueOf()
+  );
+}
+
+/**
+ * Subtracts a given number of days from an epoch millisecond timestamp and returns an ISO 8601 string.
+ * Uses Temporal.Instant.fromEpochMilliseconds(baseMs).subtract({ hours: days * 24 }).toString(), falling back to Day.js.
+ */
+export function subtractDaysIso(days: number,
+                                baseEpochMs: number = currentEpochMs()): string {
+  return withFallback(
+    'subtractDaysIso',
+    Temporal => Temporal.Instant.fromEpochMilliseconds(baseEpochMs)
+      .subtract({ hours: Math.round(days * 24) })
+      .toString(),
+    () => dayjs(baseEpochMs).subtract(days, 'day').toISOString()
   );
 }
 
