@@ -2,7 +2,7 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title>Wizard's Chess 3D — High Gothic Basilica</title>
     <meta name="description" content="3D Wizard's Chess set inside a High Gothic Basilica with procedural Web Audio, articulated pieces, 34-shard melee shatter physics, and AI engine.">
     <meta name="theme-color" content="#09080c">
@@ -105,7 +105,7 @@
     </header>
 
     <!-- SLIDE-OVER CHRONICLE OF MOVES DRAWER (Right Side) -->
-    <aside id="log-drawer" class="fixed top-20 right-3 sm:right-4 bottom-20 sm:bottom-24 w-80 max-w-[92vw] z-30 md3-glass rounded-3xl p-4 sm:p-5 flex flex-col gap-3.5 transition-all duration-300 translate-x-[115%] opacity-0 pointer-events-auto">
+    <aside id="log-drawer" class="fixed top-16 sm:top-20 right-2 sm:right-4 bottom-16 sm:bottom-24 w-[calc(100vw-1rem)] sm:w-80 max-w-[94vw] z-30 md3-glass rounded-3xl p-3.5 sm:p-5 flex flex-col gap-3 transition-all duration-300 translate-x-[115%] opacity-0 pointer-events-auto">
         <div class="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
             <div class="flex items-center gap-2">
                 <span class="material-symbols-rounded text-amber-300">history_edu</span>
@@ -843,8 +843,8 @@
     <!-- ===================================================================== -->
     <!-- SANCTUARY ARCADE FRONT SCREEN / MULTI-GAME SELECTOR MODAL             -->
     <!-- ===================================================================== -->
-    <div id="arcade-hub-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md hidden pointer-events-auto">
-        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-amber-400/40 w-full max-w-4xl max-h-[92vh] overflow-y-auto space-y-5 animate-in fade-in duration-200">
+    <div id="arcade-hub-modal" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-black/85 backdrop-blur-md hidden pointer-events-auto">
+        <div class="md3-glass rounded-3xl p-4 sm:p-7 shadow-2xl border border-amber-400/40 w-full max-w-4xl max-h-[92dvh] overflow-y-auto space-y-4 sm:space-y-5 animate-in fade-in duration-200">
             <!-- Hub Header -->
             <div class="flex items-center justify-between border-b border-amber-500/20 pb-4">
                 <div class="flex items-center gap-3">
@@ -1068,156 +1068,155 @@
     <!-- ===================================================================== -->
     <!-- GOTHIC BLACKJACK SANCTUARY TABLE (FULL SCREEN VIEW)                     -->
     <!-- ===================================================================== -->
-    <div id="blackjack-modal" class="fixed inset-0 z-50 flex flex-col bg-[#060a08] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+    <div id="blackjack-modal" class="arcade-theater-shell fixed inset-0 z-50 flex flex-col bg-[#060a08] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
         <!-- Top Sanctuary Navigation Bar -->
-        <header class="w-full px-4 sm:px-8 py-3 border-b border-emerald-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-emerald-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
-            <div class="flex items-center gap-3 sm:gap-4">
-                <button type="button" id="btn-close-blackjack" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
+            <div class="flex items-center gap-2 sm:gap-4">
+                <button type="button" id="btn-close-blackjack" class="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
                     <span class="material-symbols-rounded text-base">arrow_back</span>
                     <span class="hidden sm:inline">Sanctuary</span>
                 </button>
-                <div class="flex items-center gap-2.5">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-400/50 flex items-center justify-center text-emerald-300 shadow-md">
-                        <span class="material-symbols-rounded text-xl">playing_cards</span>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-950/80 border border-emerald-400/50 flex items-center justify-center text-emerald-300 shadow-md">
+                        <span class="material-symbols-rounded text-lg sm:text-xl">playing_cards</span>
                     </div>
                     <div>
-                        <h2 class="font-cathedral text-sm sm:text-base font-bold text-amber-100 tracking-wider">GOTHIC BLACKJACK</h2>
+                        <h2 class="font-cathedral text-xs sm:text-base font-bold text-amber-100 tracking-wider">GOTHIC BLACKJACK</h2>
                         <p class="text-[10px] text-stone-400 hidden md:block">High Gothic Cathedral Table • 3:2 Natural Payout</p>
                     </div>
                 </div>
             </div>
 
             <!-- Center: Mode Toggle & Live Online Connection Bar -->
-            <div class="flex flex-wrap items-center gap-2">
-                <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
-                    <button type="button" id="bjk-tab-ai" class="px-3 py-1 rounded-xl bg-purple-600 text-white font-bold text-[11px] transition">Play vs Dealer</button>
-                    <button type="button" id="bjk-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-purple-300 font-bold text-[11px] transition">Live Multiplayer (1-7)</button>
+            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <div class="flex items-center p-0.5 sm:p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                    <button type="button" id="bjk-tab-ai" class="px-2.5 sm:px-3 py-1 rounded-xl bg-purple-600 text-white font-bold text-[11px] transition">vs Dealer</button>
+                    <button type="button" id="bjk-tab-live" class="px-2.5 sm:px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-purple-300 font-bold text-[11px] transition">Live (1-7)</button>
                 </div>
-                <div class="flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-2xl px-2.5 py-1 text-xs">
-                    <span class="text-stone-400 font-semibold">Seats:</span>
-                    <select id="bjk-seats-select" class="bg-black/60 border border-emerald-400/30 rounded-xl px-2 py-0.5 text-xs text-emerald-200 focus:outline-none">
-                        <option value="1">1 Player</option>
-                        <option value="2">2 Players</option>
-                        <option value="3" selected>3 Players</option>
-                        <option value="4">4 Players</option>
-                        <option value="5">5 Players</option>
-                        <option value="6">6 Players</option>
-                        <option value="7">7 Players (Full Table)</option>
+                <div class="flex items-center gap-1 bg-black/50 border border-white/10 rounded-2xl px-2 py-1 text-xs">
+                    <span class="text-stone-400 font-semibold hidden sm:inline">Seats:</span>
+                    <select id="bjk-seats-select" class="bg-black/60 border border-emerald-400/30 rounded-xl px-1.5 sm:px-2 py-0.5 text-xs text-emerald-200 focus:outline-none">
+                        <option value="1">1 Seat</option>
+                        <option value="2">2 Seats</option>
+                        <option value="3" selected>3 Seats</option>
+                        <option value="4">4 Seats</option>
+                        <option value="5">5 Seats</option>
+                        <option value="6">6 Seats</option>
+                        <option value="7">7 Seats (Full)</option>
                     </select>
-                    <button type="button" id="bjk-btn-add-player" class="px-2.5 py-0.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-[11px] flex items-center gap-1 transition">
+                    <button type="button" id="bjk-btn-add-player" class="px-2 py-0.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-[11px] flex items-center gap-0.5 transition">
                         <span class="material-symbols-rounded text-xs">person_add</span>
                         <span>+ Player</span>
                     </button>
                 </div>
-                <div id="bjk-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-sky-950/60 border border-sky-400/40 text-xs">
+                <div id="bjk-live-session-info" class="hidden flex items-center gap-2 px-2.5 py-1 rounded-2xl bg-sky-950/60 border border-sky-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
                     <span id="bjk-live-code" class="font-mono text-amber-300 font-bold tracking-wider">BJK-7K9P</span>
-                    <button type="button" id="btn-bjk-copy-link" class="px-2.5 py-0.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition">
+                    <button type="button" id="btn-bjk-copy-link" class="px-2 py-0.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition">
                         <span class="material-symbols-rounded text-xs">content_copy</span>
-                        <span>Copy Link</span>
+                        <span>Copy</span>
                     </button>
                 </div>
             </div>
 
             <!-- Right: Dealer AI, Difficulty & View Options -->
-            <div class="flex items-center gap-2">
-                <div class="hidden lg:flex items-center gap-2 text-xs">
-                    <span class="text-stone-400">AI:</span>
-                    <select id="bjk-ai-select" class="bg-black/60 border border-purple-400/30 rounded-xl px-2.5 py-1 text-xs text-purple-200 focus:outline-none">
-                        <option value="minimax">Minimax Casino Engine</option>
-                        <option value="micro-neural" selected>Micro-Neural Network AI</option>
-                        <option value="gemini-nano">Gemini Nano Local LLM</option>
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <div class="flex items-center gap-1.5 text-xs">
+                    <select id="bjk-ai-select" class="bg-black/60 border border-purple-400/30 rounded-xl px-2 py-1 text-[11px] sm:text-xs text-purple-200 focus:outline-none">
+                        <option value="minimax">Minimax AI</option>
+                        <option value="micro-neural" selected>Neural AI</option>
+                        <option value="gemini-nano">Gemini Nano</option>
                     </select>
-                    <select id="bjk-diff-select" class="bg-black/60 border border-purple-400/30 rounded-xl px-2.5 py-1 text-xs text-amber-200 focus:outline-none">
-                        <option value="cautious">Cautious (Stands 16)</option>
-                        <option value="balanced" selected>Balanced (Stands 17)</option>
-                        <option value="ruthless">Ruthless (Pushes 18)</option>
+                    <select id="bjk-diff-select" class="bg-black/60 border border-purple-400/30 rounded-xl px-2 py-1 text-[11px] sm:text-xs text-amber-200 focus:outline-none">
+                        <option value="cautious">Cautious</option>
+                        <option value="balanced" selected>Balanced</option>
+                        <option value="ruthless">Ruthless</option>
                     </select>
                 </div>
-                <button type="button" id="btn-bjk-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+                <button type="button" id="btn-bjk-fullscreen" class="p-1.5 sm:p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
             </div>
         </header>
 
         <!-- Main Felt Arena Container (Spacious Full View) -->
-        <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+        <main class="arcade-theater-main flex-1 w-full max-w-7xl mx-auto px-2.5 sm:px-6 py-2.5 sm:py-4 flex flex-col justify-between overflow-y-auto space-y-2.5 sm:space-y-4">
             <!-- Multi-Seat Casino Arc Track (1 to 7 Players) -->
-            <div id="bjk-seats-track" class="flex flex-wrap items-center justify-center gap-2.5 py-1 shrink-0">
+            <div id="bjk-seats-track" class="arcade-seat-strip shrink-0">
                 <!-- Populated dynamically with all seated Blackjack players -->
             </div>
             <!-- Grand Velvet Felt Board -->
-            <div class="rounded-3xl p-5 sm:p-8 border-2 border-emerald-500/40 felt-blackjack shadow-2xl flex-1 flex flex-col justify-between gap-6 min-h-[420px]">
+            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-emerald-500/40 felt-blackjack shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-6 min-h-0 sm:min-h-[420px]">
                 <!-- Dealer Area -->
-                <div class="space-y-3 text-center">
-                    <div class="text-sm font-bold uppercase tracking-widest text-emerald-300/90 flex items-center justify-center gap-2.5">
-                        <span class="material-symbols-rounded text-lg text-emerald-400">shield_person</span>
+                <div class="space-y-2 sm:space-y-3 text-center">
+                    <div class="text-xs sm:text-sm font-bold uppercase tracking-widest text-emerald-300/90 flex items-center justify-center gap-2">
+                        <span class="material-symbols-rounded text-base sm:text-lg text-emerald-400">shield_person</span>
                         <span>Cathedral Dealer</span>
-                        <span id="bjk-dealer-total" class="px-3 py-0.5 rounded-full bg-black/60 text-amber-300 font-mono text-sm font-bold border border-emerald-400/40 shadow-sm">0</span>
+                        <span id="bjk-dealer-total" class="px-2.5 py-0.5 rounded-full bg-black/60 text-amber-300 font-mono text-xs sm:text-sm font-bold border border-emerald-400/40 shadow-sm">0</span>
                     </div>
-                    <div id="bjk-dealer-cards" class="flex flex-wrap items-center justify-center gap-3.5 min-h-[120px] sm:min-h-[145px]">
-                        <span class="text-sm sm:text-base text-stone-400 italic">Place bet to deal</span>
+                    <div id="bjk-dealer-cards" class="flex flex-wrap items-center justify-center gap-2 sm:gap-3.5 min-h-[100px] sm:min-h-[145px]">
+                        <span class="text-xs sm:text-base text-stone-400 italic">Place bet to deal</span>
                     </div>
                 </div>
 
                 <!-- Center Status Herald -->
                 <div class="max-w-xl mx-auto w-full">
-                    <div id="bjk-status-banner" class="p-3 sm:p-3.5 rounded-2xl bg-black/65 border border-amber-400/40 text-center text-sm sm:text-base font-cathedral font-bold text-amber-200 tracking-wide shadow-lg">
+                    <div id="bjk-status-banner" class="p-2.5 sm:p-3.5 rounded-2xl bg-black/65 border border-amber-400/40 text-center text-xs sm:text-base font-cathedral font-bold text-amber-200 tracking-wide shadow-lg">
                         Place your bet and click Deal to begin.
                     </div>
                 </div>
 
                 <!-- Player Hand Area -->
-                <div class="space-y-3 text-center">
-                    <div id="bjk-player-cards" class="flex flex-wrap items-center justify-center gap-3.5 min-h-[120px] sm:min-h-[145px]">
-                        <span class="text-sm sm:text-base text-stone-400 italic">No cards in play</span>
+                <div class="space-y-2 sm:space-y-3 text-center">
+                    <div id="bjk-player-cards" class="flex flex-wrap items-center justify-center gap-2 sm:gap-3.5 min-h-[100px] sm:min-h-[145px]">
+                        <span class="text-xs sm:text-base text-stone-400 italic">No cards in play</span>
                     </div>
-                    <div class="text-sm font-bold uppercase tracking-widest text-emerald-300/90 flex items-center justify-center gap-2.5">
-                        <span class="material-symbols-rounded text-lg text-amber-400">person</span>
+                    <div class="text-xs sm:text-sm font-bold uppercase tracking-widest text-emerald-300/90 flex items-center justify-center gap-2">
+                        <span class="material-symbols-rounded text-base sm:text-lg text-amber-400">person</span>
                         <span>Your Consecrated Hand</span>
-                        <span id="bjk-player-total" class="px-3 py-0.5 rounded-full bg-black/60 text-amber-300 font-mono text-sm font-bold border border-emerald-400/40 shadow-sm">0</span>
+                        <span id="bjk-player-total" class="px-2.5 py-0.5 rounded-full bg-black/60 text-amber-300 font-mono text-xs sm:text-sm font-bold border border-emerald-400/40 shadow-sm">0</span>
                     </div>
                 </div>
             </div>
 
             <!-- Bottom Control Dock: Bank, Chip Rack & Actions -->
-            <div class="space-y-3 shrink-0">
+            <div class="arcade-action-dock space-y-2 sm:space-y-3 shrink-0">
                 <!-- Chip Bank & Betting Controls -->
-                <div class="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/55 border border-white/15 text-xs sm:text-sm backdrop-blur-sm">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300">
-                            <span class="material-symbols-rounded text-base">savings</span>
+                <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 sm:p-3.5 rounded-2xl bg-black/55 border border-white/15 text-xs sm:text-sm backdrop-blur-sm">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300">
+                            <span class="material-symbols-rounded text-sm sm:text-base">savings</span>
                         </div>
                         <span class="text-stone-300 font-semibold">Bank:</span>
-                        <span id="bjk-bank-val" class="font-mono text-amber-200 font-bold text-base">500 Relics</span>
+                        <span id="bjk-bank-val" class="font-mono text-amber-200 font-bold text-sm sm:text-base">500 Relics</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-stone-300 font-semibold">Current Bet:</span>
-                        <span id="bjk-bet-val" class="font-mono text-amber-200 font-bold text-base mr-1">25</span>
-                        <button type="button" data-bet="10" class="bjk-bet-btn px-3 py-1.5 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-100 font-bold text-xs transition">10</button>
-                        <button type="button" data-bet="25" class="bjk-bet-btn px-3 py-1.5 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-100 font-bold text-xs transition">25</button>
-                        <button type="button" data-bet="50" class="bjk-bet-btn px-3 py-1.5 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-100 font-bold text-xs transition">50</button>
-                        <button type="button" data-bet="100" class="bjk-bet-btn px-3 py-1.5 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-100 font-bold text-xs transition">100</button>
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                        <span class="text-stone-300 font-semibold">Bet:</span>
+                        <span id="bjk-bet-val" class="font-mono text-amber-200 font-bold text-sm sm:text-base mr-0.5">25</span>
+                        <button type="button" data-bet="10" class="bjk-bet-btn px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-100 font-bold text-xs transition">10</button>
+                        <button type="button" data-bet="25" class="bjk-bet-btn px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-100 font-bold text-xs transition">25</button>
+                        <button type="button" data-bet="50" class="bjk-bet-btn px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-100 font-bold text-xs transition">50</button>
+                        <button type="button" data-bet="100" class="bjk-bet-btn px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-400/20 text-stone-100 font-bold text-xs transition">100</button>
                     </div>
                 </div>
 
                 <!-- Tactical Action Buttons -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <button type="button" id="bjk-btn-deal" class="py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">play_arrow</span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                    <button type="button" id="bjk-btn-deal" class="py-3 sm:py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">play_arrow</span>
                         <span>Deal</span>
                     </button>
-                    <button type="button" id="bjk-btn-hit" disabled class="py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">add</span>
+                    <button type="button" id="bjk-btn-hit" disabled class="py-3 sm:py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">add</span>
                         <span>Hit</span>
                     </button>
-                    <button type="button" id="bjk-btn-stand" disabled class="py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">front_hand</span>
+                    <button type="button" id="bjk-btn-stand" disabled class="py-3 sm:py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">front_hand</span>
                         <span>Stand</span>
                     </button>
-                    <button type="button" id="bjk-btn-double" disabled class="py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">stars</span>
+                    <button type="button" id="bjk-btn-double" disabled class="py-3 sm:py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">stars</span>
                         <span>Double Down</span>
                     </button>
                 </div>
@@ -1228,9 +1227,9 @@
     <!-- ===================================================================== -->
     <!-- CATHEDRAL POKER MULTI-VARIANT SANCTUARY TABLE (FULL SCREEN VIEW)      -->
     <!-- ===================================================================== -->
-    <div id="poker-modal" class="fixed inset-0 z-50 flex flex-col bg-[#0a0705] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+    <div id="poker-modal" class="arcade-theater-shell fixed inset-0 z-50 flex flex-col bg-[#0a0705] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
         <!-- Top Sanctuary Navigation Bar -->
-        <header class="w-full px-4 sm:px-8 py-3 border-b border-amber-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-amber-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
             <div class="flex items-center gap-3 sm:gap-4">
                 <button type="button" id="btn-close-poker" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
@@ -1296,13 +1295,13 @@
         </header>
 
         <!-- Main Felt Arena Container -->
-        <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+        <main class="arcade-theater-main flex-1 w-full max-w-7xl mx-auto px-2.5 sm:px-6 py-2.5 sm:py-4 flex flex-col justify-between overflow-y-auto space-y-2.5 sm:space-y-4">
             <!-- Multi-Seat Poker Ring Track (2 to 9 Players) -->
-            <div id="poker-seats-track" class="flex flex-wrap items-center justify-center gap-2.5 py-1 shrink-0">
+            <div id="poker-seats-track" class="arcade-seat-strip shrink-0">
                 <!-- Populated dynamically with all seated Poker players -->
             </div>
             <!-- Grand Oval Felt Poker Table -->
-            <div class="rounded-3xl p-5 sm:p-8 border-4 border-amber-900/50 felt-poker shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[420px]">
+            <div class="rounded-3xl p-3.5 sm:p-8 border-4 border-amber-900/50 felt-poker shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
                 <!-- Center Pot & Stage Row -->
                 <div class="flex items-center justify-between border-b border-white/10 pb-3">
                     <div class="flex items-center gap-2.5">
@@ -1352,8 +1351,8 @@
             </div>
 
             <!-- Bottom Action Controls -->
-            <div class="space-y-2.5 shrink-0">
-                <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div class="arcade-action-dock space-y-2 sm:space-y-2.5 shrink-0">
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
                     <button type="button" id="poker-btn-deal" class="py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
                         <span class="material-symbols-rounded text-lg">play_arrow</span>
                         <span>Deal Hand</span>
@@ -1392,9 +1391,9 @@
     <!-- ===================================================================== -->
     <!-- SACRED SKIP-BO SANCTUARY TABLE (FULL SCREEN VIEW)                     -->
     <!-- ===================================================================== -->
-    <div id="skipbo-modal" class="fixed inset-0 z-50 flex flex-col bg-[#05080e] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+    <div id="skipbo-modal" class="arcade-theater-shell fixed inset-0 z-50 flex flex-col bg-[#05080e] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
         <!-- Top Sanctuary Navigation Bar -->
-        <header class="w-full px-4 sm:px-8 py-3 border-b border-sky-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-sky-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
             <div class="flex items-center gap-3 sm:gap-4">
                 <button type="button" id="btn-close-skipbo" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
@@ -1455,13 +1454,13 @@
         </header>
 
         <!-- Main Felt Arena Container -->
-        <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+        <main class="arcade-theater-main flex-1 w-full max-w-7xl mx-auto px-2.5 sm:px-6 py-2.5 sm:py-4 flex flex-col justify-between overflow-y-auto space-y-2.5 sm:space-y-4">
             <!-- Multi-Player Skip-Bo Seats Track (2 to 6 Players) -->
-            <div id="skipbo-opponents-track" class="flex flex-wrap items-center justify-center gap-2.5 py-1 shrink-0">
+            <div id="skipbo-opponents-track" class="arcade-seat-strip shrink-0">
                 <!-- Populated dynamically with all seated Skip-Bo players -->
             </div>
             <!-- Grand Blue Velvet Table -->
-            <div class="rounded-3xl p-5 sm:p-8 border-2 border-sky-500/40 felt-skipbo shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[420px]">
+            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-sky-500/40 felt-skipbo shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
                 <!-- Opponent Info & Deck Stats -->
                 <div class="flex items-center justify-between border-b border-white/10 pb-3">
                     <div class="flex items-center gap-2 text-xs sm:text-sm text-stone-200">
@@ -1519,13 +1518,13 @@
             </div>
 
             <!-- Controls Dock -->
-            <div class="grid grid-cols-2 gap-3 shrink-0">
-                <button type="button" id="skipbo-btn-play-selected" class="py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">upload</span>
+            <div class="arcade-action-dock grid grid-cols-2 gap-2 sm:gap-3 shrink-0">
+                <button type="button" id="skipbo-btn-play-selected" class="py-3 sm:py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">upload</span>
                     <span>Play to Pile</span>
                 </button>
-                <button type="button" id="skipbo-btn-discard-selected" class="py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">download</span>
+                <button type="button" id="skipbo-btn-discard-selected" class="py-3 sm:py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">download</span>
                     <span>Discard & End Turn</span>
                 </button>
             </div>
@@ -1535,9 +1534,9 @@
     <!-- ===================================================================== -->
     <!-- TEN RITES (PHASE 10) SANCTUARY TABLE (FULL SCREEN VIEW)               -->
     <!-- ===================================================================== -->
-    <div id="phase10-modal" class="fixed inset-0 z-50 flex flex-col bg-[#050a08] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+    <div id="phase10-modal" class="arcade-theater-shell fixed inset-0 z-50 flex flex-col bg-[#050a08] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
         <!-- Top Sanctuary Navigation Bar -->
-        <header class="w-full px-4 sm:px-8 py-3 border-b border-emerald-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-emerald-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
             <div class="flex items-center gap-3 sm:gap-4">
                 <button type="button" id="btn-close-phase10" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
@@ -1598,27 +1597,27 @@
         </header>
 
         <!-- Main Felt Arena Container -->
-        <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+        <main class="arcade-theater-main flex-1 w-full max-w-7xl mx-auto px-2.5 sm:px-6 py-2.5 sm:py-4 flex flex-col justify-between overflow-y-auto space-y-2.5 sm:space-y-4">
             <!-- Multi-Player Phase 10 Seats Track (2 to 6 Players) -->
-            <div id="phase10-opponents-track" class="flex flex-wrap items-center justify-center gap-2.5 py-1 shrink-0">
+            <div id="phase10-opponents-track" class="arcade-seat-strip shrink-0">
                 <!-- Populated dynamically with all seated Phase 10 players -->
             </div>
             <!-- Liturgical Phase Contract Banner -->
-            <div class="p-3.5 sm:p-4 rounded-2xl bg-emerald-950/65 border border-emerald-400/40 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm backdrop-blur-sm shrink-0">
+            <div class="p-2.5 sm:p-4 rounded-2xl bg-emerald-950/65 border border-emerald-400/40 flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-xs sm:text-sm backdrop-blur-sm shrink-0">
                 <div class="space-y-0.5">
-                    <div class="text-xs uppercase font-bold text-emerald-400 tracking-widest">Current Liturgical Rite:</div>
-                    <div id="phase10-target-contract" class="font-cathedral text-base sm:text-lg font-bold text-amber-100">Phase 1: 2 Sets of 3</div>
+                    <div class="text-[11px] sm:text-xs uppercase font-bold text-emerald-400 tracking-widest">Current Liturgical Rite:</div>
+                    <div id="phase10-target-contract" class="font-cathedral text-sm sm:text-lg font-bold text-amber-100">Phase 1: 2 Sets of 3</div>
                 </div>
-                <div class="flex items-center gap-4 text-right">
+                <div class="flex items-center gap-3 text-right">
                     <div>
-                        <div class="text-xs uppercase font-bold text-stone-300">Score Penalty:</div>
-                        <div id="phase10-player-score" class="font-mono font-bold text-amber-300 text-base">0 pts</div>
+                        <div class="text-[11px] sm:text-xs uppercase font-bold text-stone-300">Score Penalty:</div>
+                        <div id="phase10-player-score" class="font-mono font-bold text-amber-300 text-sm sm:text-base">0 pts</div>
                     </div>
                 </div>
             </div>
 
             <!-- Grand Velvet Felt Table -->
-            <div class="rounded-3xl p-5 sm:p-8 border-2 border-emerald-500/40 felt-phase10 shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[420px]">
+            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-emerald-500/40 felt-phase10 shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
                 <!-- Center Piles: Draw Deck & Discard Pile -->
                 <div class="flex items-center justify-center gap-8 sm:gap-14 border-b border-white/10 pb-4">
                     <div class="text-center space-y-1.5">
@@ -1664,21 +1663,21 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
-                <button type="button" id="phase10-btn-draw-deck" class="py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">download</span>
+            <div class="arcade-action-dock grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 shrink-0">
+                <button type="button" id="phase10-btn-draw-deck" class="py-3 sm:py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">download</span>
                     <span>Draw Deck</span>
                 </button>
-                <button type="button" id="phase10-btn-lay-phase" disabled class="py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:pointer-events-none text-stone-950 font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">verified</span>
+                <button type="button" id="phase10-btn-lay-phase" disabled class="py-3 sm:py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:pointer-events-none text-stone-950 font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">verified</span>
                     <span>Lay Down Phase</span>
                 </button>
-                <button type="button" id="phase10-btn-hit-card" disabled class="py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">add_box</span>
+                <button type="button" id="phase10-btn-hit-card" disabled class="py-3 sm:py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">add_box</span>
                     <span>Hit on Meld</span>
                 </button>
-                <button type="button" id="phase10-btn-discard" disabled class="py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">logout</span>
+                <button type="button" id="phase10-btn-discard" disabled class="py-3 sm:py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:pointer-events-none text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">logout</span>
                     <span>Discard & End</span>
                 </button>
             </div>
@@ -1688,9 +1687,9 @@
     <!-- ===================================================================== -->
     <!-- CARDINAL UNO SANCTUARY TABLE (FULL SCREEN VIEW)                       -->
     <!-- ===================================================================== -->
-    <div id="uno-modal" class="fixed inset-0 z-50 flex flex-col bg-[#0a0506] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+    <div id="uno-modal" class="arcade-theater-shell fixed inset-0 z-50 flex flex-col bg-[#0a0506] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
         <!-- Top Sanctuary Navigation Bar -->
-        <header class="w-full px-4 sm:px-8 py-3 border-b border-red-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-red-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
             <div class="flex items-center gap-3 sm:gap-4">
                 <button type="button" id="btn-close-uno" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
@@ -1748,16 +1747,16 @@
         </header>
 
         <!-- Main Felt Arena Container -->
-        <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+        <main class="arcade-theater-main flex-1 w-full max-w-7xl mx-auto px-2.5 sm:px-6 py-2.5 sm:py-4 flex flex-col justify-between overflow-y-auto space-y-2.5 sm:space-y-4">
             <!-- Opponents Seats Track -->
-            <div id="uno-opponents-track" class="flex items-center justify-center gap-3 overflow-x-auto py-1 shrink-0">
+            <div id="uno-opponents-track" class="arcade-seat-strip shrink-0">
                 <!-- Dynamically populated opponent seats -->
             </div>
 
             <!-- Grand Velvet Felt Table -->
-            <div class="rounded-3xl p-5 sm:p-8 border-2 border-red-500/40 felt-uno shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[420px]">
+            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-red-500/40 felt-uno shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
                 <!-- Center Piles: Draw Deck & Discard Pile -->
-                <div class="flex items-center justify-center gap-8 sm:gap-14 border-b border-white/10 pb-4">
+                <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-14 border-b border-white/10 pb-3 sm:pb-4">
                     <div class="text-center space-y-1.5">
                         <span class="text-xs uppercase font-bold text-stone-300 tracking-wider">Draw Pile</span>
                         <div id="uno-draw-deck-btn" class="playing-card-ui items-center justify-center bg-stone-900 border-2 border-red-500/60 text-red-300 font-mono font-extrabold text-sm cursor-pointer shadow-xl transition hover:scale-105 active:scale-95">
@@ -1799,22 +1798,22 @@
             </div>
 
             <!-- Action Buttons & Color Picker -->
-            <div class="space-y-2.5 shrink-0">
-                <div id="uno-color-picker" class="hidden p-3.5 rounded-2xl bg-black/85 border border-white/25 flex flex-wrap items-center justify-center gap-3 backdrop-blur-md">
-                    <span class="text-sm font-bold text-stone-200">Choose Wild Color:</span>
-                    <button type="button" id="uno-pick-red" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm uppercase transition">Red</button>
-                    <button type="button" id="uno-pick-blue" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm uppercase transition">Blue</button>
-                    <button type="button" id="uno-pick-green" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm uppercase transition">Green</button>
-                    <button type="button" id="uno-pick-yellow" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-sm uppercase transition">Yellow</button>
+            <div class="arcade-action-dock space-y-2 sm:space-y-2.5 shrink-0">
+                <div id="uno-color-picker" class="hidden p-3 rounded-2xl bg-black/85 border border-white/25 flex flex-wrap items-center justify-center gap-2 sm:gap-3 backdrop-blur-md">
+                    <span class="text-xs sm:text-sm font-bold text-stone-200">Choose Wild Color:</span>
+                    <button type="button" id="uno-pick-red" class="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm uppercase transition">Red</button>
+                    <button type="button" id="uno-pick-blue" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm uppercase transition">Blue</button>
+                    <button type="button" id="uno-pick-green" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm uppercase transition">Green</button>
+                    <button type="button" id="uno-pick-yellow" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-sm uppercase transition">Yellow</button>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <button type="button" id="uno-btn-draw" class="py-3.5 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">download</span>
+                <div class="grid grid-cols-2 gap-2 sm:gap-3">
+                    <button type="button" id="uno-btn-draw" class="py-3 sm:py-3.5 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">download</span>
                         <span>Draw Card</span>
                     </button>
-                    <button type="button" id="uno-btn-call-uno" class="py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-cathedral font-bold text-sm sm:text-base tracking-wider flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">campaign</span>
-                        <span>CALL CARDINAL UNO!</span>
+                    <button type="button" id="uno-btn-call-uno" class="py-3 sm:py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-cathedral font-bold text-xs sm:text-base tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">campaign</span>
+                        <span>CALL UNO!</span>
                     </button>
                 </div>
             </div>
@@ -1824,9 +1823,9 @@
     <!-- ===================================================================== -->
     <!-- THE RESISTANCE: AVALON SANCTUARY TABLE (FULL SCREEN VIEW)             -->
     <!-- ===================================================================== -->
-    <div id="avalon-modal" class="fixed inset-0 z-50 flex flex-col bg-[#05070d] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+    <div id="avalon-modal" class="arcade-theater-shell fixed inset-0 z-50 flex flex-col bg-[#05070d] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
         <!-- Top Sanctuary Navigation Bar -->
-        <header class="w-full px-4 sm:px-8 py-3 border-b border-sky-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-sky-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
             <div class="flex items-center gap-3 sm:gap-4">
                 <button type="button" id="btn-close-avalon" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
@@ -1884,77 +1883,79 @@
         </header>
 
         <!-- Main Felt Arena Container -->
-        <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+        <main class="arcade-theater-main flex-1 w-full max-w-7xl mx-auto px-2.5 sm:px-6 py-2.5 sm:py-4 flex flex-col justify-between overflow-y-auto space-y-2.5 sm:space-y-4">
             <!-- Quest Track & Failed Votes -->
-            <div class="p-3.5 sm:p-4 rounded-2xl bg-sky-950/65 border border-sky-400/40 flex flex-wrap items-center justify-between gap-4 text-xs sm:text-sm backdrop-blur-sm shrink-0">
-                <div class="flex items-center gap-2.5 sm:gap-4 overflow-x-auto">
+            <div class="p-2.5 sm:p-4 rounded-2xl bg-sky-950/65 border border-sky-400/40 flex flex-wrap items-center justify-between gap-2.5 sm:gap-4 text-xs sm:text-sm backdrop-blur-sm shrink-0">
+                <div class="flex items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
                     <span class="text-xs uppercase font-bold text-sky-300 tracking-wider">Quests:</span>
-                    <div id="avalon-quests-track" class="flex items-center gap-2.5">
+                    <div id="avalon-quests-track" class="flex items-center gap-2">
                         <!-- Quests 1-5 populated dynamically -->
                     </div>
                 </div>
-                <div class="flex items-center gap-4 text-right">
+                <div class="flex items-center gap-3 text-right">
                     <div>
                         <span class="text-xs uppercase font-bold text-stone-300">Vote Track:</span>
-                        <span id="avalon-vote-track-val" class="font-mono font-bold text-amber-300 text-base ml-1">0 / 5</span>
+                        <span id="avalon-vote-track-val" class="font-mono font-bold text-amber-300 text-sm sm:text-base ml-1">0 / 5</span>
                     </div>
                 </div>
             </div>
 
             <!-- Grand Velvet Felt Table -->
-            <div class="rounded-3xl p-5 sm:p-8 border-2 border-sky-500/40 felt-avalon shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[420px]">
+            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-sky-500/40 felt-avalon shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
                 <!-- Role Card Herald -->
-                <div id="avalon-role-herald" class="max-w-lg mx-auto w-full p-4 rounded-2xl bg-black/65 border border-sky-400/40 text-center space-y-1.5 shadow-lg">
-                    <div class="text-xs uppercase font-bold tracking-widest text-sky-400">Your Consecrated Role</div>
-                    <div id="avalon-role-title" class="font-cathedral text-lg sm:text-xl font-bold text-amber-200">Merlin (Good)</div>
+                <div id="avalon-role-herald" class="max-w-lg mx-auto w-full p-3 sm:p-4 rounded-2xl bg-black/65 border border-sky-400/40 text-center space-y-1 shadow-lg">
+                    <div class="text-[11px] sm:text-xs uppercase font-bold tracking-widest text-sky-400">Your Consecrated Role</div>
+                    <div id="avalon-role-title" class="font-cathedral text-base sm:text-xl font-bold text-amber-200">Merlin (Good)</div>
                     <div id="avalon-role-desc" class="text-xs sm:text-sm text-stone-300">You know who the minions of evil are. Remain discreet to survive the Assassin's blade.</div>
                 </div>
 
                 <!-- Table Seats Grid (5 to 10 players) -->
-                <div id="avalon-seats-grid" class="grid grid-cols-2 sm:grid-cols-5 gap-3.5 py-2">
+                <div id="avalon-seats-grid" class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3.5 py-1 sm:py-2">
                     <!-- Populated dynamically with seats 1..N -->
                 </div>
 
                 <!-- Status Herald -->
                 <div class="max-w-xl mx-auto w-full">
-                    <div id="avalon-status-banner" class="p-3 sm:p-3.5 rounded-2xl bg-black/65 border border-sky-400/40 text-center text-sm sm:text-base font-cathedral font-bold text-sky-200 tracking-wide shadow-lg">
+                    <div id="avalon-status-banner" class="p-2.5 sm:p-3.5 rounded-2xl bg-black/65 border border-sky-400/40 text-center text-xs sm:text-base font-cathedral font-bold text-sky-200 tracking-wide shadow-lg">
                         Leader is choosing knights for the quest.
                     </div>
                 </div>
             </div>
 
             <!-- Action Controls Dock -->
-            <div class="space-y-2.5 shrink-0">
+            <div class="arcade-action-dock space-y-2 sm:space-y-2.5 shrink-0">
                 <!-- Proposal / Vote Controls -->
-                <div id="avalon-vote-controls" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <button type="button" id="avalon-btn-propose" class="py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">group_add</span>
+                <div id="avalon-vote-controls" class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                    <button type="button" id="avalon-btn-propose" class="py-3 sm:py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">group_add</span>
                         <span>Propose Selected Team</span>
                     </button>
-                    <button type="button" id="avalon-btn-vote-approve" class="py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">thumb_up</span>
-                        <span>Approve Team</span>
-                    </button>
-                    <button type="button" id="avalon-btn-vote-reject" class="py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">thumb_down</span>
-                        <span>Reject Team</span>
-                    </button>
+                    <div class="grid grid-cols-2 sm:contents gap-2">
+                        <button type="button" id="avalon-btn-vote-approve" class="py-3 sm:py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                            <span class="material-symbols-rounded text-base sm:text-lg">thumb_up</span>
+                            <span>Approve Team</span>
+                        </button>
+                        <button type="button" id="avalon-btn-vote-reject" class="py-3 sm:py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                            <span class="material-symbols-rounded text-base sm:text-lg">thumb_down</span>
+                            <span>Reject Team</span>
+                        </button>
+                    </div>
                 </div>
                 <!-- Quest Submission Controls -->
-                <div id="avalon-quest-controls" class="hidden grid grid-cols-2 gap-3">
-                    <button type="button" id="avalon-btn-quest-pass" class="py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">shield</span>
+                <div id="avalon-quest-controls" class="hidden grid grid-cols-2 gap-2 sm:gap-3">
+                    <button type="button" id="avalon-btn-quest-pass" class="py-3 sm:py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">shield</span>
                         <span>Submit SUCCESS</span>
                     </button>
-                    <button type="button" id="avalon-btn-quest-fail" class="py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">skull</span>
-                        <span>Submit FAIL (Evil Only)</span>
+                    <button type="button" id="avalon-btn-quest-fail" class="py-3 sm:py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">skull</span>
+                        <span>Submit FAIL</span>
                     </button>
                 </div>
                 <!-- Assassin Control -->
                 <div id="avalon-assassin-controls" class="hidden">
-                    <button type="button" id="avalon-btn-assassinate" class="w-full py-3.5 rounded-2xl bg-red-700 hover:bg-red-600 text-white font-cathedral font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                        <span class="material-symbols-rounded text-lg">colorize</span>
+                    <button type="button" id="avalon-btn-assassinate" class="w-full py-3 sm:py-3.5 rounded-2xl bg-red-700 hover:bg-red-600 text-white font-cathedral font-bold text-xs sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
+                        <span class="material-symbols-rounded text-base sm:text-lg">colorize</span>
                         <span>ASSASSINATE SELECTED PLAYER AS MERLIN</span>
                     </button>
                 </div>
@@ -1965,9 +1966,9 @@
     <!-- ===================================================================== -->
     <!-- SACRED GEOMETRY SET SANCTUARY TABLE (FULL SCREEN VIEW)                -->
     <!-- ===================================================================== -->
-    <div id="set-modal" class="fixed inset-0 z-50 flex flex-col bg-[#08040d] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+    <div id="set-modal" class="arcade-theater-shell fixed inset-0 z-50 flex flex-col bg-[#08040d] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
         <!-- Top Sanctuary Navigation Bar -->
-        <header class="w-full px-4 sm:px-8 py-3 border-b border-fuchsia-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-fuchsia-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
             <div class="flex items-center gap-3 sm:gap-4">
                 <button type="button" id="btn-close-set" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
@@ -2026,55 +2027,55 @@
         </header>
 
         <!-- Main Felt Arena Container -->
-        <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+        <main class="arcade-theater-main flex-1 w-full max-w-7xl mx-auto px-2.5 sm:px-6 py-2.5 sm:py-4 flex flex-col justify-between overflow-y-auto space-y-2.5 sm:space-y-4">
             <!-- Scoreboard & Deck Status Bar -->
-            <div class="p-3.5 sm:p-4 rounded-2xl bg-fuchsia-950/55 border border-fuchsia-400/40 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm backdrop-blur-sm shrink-0">
-                <div id="set-players-scoreboard" class="flex flex-wrap items-center gap-3">
+            <div class="p-2.5 sm:p-4 rounded-2xl bg-fuchsia-950/55 border border-fuchsia-400/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 text-xs sm:text-sm backdrop-blur-sm shrink-0">
+                <div id="set-players-scoreboard" class="arcade-seat-strip flex-1">
                     <!-- Populated dynamically with players & scores -->
                 </div>
-                <div class="flex items-center gap-5 text-right font-mono">
+                <div class="flex items-center justify-between sm:justify-end gap-4 text-right font-mono shrink-0">
                     <div>
-                        <span class="text-xs uppercase font-bold text-stone-300">Deck Remaining:</span>
-                        <span id="set-deck-remaining" class="font-bold text-amber-300 text-base ml-1">69</span>
+                        <span class="text-[11px] sm:text-xs uppercase font-bold text-stone-300">Deck:</span>
+                        <span id="set-deck-remaining" class="font-bold text-amber-300 text-sm sm:text-base ml-1">69</span>
                     </div>
                     <div>
-                        <span class="text-xs uppercase font-bold text-stone-300">Available SETs:</span>
-                        <span id="set-available-count" class="font-bold text-fuchsia-300 text-base ml-1">?</span>
+                        <span class="text-[11px] sm:text-xs uppercase font-bold text-stone-300">SETs:</span>
+                        <span id="set-available-count" class="font-bold text-fuchsia-300 text-sm sm:text-base ml-1">?</span>
                     </div>
                 </div>
             </div>
 
             <!-- Grand Velvet Felt Table -->
-            <div class="rounded-3xl p-5 sm:p-8 border-2 border-fuchsia-500/40 felt-set shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[420px]">
-                <!-- 12 to 21 Card Grid -->
-                <div id="set-table-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 sm:gap-5 my-auto">
+            <div class="rounded-3xl p-3 sm:p-8 border-2 border-fuchsia-500/40 felt-set shadow-2xl flex-1 flex flex-col justify-between gap-3 sm:gap-5 min-h-0 sm:min-h-[420px]">
+                <!-- 12 to 21 Card Grid (3 Columns on Mobile, 4 on Tablet/Desktop) -->
+                <div id="set-table-grid" class="grid grid-cols-3 md:grid-cols-4 gap-2 sm:gap-5 my-auto">
                     <!-- Populated dynamically with procedural SVG SET cards -->
                 </div>
 
                 <!-- Status Banner -->
                 <div class="max-w-2xl mx-auto w-full">
-                    <div id="set-status-banner" class="p-3 sm:p-3.5 rounded-2xl bg-black/65 border border-fuchsia-400/40 text-center text-sm sm:text-base font-cathedral font-bold text-fuchsia-200 tracking-wide shadow-lg">
+                    <div id="set-status-banner" class="p-2.5 sm:p-3.5 rounded-2xl bg-black/65 border border-fuchsia-400/40 text-center text-xs sm:text-base font-cathedral font-bold text-fuchsia-200 tracking-wide shadow-lg">
                         Select 3 cards where Number, Shape, Shading & Color are each all same or all different.
                     </div>
                 </div>
             </div>
 
             <!-- Action Controls Dock -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
-                <button type="button" id="set-btn-claim" class="py-3.5 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-cathedral font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">verified</span>
-                    <span>Claim Selected SET</span>
+            <div class="arcade-action-dock grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 shrink-0">
+                <button type="button" id="set-btn-claim" class="py-3 sm:py-3.5 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-cathedral font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">verified</span>
+                    <span>Claim SET</span>
                 </button>
-                <button type="button" id="set-btn-deal-more" class="py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">add_card</span>
+                <button type="button" id="set-btn-deal-more" class="py-3 sm:py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">add_card</span>
                     <span>Deal +3 Cards</span>
                 </button>
-                <button type="button" id="set-btn-hint" class="py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">lightbulb</span>
+                <button type="button" id="set-btn-hint" class="py-3 sm:py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">lightbulb</span>
                     <span>Geometry Hint</span>
                 </button>
-                <button type="button" id="set-btn-ai-move" class="py-3.5 rounded-2xl bg-purple-700 hover:bg-purple-600 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
-                    <span class="material-symbols-rounded text-lg">smart_toy</span>
+                <button type="button" id="set-btn-ai-move" class="py-3 sm:py-3.5 rounded-2xl bg-purple-700 hover:bg-purple-600 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">smart_toy</span>
                     <span>Step AI Geometer</span>
                 </button>
             </div>

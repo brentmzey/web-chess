@@ -3778,7 +3778,7 @@ function main(): void {
           ? `<rect x="6" y="6" width="52" height="28" rx="14" ry="14" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3.2" />`
           : `<path d="M 8,24 C 12,6 28,6 32,18 C 36,30 52,30 56,14 C 54,32 38,34 30,22 C 22,10 10,16 8,24 Z" fill="${fillAttr}" stroke="${colorHex}" stroke-width="3.2" />`;
 
-    const singleSvg = `<svg viewBox="0 0 64 40" class="w-16 h-9 sm:w-20 sm:h-11 drop-shadow"><defs><pattern id="${patternId}" width="5" height="5" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="5" stroke="${colorHex}" stroke-width="2.4" /></pattern></defs>${shapeElement}</svg>`;
+    const singleSvg = `<svg viewBox="0 0 64 40" class="w-11 h-6 sm:w-20 sm:h-11 drop-shadow"><defs><pattern id="${patternId}" width="5" height="5" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="5" stroke="${colorHex}" stroke-width="2.4" /></pattern></defs>${shapeElement}</svg>`;
     return Array.from({ length: card.count }, () => singleSvg).join('');
   };
 
@@ -3841,8 +3841,8 @@ function main(): void {
                 : 'border-white/20'
           }`;
           btn.innerHTML = `
-            <div class="flex flex-col items-center justify-center gap-1.5">${renderSetSymbolSvg(card)}</div>
-            <span class="text-xs font-mono font-bold text-stone-200 uppercase tracking-wider">${card.count} ${card.color} ${card.shading} ${card.shape}</span>
+            <div class="flex flex-col items-center justify-center gap-1 sm:gap-1.5">${renderSetSymbolSvg(card)}</div>
+            <span class="text-[10px] sm:text-xs font-mono font-bold text-stone-200 uppercase tracking-tight sm:tracking-wider leading-tight text-center">${card.count} ${card.color} ${card.shading} ${card.shape}</span>
           `;
           btn.addEventListener('click', () => {
             setHintIndex = null;

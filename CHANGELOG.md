@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.28] - 2026-10-27
+### Added
+- **Mobile-First Responsive Viewport, Safe-Area, Container Query & Sticky Action Dock Overhaul Across All 8 Games (`src/styles/main.css`, `index.html`, `src/main.ts`)**:
+  - **Dynamic Viewport (`100dvh`), `viewport-fit=cover` & Safe-Area Insets (`.arcade-theater-shell`, `.arcade-action-dock`)**: Configured `viewport-fit=cover` and `.arcade-theater-shell` (`height: 100dvh; max-height: 100dvh; env(safe-area-inset-*)`) across all 7 arcade theaters and modals so top navigation headers and bottom action buttons are never clipped by mobile browser chrome, notches, or the iOS/Android home indicator bar.
+  - **Horizontal Touch-Momentum Multi-Player Seat Strips on Mobile (`.arcade-seat-strip`)**: Styled `#bjk-seats-track`, `#poker-seats-track`, `#skipbo-opponents-track`, `#phase10-opponents-track`, `#uno-opponents-track`, and `#set-players-scoreboard` to scroll horizontally with `scroll-snap-type: x proximity` on mobile (`< 640px`) and wrap on desktop (`>= 640px`), keeping 6–20 player badges in a single compact row on phones.
+  - **Responsive Mobile Playing Cards & 3×4 Mobile SET Grid (`@media (max-width: 639px)`)**: Sized `.playing-card-ui` (`clamp(4.25rem, 19.5vw, 5.15rem) × clamp(6.15rem, 27.5vw, 7.35rem)`) so 4 cards fit comfortably side-by-side on `375px` mobile screens with crisp corner/center pips, and upgraded `#set-table-grid` to a 3-column mobile grid (`grid-cols-3 md:grid-cols-4`) so all 12 SET cards fit on a single mobile screen.
+  - **Mobile-Accessible Blackjack AI & Difficulty Selectors**: Exposed `#bjk-ai-select` and `#bjk-diff-select` on mobile viewports as well as desktop, and made `#log-drawer` a responsive full-width mobile sheet (`w-[calc(100vw-1rem)] sm:w-80`).
+
 ## [1.2.0-rc.27] - 2026-10-27
 ### Added
 - **Dynamic Multi-Player Seat Addition, Human Seat Claiming & AI Hot-Swapping Across All 7 Arcade Games (`src/games/*`, `src/main.ts`, `index.html`)**:
