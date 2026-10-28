@@ -1,14 +1,16 @@
 import { logger } from '../utils/logger';
+import { currentEpochMs, epochMsToIso } from '../utils/dateTime';
 import { SanctuaryDatabase } from './db/database';
 import { SessionRepository } from './db/sessionRepository';
 import { RealtimeChessService } from './services/realtimeChessService';
 import { SSEManager } from './sse/sseManager';
 import { ArcadeRealtimeService } from './services/arcadeRealtimeService';
+import { MultiGameService } from './services/multiGameService';
 import { ArcadeGameEnum } from '../constants/gameEnums';
 
 export interface SanctuaryServerOptions {
-  port?: number;
-  dbPath?: string;
+  readonly port?: number;
+  readonly dbPath?: string;
 }
 
 const fallbackEmpty = (): Record<string, unknown> => ({});
@@ -19,7 +21,9 @@ export class SanctuaryRealtimeServer {
   public sseManager: SSEManager;
   public service: RealtimeChessService;
   public arcadeService: ArcadeRealtimeService;
+  public multiGameService: MultiGameService;
   private server: ReturnType<typeof Bun.serve> | null = null;
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private port: number;
 
   constructor(options: SanctuaryServerOptions = {}) {
@@ -29,6 +33,69 @@ export class SanctuaryRealtimeServer {
     this.sseManager = new SSEManager(this.repository);
     this.service = new RealtimeChessService(this.repository, this.sseManager);
     this.arcadeService = new ArcadeRealtimeService();
+    this.multiGameService = new MultiGameService(this.db.getRawDb());
+  }
+
+  public runStaleCleanupSweep(olderThanDays: number = 3,
+                              referenceTimeMs: number = currentEpochMs()): {
+    readonly deletedChessSessions: number;
+    readonly deletedArcadeSessions: number;
+    readonly totalDeleted: number;
+    readonly traceId: string;
+  } {
+    const startMs = currentEpochMs();
+    const cutoffMs = referenceTimeMs - olderThanDays * 86_400_000;
+    const thirtyDaysAgoMs = referenceTimeMs - 30 * 86_400_000;
+
+    const chessRes = this.repository.pruneStaleSessions(cutoffMs);
+    const deletedChessSessions = chessRes.match({
+      Ok: r => r.deletedSessions,
+      Err: () => 0
+    });
+
+    const arcadeRes = this.multiGameService.pruneAllStaleArcadeGames(olderThanDays, referenceTimeMs);
+    const arcadeReport = arcadeRes.match({
+      Ok: r => r,
+      Err: () => ({ totalPruned: 0, prunedByGame: {} as Record<string, string[]> })
+    });
+
+    const prunedCodes = Object.values(arcadeReport.prunedByGame).flat();
+    const totalDeleted = deletedChessSessions + arcadeReport.totalPruned;
+    const traceId = `trc_srv_cron_${startMs}_${Math.random().toString(36).slice(2, 8)}`;
+
+    this.repository.recordCleanupAudit({
+      traceId,
+      triggerSource: 'cron_hook',
+      deletedSessions: totalDeleted,
+      cutoffTimestamp: epochMsToIso(cutoffMs),
+      prunedCodes,
+      durationMs: Math.max(1, currentEpochMs() - startMs),
+      success: true
+    });
+
+    this.repository.archiveCleanupAudits(thirtyDaysAgoMs);
+    this.repository.archiveOldSnapshots(thirtyDaysAgoMs);
+
+    return {
+      deletedChessSessions,
+      deletedArcadeSessions: arcadeReport.totalPruned,
+      totalDeleted,
+      traceId
+    };
+  }
+
+  public startCleanupCron(intervalMs: number = 12 * 60 * 60 * 1000): void {
+    this.stopCleanupCron();
+    this.cleanupTimer = setInterval(() => {
+      this.runStaleCleanupSweep(3);
+    }, intervalMs);
+  }
+
+  public stopCleanupCron(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
   }
 
   public async handleRequest(req: Request): Promise<Response> {
@@ -367,6 +434,14 @@ export class SanctuaryRealtimeServer {
         });
       }
 
+      // 14. POST /api/maintenance/cleanup -> Trigger stale session cleanup sweep
+      if (method === 'POST' && pathname === '/api/maintenance/cleanup') {
+        const body = (await req.json().catch(fallbackEmpty)) as Record<string, unknown>;
+        const days = typeof body.olderThanDays === 'number' ? body.olderThanDays : 3;
+        const report = this.runStaleCleanupSweep(days);
+        return json(report, 200);
+      }
+
       return json({ error: 'Not Found' }, 404);
     } catch (e: unknown) {
       const err = e instanceof Error ? e.message : String(e);
@@ -379,6 +454,7 @@ export class SanctuaryRealtimeServer {
     if (this.server) return this.server;
 
     this.sseManager.startHeartbeat(15000);
+    this.startCleanupCron();
     this.server = Bun.serve({
       port: this.port,
       fetch: req => this.handleRequest(req)
@@ -389,6 +465,7 @@ export class SanctuaryRealtimeServer {
   }
 
   public stop(): void {
+    this.stopCleanupCron();
     this.sseManager.stopHeartbeat();
     if (this.server) {
       this.server.stop(true);

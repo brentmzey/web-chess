@@ -1,4 +1,7 @@
-import { prunePocketBaseSessions } from '../src/server/pocketbase/pruner';
+import {
+  prunePocketBaseSessions,
+  triggerPocketBaseServerCron
+} from '../src/server/pocketbase/pruner';
 
 const rawUrl = process.env.POCKETBASE_URL;
 const url = rawUrl && !rawUrl.startsWith('${') ? rawUrl : 'https://web-chess.pockethost.io';
@@ -11,7 +14,7 @@ const password = rawPassword && !rawPassword.startsWith('${') ? rawPassword : pr
 
 // Parse optional --days argument, default to 3 days
 const daysArg = process.argv.find(arg => arg.startsWith('--days='));
-const days = daysArg ? parseInt(daysArg.split('=')[1], 10) : 3;
+const days = daysArg ? parseInt(daysArg.split('=')[1]!, 10) : 3;
 
 if (!email || !password) {
   console.error(
@@ -21,7 +24,14 @@ if (!email || !password) {
   process.exit(1);
 }
 
-prunePocketBaseSessions(url, email, password, days).then(res => {
+async function main(): Promise<void> {
+  const cronRes = await triggerPocketBaseServerCron(url, email!, password!);
+  cronRes.match({
+    Ok: c => console.log(`[PocketBase Server Cron] Triggered server-side cron hook: ${c.cronId}`),
+    Err: err => console.warn(`[PocketBase Server Cron] Could not trigger server-side cron hook: ${err}`)
+  });
+
+  const res = await prunePocketBaseSessions(url, email!, password!, days);
   res.match({
     Ok: report => {
       console.log('--- PocketBase Cascade Cleanup Report ---');
@@ -36,4 +46,6 @@ prunePocketBaseSessions(url, email, password, days).then(res => {
       process.exit(1);
     }
   });
-});
+}
+
+main();

@@ -1,16 +1,20 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * Sanctuary Chess: Semi-Daily Stale Game Session Cleanup Cron & Observability Logger
- * 
- * Runs twice daily at 03:00 and 15:00 UTC (every 12 hours).
- * Automatically queries game_sessions that have not had a move made in 3 days (updated < 3 days ago).
- * Since cascadeDelete: true is configured on session_participants, game_moves,
- * and session_events, PocketBase automatically cascade-deletes all associated
- * records in SQLite, keeping the database lean, fast, and free of bloat.
- * 
- * Logs full observability, metrics, and trace IDs to `tbl_audit_cleanup_logs`.
+ * Sanctuary Arcade & Basilica Chess: Universal Stale Session Cleanup Cron & Wakeup Hook
+ *
+ * 1. Runs twice daily at 03:00 and 15:00 UTC via `cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *")`.
+ * 2. Also runs opportunistically on container wakeup (`onBootstrap`) and on new session creation
+ *    (`onRecordAfterCreateSuccess`) whenever the most recent `tbl_audit_cleanup_logs` entry is >= 12 hours old,
+ *    ensuring PocketHost container hibernation never skips a 12-hour cleanup window.
+ * 3. Sweeps all 8 Sanctuary Arcade game session tables (`game_sessions`, `tbl_bjk_sessions`, `tbl_res_sessions`,
+ *    `tbl_uno_sessions`, `tbl_p10_sessions`, `tbl_pok_sessions`, `tbl_skp_sessions`, `tbl_set_sessions`)
+ *    for sessions with `updated < (now - 3 days) && do_not_delete != true`.
+ * 4. Snapshots pruned sessions into `tbl_archived_<game>_snapshots` before cascade-deleting child records,
+ *    rotates 30-day-old snapshots/logs into `*_history` partition tables, and writes full observability metrics
+ *    to `tbl_audit_cleanup_logs`.
  */
+
 cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
     const startTime = Date.now();
     const traceId = `trc_hook_${startTime}_${Math.random().toString(36).substring(2, 8)}`;
@@ -24,12 +28,12 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
     let errorMessage = "";
 
     try {
-        // Find sessions with no moves or updates in the last 3 days (ignoring do_not_delete sessions)
+        // 1. Prune Sanctuary Chess sessions (3+ days old & do_not_delete != true)
         const records = $app.findRecordsByFilter(
             "game_sessions",
             "updated < {:cutoff} && do_not_delete != true",
             "-updated",
-            100, // Process in batches of 100 to avoid transaction locks
+            100,
             0,
             { cutoff: cutoffDate }
         );
@@ -39,7 +43,6 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
         for (const record of records) {
             const code = record.getString("session_code");
 
-            // Snapshot compact recovery state before cascade delete
             if (snapCol) {
                 try {
                     const snapRec = new Record(snapCol);
@@ -78,21 +81,23 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
                 }
             }
 
-            $app.delete(record); // Triggers cascade deletion of related child records (participants, moves, events)
+            $app.delete(record);
             deletedCodes.push(code);
             count++;
         }
 
-        // Sweep all multi-game Sanctuary Arcade session collections (3+ days old & do_not_delete != true)
+        // 2. Sweep all 7 multi-game Sanctuary Arcade session collections (3+ days old & do_not_delete != true)
         const arcadeCollections = [
-            { sessionCol: "tbl_bjk_sessions", snapCol: "tbl_archived_bjk_snapshots" },
-            { sessionCol: "tbl_res_sessions", snapCol: "tbl_archived_res_snapshots" },
-            { sessionCol: "tbl_uno_sessions", snapCol: "tbl_archived_uno_snapshots" },
-            { sessionCol: "tbl_p10_sessions", snapCol: "tbl_archived_p10_snapshots" },
-            { sessionCol: "tbl_pok_sessions", snapCol: "tbl_archived_pok_snapshots" },
-            { sessionCol: "tbl_skp_sessions", snapCol: "tbl_archived_skp_snapshots" },
-            { sessionCol: "tbl_set_sessions", snapCol: "tbl_archived_set_snapshots" }
+            { sessionCol: "tbl_bjk_sessions", snapCol: "tbl_archived_bjk_snapshots", histCol: "tbl_archived_bjk_snapshots_history" },
+            { sessionCol: "tbl_res_sessions", snapCol: "tbl_archived_res_snapshots", histCol: "tbl_archived_res_snapshots_history" },
+            { sessionCol: "tbl_uno_sessions", snapCol: "tbl_archived_uno_snapshots", histCol: "tbl_archived_uno_snapshots_history" },
+            { sessionCol: "tbl_p10_sessions", snapCol: "tbl_archived_p10_snapshots", histCol: "tbl_archived_p10_snapshots_history" },
+            { sessionCol: "tbl_pok_sessions", snapCol: "tbl_archived_pok_snapshots", histCol: "tbl_archived_pok_snapshots_history" },
+            { sessionCol: "tbl_skp_sessions", snapCol: "tbl_archived_skp_snapshots", histCol: "tbl_archived_skp_snapshots_history" },
+            { sessionCol: "tbl_set_sessions", snapCol: "tbl_archived_set_snapshots", histCol: "tbl_archived_set_snapshots_history" }
         ];
+
+        const thirtyDaysAgo = new Date(startTime - (30 * 24 * 60 * 60 * 1000)).toISOString().replace("T", " ");
 
         for (const arc of arcadeCollections) {
             try {
@@ -127,6 +132,20 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
                     deletedCodes.push(arcCode);
                     count++;
                 }
+
+                // Rotate 30-day-old arcade snapshots to *_history
+                const arcHistCol = $app.findCollectionByNameOrId(arc.histCol);
+                if (arcSnapCol && arcHistCol) {
+                    const oldArcSnaps = $app.findRecordsByFilter(arc.snapCol, "created < {:cutoff}", "-created", 50, 0, { cutoff: thirtyDaysAgo });
+                    for (const oldArcSnap of oldArcSnaps) {
+                        const histSnap = new Record(arcHistCol);
+                        histSnap.set("txt_session_code", oldArcSnap.getString("txt_session_code"));
+                        histSnap.set("bln_do_not_delete", oldArcSnap.getBool("bln_do_not_delete"));
+                        histSnap.set("json_snapshot_payload", oldArcSnap.get("json_snapshot_payload"));
+                        $app.save(histSnap);
+                        $app.delete(oldArcSnap);
+                    }
+                }
             } catch (_arcErr) {
                 // Collection may not exist yet or is empty
             }
@@ -140,7 +159,7 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
 
     const durationMs = Date.now() - startTime;
 
-    // Write structured observability record to tbl_audit_cleanup_logs
+    // 3. Write structured observability record to tbl_audit_cleanup_logs & rotate 30-day history
     try {
         const auditCol = $app.findCollectionByNameOrId("tbl_audit_cleanup_logs");
         if (auditCol) {
@@ -155,7 +174,6 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
             auditRec.set("txt_error_message", errorMessage);
             $app.save(auditRec);
 
-            // Partitioned Archival Maintenance: move audit logs older than 30 days to tbl_audit_cleanup_logs_history
             const thirtyDaysAgo = new Date(startTime - (30 * 24 * 60 * 60 * 1000)).toISOString().replace("T", " ");
             const histCol = $app.findCollectionByNameOrId("tbl_audit_cleanup_logs_history");
             const oldLogs = $app.findRecordsByFilter("tbl_audit_cleanup_logs", "created < {:cutoff}", "-created", 50, 0, { cutoff: thirtyDaysAgo });
@@ -174,7 +192,7 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
                 }
                 $app.delete(oldLog);
             }
-            // Partitioned Snapshot Maintenance: move snapshots older than 30 days to tbl_archived_game_snapshots_history
+
             const snapHistCol = $app.findCollectionByNameOrId("tbl_archived_game_snapshots_history");
             const oldSnaps = $app.findRecordsByFilter("tbl_archived_game_snapshots", "created < {:cutoff}", "-created", 50, 0, { cutoff: thirtyDaysAgo });
             for (const oldSnap of oldSnaps) {
@@ -199,3 +217,81 @@ cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *", () => {
         console.warn(`[SanctuaryChess Cron:${traceId}] Could not record audit log: ${auditErr}`);
     }
 });
+
+/**
+ * Hibernation-Resilient Opportunistic Trigger:
+ * Whenever a new game session is created in any of the 8 collections, check if the last cleanup sweep
+ * in `tbl_audit_cleanup_logs` occurred more than 12 hours ago (e.g., if PocketHost was hibernating at 03:00/15:00 UTC).
+ * If >= 12 hours have elapsed, run a background stale-session sweep across all 8 game collections.
+ */
+if (typeof onRecordAfterCreateSuccess === "function") {
+    onRecordAfterCreateSuccess((e) => {
+        e.next();
+        try {
+            const now = Date.now();
+            const twelveHoursAgo = new Date(now - (12 * 60 * 60 * 1000)).toISOString().replace("T", " ");
+            const recentLogs = $app.findRecordsByFilter(
+                "tbl_audit_cleanup_logs",
+                "created >= {:recentCutoff}",
+                "-created",
+                1,
+                0,
+                { recentCutoff: twelveHoursAgo }
+            );
+            if (recentLogs && recentLogs.length > 0) {
+                return;
+            }
+
+            const traceId = `trc_wake_${now}_${Math.random().toString(36).substring(2, 8)}`;
+            const cutoffDate = new Date(now - (3 * 24 * 60 * 60 * 1000)).toISOString().replace("T", " ");
+            let count = 0;
+            const deletedCodes = [];
+
+            const allCols = [
+                "game_sessions",
+                "tbl_bjk_sessions",
+                "tbl_res_sessions",
+                "tbl_uno_sessions",
+                "tbl_p10_sessions",
+                "tbl_pok_sessions",
+                "tbl_skp_sessions",
+                "tbl_set_sessions"
+            ];
+            for (const colName of allCols) {
+                try {
+                    const stale = $app.findRecordsByFilter(
+                        colName,
+                        "updated < {:cutoff} && do_not_delete != true",
+                        "-updated",
+                        50,
+                        0,
+                        { cutoff: cutoffDate }
+                    );
+                    for (const rec of stale) {
+                        deletedCodes.push(rec.getString("session_code"));
+                        $app.delete(rec);
+                        count++;
+                    }
+                } catch (_colErr) {
+                    // Ignore individual collection errors
+                }
+            }
+
+            const auditCol = $app.findCollectionByNameOrId("tbl_audit_cleanup_logs");
+            if (auditCol) {
+                const auditRec = new Record(auditCol);
+                auditRec.set("txt_trace_id", traceId);
+                auditRec.set("txt_trigger_source", "cron_hook");
+                auditRec.set("int_deleted_sessions", count);
+                auditRec.set("txt_cutoff_timestamp", cutoffDate);
+                auditRec.set("txt_pruned_codes_json", deletedCodes);
+                auditRec.set("int_duration_ms", Date.now() - now);
+                auditRec.set("bln_success", true);
+                auditRec.set("txt_error_message", "");
+                $app.save(auditRec);
+            }
+        } catch (_err) {
+            // Non-blocking opportunistic cleanup
+        }
+    }, "game_sessions", "tbl_bjk_sessions", "tbl_res_sessions", "tbl_uno_sessions", "tbl_p10_sessions", "tbl_pok_sessions", "tbl_skp_sessions", "tbl_set_sessions");
+}

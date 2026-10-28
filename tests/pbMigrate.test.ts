@@ -12,7 +12,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('runs schema migration updating existing collections and creating missing collections', async () => {
+  it('runs schema migration updating existing collections and creating missing collections (including 24 multi-game tables)', async () => {
     globalThis.fetch = mock(async (url: any, init?: any) => {
       const u = String(url);
       if (u.includes('_superusers/auth-with-password')) {
@@ -36,11 +36,11 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password');
     expect(res.success).toBe(true);
-    expect(res.applied.length).toBe(8);
+    expect(res.applied.length).toBe(32);
     expect(res.errors.length).toBe(0);
   });
 
-  it('handles admin auth fallback when _superusers endpoint is 404', async () => {
+  it('handles admin auth fallback when _superusers endpoint is 404 and supports includeMultiGame=false', async () => {
     globalThis.fetch = mock(async (url: any) => {
       const u = String(url);
       if (u.includes('_superusers/auth-with-password')) {
@@ -55,7 +55,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
       return new Response(JSON.stringify({ id: 'created' }), { status: 200 });
     }) as any;
 
-    const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password');
+    const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password', false);
     expect(res.success).toBe(true);
     expect(res.applied.length).toBe(8);
   });
@@ -98,7 +98,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
       return new Response('Constraint error', { status: 400 });
     }) as any;
 
-    const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'pass');
+    const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'pass', false);
     expect(res.success).toBe(false);
     expect(res.errors.length).toBe(8);
   });

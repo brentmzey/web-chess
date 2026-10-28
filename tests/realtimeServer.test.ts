@@ -276,5 +276,21 @@ describe('SanctuaryRealtimeServer HTTP & SSE Endpoints', () => {
     expect(sseResp.status).toBe(200);
     expect(sseResp.headers.get('Content-Type')).toBe('text/event-stream');
     sseResp.body?.cancel();
+
+    // 7. Trigger maintenance cleanup sweep via POST /api/maintenance/cleanup and cron timer
+    server.startCleanupCron(10);
+    await new Promise(resolve => setTimeout(resolve, 25));
+    server.stopCleanupCron();
+
+    const maintReq = new Request('http://localhost:3888/api/maintenance/cleanup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ olderThanDays: 3 })
+    });
+    const maintResp = await server.handleRequest(maintReq);
+    expect(maintResp.status).toBe(200);
+    const maintData = (await maintResp.json()) as any;
+    expect(typeof maintData.totalDeleted).toBe('number');
+    expect(maintData.traceId).toContain('trc_srv_cron_');
   });
 });

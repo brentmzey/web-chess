@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.25] - 2026-10-27
+### Added
+- **Live PocketHost 32-Collection Multi-Game Migration, Hibernation-Resilient Cron Hook & Server-Side Cleanup Cron (`pb_hooks/cleanup.pb.js`, `src/server/pocketbase/migrator.ts`, `src/server/pocketbase/pruner.ts`, `src/server/pocketbase/multiGameSchema.json`, `src/server/server.ts`)**:
+  - **All 32 Hungarian Collections Migrated to Live PocketHost (`https://web-chess.pockethost.io`)**: Extended `runPocketBaseMigration` (`bun run pb:migrate`) to migrate both `schema.json` and `multiGameSchema.json` (`tbl_bjk_*`, `tbl_res_*`, `tbl_uno_*`, `tbl_p10_*`, `tbl_pok_*`, `tbl_skp_*`, `tbl_set_*`) with `created`/`updated` `autodate` fields and composite `(do_not_delete, updated, status)` cleanup indexes.
+  - **Hibernation-Resilient PocketBase Cron Hook (`pb_hooks/cleanup.pb.js`)**: Configured `cronAdd("cleanup_stale_chess_sessions", "0 3,15 * * *")` alongside an `onRecordAfterCreateSuccess` wakeup hook that checks `tbl_audit_cleanup_logs` and automatically executes a full 8-game stale session cleanup sweep whenever >= 12 hours have elapsed since the last cleanup (preventing PocketHost container hibernation from skipping a 12-hour cleanup window).
+  - **Universal 8-Game Pruner & Server Cron Trigger (`src/server/pocketbase/pruner.ts`, `scripts/pb-cleanup.ts`)**: Added `triggerPocketBaseServerCron` (`POST /api/crons/cleanup_stale_chess_sessions`) and expanded `prunePocketBaseSessions` to sweep `game_sessions` and all 7 multi-game arcade session collections (`tbl_bjk_sessions`, `tbl_res_sessions`, `tbl_uno_sessions`, `tbl_p10_sessions`, `tbl_pok_sessions`, `tbl_skp_sessions`, `tbl_set_sessions`) where `updated < cutoff && do_not_delete != true`.
+  - **Local Bun Server Automated Cleanup Cron (`src/server/server.ts`)**: Added `startCleanupCron`, `stopCleanupCron`, `runStaleCleanupSweep`, and `POST /api/maintenance/cleanup` on `SanctuaryRealtimeServer`.
+
 ## [1.2.0-rc.24] - 2026-10-27
 ### Added
 - **Battery & GPU Power Governor (`src/graphics/renderGovernor.ts`, `src/graphics/scene.ts`, `src/graphics/shatter.ts`, `src/main.ts`, `src/styles/main.css`)**:

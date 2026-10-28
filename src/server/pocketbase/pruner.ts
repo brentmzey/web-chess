@@ -5,54 +5,144 @@ import { logger } from '../../utils/logger';
 export type CleanupTriggerSource = 'cron_hook' | 'cli_manual' | 'api_maintenance';
 
 export interface PruneReport {
-  traceId: string;
-  auditLogId?: string;
-  triggerSource: CleanupTriggerSource;
-  deletedSessionsCount: number;
-  cutoffTimestamp: string;
-  sessionCodes: string[];
-  durationMs: number;
-  success: boolean;
-  errorMessage?: string;
+  readonly traceId: string;
+  readonly auditLogId?: string;
+  readonly triggerSource: CleanupTriggerSource;
+  readonly deletedSessionsCount: number;
+  readonly cutoffTimestamp: string;
+  readonly sessionCodes: string[];
+  readonly durationMs: number;
+  readonly success: boolean;
+  readonly errorMessage?: string;
 }
 
 interface PocketBaseAuthResponse {
-  token: string;
+  readonly token: string;
 }
 
 interface SessionListResponse {
-  items: Array<{
-    id: string;
-    session_code: string;
-    fen?: string;
-    status?: string;
-    ply?: number;
-    white_player_name?: string;
-    black_player_name?: string;
-    winner?: string;
-    last_move_san?: string;
-    mode?: string;
-    theme?: string;
-    timer_rule?: string;
-    strict_mode?: boolean;
-    do_not_delete?: boolean;
-    created: string;
-    updated: string;
+  readonly items: ReadonlyArray<{
+    readonly id: string;
+    readonly session_code: string;
+    readonly fen?: string;
+    readonly status?: string;
+    readonly ply?: number;
+    readonly white_player_name?: string;
+    readonly black_player_name?: string;
+    readonly winner?: string;
+    readonly last_move_san?: string;
+    readonly mode?: string;
+    readonly theme?: string;
+    readonly timer_rule?: string;
+    readonly strict_mode?: boolean;
+    readonly do_not_delete?: boolean;
+    readonly created: string;
+    readonly updated: string;
   }>;
-  totalItems: number;
+  readonly totalItems: number;
 }
+
+export const ARCADE_CLEANUP_COLLECTIONS = [
+  {
+    sessionCol: 'tbl_bjk_sessions',
+    snapCol: 'tbl_archived_bjk_snapshots',
+    histCol: 'tbl_archived_bjk_snapshots_history'
+  },
+  {
+    sessionCol: 'tbl_res_sessions',
+    snapCol: 'tbl_archived_res_snapshots',
+    histCol: 'tbl_archived_res_snapshots_history'
+  },
+  {
+    sessionCol: 'tbl_uno_sessions',
+    snapCol: 'tbl_archived_uno_snapshots',
+    histCol: 'tbl_archived_uno_snapshots_history'
+  },
+  {
+    sessionCol: 'tbl_p10_sessions',
+    snapCol: 'tbl_archived_p10_snapshots',
+    histCol: 'tbl_archived_p10_snapshots_history'
+  },
+  {
+    sessionCol: 'tbl_pok_sessions',
+    snapCol: 'tbl_archived_pok_snapshots',
+    histCol: 'tbl_archived_pok_snapshots_history'
+  },
+  {
+    sessionCol: 'tbl_skp_sessions',
+    snapCol: 'tbl_archived_skp_snapshots',
+    histCol: 'tbl_archived_skp_snapshots_history'
+  },
+  {
+    sessionCol: 'tbl_set_sessions',
+    snapCol: 'tbl_archived_set_snapshots',
+    histCol: 'tbl_archived_set_snapshots_history'
+  }
+] as const;
 
 const toError = (err: unknown): Error =>
   err instanceof Error ? err : new Error(String(err));
 
 /**
- * Prunes stale or abandoned game sessions that haven't had a move made in `olderThanDays`.
+ * Triggers the server-side PocketBase cron job (`cleanup_stale_chess_sessions`) via `POST /api/crons/{cronId}`.
+ */
+export async function triggerPocketBaseServerCron(baseUrl: string,
+                                                  email: string,
+                                                  password: string,
+                                                  cronId: string = 'cleanup_stale_chess_sessions'): Promise<Result<{ triggered: boolean; cronId: string }, string>> {
+  const url = baseUrl.replace(/\/+$/, '');
+  const authResult = await tryCatchAsync(async () => {
+    const superuserRes = await fetch(`${url}/api/collections/_superusers/auth-with-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity: email, password })
+    });
+    if (superuserRes.ok) {
+      return (await superuserRes.json()) as PocketBaseAuthResponse;
+    }
+    const adminRes = await fetch(`${url}/api/admins/auth-with-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity: email, password })
+    });
+    if (adminRes.ok) {
+      return (await adminRes.json()) as PocketBaseAuthResponse;
+    }
+    throw new Error(`Authentication failed with status ${superuserRes.status} / ${adminRes.status}`);
+  }, toError);
+
+  const token = authResult.match({
+    Ok: auth => auth.token,
+    Err: () => null
+  });
+
+  if (!token) {
+    return failure('Superuser authentication failed');
+  }
+
+  return tryCatchAsync(
+    async () => {
+      const res = await fetch(`${url}/api/crons/${encodeURIComponent(cronId)}`, {
+        method: 'POST',
+        headers: { Authorization: token }
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to trigger cron ${cronId}: ${res.status} ${res.statusText}`);
+      }
+      return { triggered: true, cronId };
+    },
+    err => (err instanceof Error ? err.message : String(err))
+  );
+}
+
+/**
+ * Prunes stale or abandoned game sessions across `game_sessions` and all 7 multi-game
+ * Sanctuary Arcade session collections (`tbl_bjk_sessions`, `tbl_res_sessions`, `tbl_uno_sessions`,
+ * `tbl_p10_sessions`, `tbl_pok_sessions`, `tbl_skp_sessions`, `tbl_set_sessions`) that haven't
+ * been updated in `olderThanDays` and have `do_not_delete != true`.
+ *
  * Records full observability, metrics, and trace IDs in the Hungarian-prefixed
  * namespaced table `tbl_audit_cleanup_logs`.
- *
- * When a session in `game_sessions` is deleted by a superuser, PocketBase's
- * `cascadeDelete: true` automatically purges all related records in
- * `session_participants`, `game_moves`, and `session_events`.
  */
 export async function prunePocketBaseSessions(baseUrl: string,
                                               email: string,
@@ -114,7 +204,7 @@ export async function prunePocketBaseSessions(baseUrl: string,
     'Content-Type': 'application/json'
   };
 
-  // 2. Fetch Stale Sessions (no moves or updates in the last N days, excluding do_not_delete sessions)
+  // 2. Fetch Stale Chess Sessions (no moves or updates in the last N days, excluding do_not_delete sessions)
   const filter = `updated < "${cutoffPocketBase}" && do_not_delete != true`;
   const listUrl = `${url}/api/collections/game_sessions/records?filter=${encodeURIComponent(
     filter
@@ -142,7 +232,7 @@ export async function prunePocketBaseSessions(baseUrl: string,
 
   const deletedCodes: string[] = [];
 
-  // 3. Snapshot Stale Sessions into tbl_archived_game_snapshots, then Cascade Delete
+  // 3. Snapshot Stale Chess Sessions into tbl_archived_game_snapshots, then Cascade Delete
   for (const session of sessionList.items) {
     const deleteRes = await tryCatchAsync(async () => {
       // 3a. Capture moves and participants for compact snapshot
@@ -211,6 +301,40 @@ export async function prunePocketBaseSessions(baseUrl: string,
         );
       }
     });
+  }
+
+  // 3d. Sweep all 7 multi-game Sanctuary Arcade session collections (3+ days old & do_not_delete != true)
+  for (const arc of ARCADE_CLEANUP_COLLECTIONS) {
+    await tryCatchAsync(async () => {
+      const arcUrl = `${url}/api/collections/${arc.sessionCol}/records?filter=${encodeURIComponent(
+        filter
+      )}&perPage=${batchSize}&sort=+created`;
+      const arcRes = await fetch(arcUrl, { headers });
+      if (!arcRes.ok) return;
+      const arcList = (await arcRes.json()) as SessionListResponse;
+      for (const arcSession of arcList.items || []) {
+        await fetch(`${url}/api/collections/${arc.snapCol}/records`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            txt_session_code: arcSession.session_code,
+            bln_do_not_delete: Boolean(arcSession.do_not_delete),
+            json_snapshot_payload: {
+              session: arcSession,
+              prunedReason: 'stale_inactivity_3_days'
+            }
+          })
+        }).catch(() => null);
+
+        const delRes = await fetch(`${url}/api/collections/${arc.sessionCol}/records/${arcSession.id}`, {
+          method: 'DELETE',
+          headers
+        });
+        if (delRes.ok) {
+          deletedCodes.push(arcSession.session_code);
+        }
+      }
+    }, toError);
   }
 
   const durationMs = currentEpochMs() - startTime;

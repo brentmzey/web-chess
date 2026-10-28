@@ -315,4 +315,51 @@ describe('PocketBase Goja JavaScript Cron Hook (pb_hooks/cleanup.pb.js)', () => 
     expect(setSnapshot.getString('txt_session_code')).toBe('SET-STALE99');
     expect(deletedRecords).toContain(mockSetStale);
   });
+
+  it('triggers opportunistic wakeup cleanup onRecordAfterCreateSuccess when no audit log exists within 12 hours', () => {
+    let recordHookCallback: Function | null = null;
+    const deletedRecords: any[] = [];
+    const savedRecords: any[] = [];
+
+    const mockUnoStale = new MockRecord({ id: 'col_uno', name: 'tbl_uno_sessions' });
+    mockUnoStale.set('session_code', 'UNO-WAKE1');
+
+    const mockApp = {
+      findRecordsByFilter: (colName: string, filter: string) => {
+        if (colName === 'tbl_audit_cleanup_logs' && filter.includes('created >=')) {
+          return []; // Simulate >12h since last cleanup
+        }
+        if (colName === 'tbl_uno_sessions') {
+          return [mockUnoStale];
+        }
+        return [];
+      },
+      findCollectionByNameOrId: (name: string) => ({ id: `id_${name}`, name }),
+      save: (rec: any) => { savedRecords.push(rec); },
+      delete: (rec: any) => { deletedRecords.push(rec); }
+    };
+
+    const sandbox = {
+      cronAdd: () => {},
+      onRecordAfterCreateSuccess: (cb: Function) => {
+        recordHookCallback = cb;
+      },
+      $app: mockApp,
+      Record: MockRecord,
+      console: { log: () => {}, error: () => {}, warn: () => {} },
+      Date,
+      Math
+    };
+
+    vm.runInNewContext(hookSource, sandbox);
+    expect(recordHookCallback).not.toBeNull();
+
+    let nextCalled = false;
+    recordHookCallback!({ next: () => { nextCalled = true; } });
+    expect(nextCalled).toBe(true);
+    expect(deletedRecords).toContain(mockUnoStale);
+    const wakeAudit = savedRecords.find(r => r.collection.name === 'tbl_audit_cleanup_logs');
+    expect(wakeAudit).toBeDefined();
+    expect(wakeAudit.getString('txt_trace_id')).toContain('trc_wake_');
+  });
 });

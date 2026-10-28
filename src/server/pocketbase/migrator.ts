@@ -4,17 +4,17 @@ import { logger } from '../../utils/logger';
 import { tryCatchAsync } from '../../utils/fp';
 
 interface PocketBaseAuthResponse {
-  token: string;
-  record?: {
-    id: string;
-    email: string;
+  readonly token: string;
+  readonly record?: {
+    readonly id: string;
+    readonly email: string;
   };
 }
 
 interface CollectionListResponse {
-  items: Array<{
-    id: string;
-    name: string;
+  readonly items: ReadonlyArray<{
+    readonly id: string;
+    readonly name: string;
   }>;
 }
 
@@ -23,7 +23,8 @@ const toError = (err: unknown): Error =>
 
 export const runPocketBaseMigration = async (baseUrl: string,
                                              email: string,
-                                             password: string): Promise<{ success: boolean; applied: string[]; errors: string[] }> => {
+                                             password: string,
+                                             includeMultiGame: boolean = true): Promise<{ success: boolean; applied: string[]; errors: string[] }> => {
   const url = baseUrl.replace(/\/+$/, '');
   logger.info(`Starting PocketBase schema migration for ${url}...`);
 
@@ -85,10 +86,20 @@ export const runPocketBaseMigration = async (baseUrl: string,
     collectionMap.set(c.name, c.id);
   }
 
-  // 3. Load canonical schema.json
+  // 3. Load canonical schema.json and multiGameSchema.json
   const schemaPath = join(__dirname, 'schema.json');
   const schemaRaw = await readFile(schemaPath, 'utf-8');
-  const schemaList = JSON.parse(schemaRaw) as Array<Record<string, any>>;
+  const baseSchemaList = JSON.parse(schemaRaw) as Array<Record<string, any>>;
+
+  let multiGameList: Array<Record<string, any>> = [];
+  if (includeMultiGame) {
+    const multiSchemaPath = join(__dirname, 'multiGameSchema.json');
+    const multiSchemaRaw = await readFile(multiSchemaPath, 'utf-8');
+    const parsedMulti = JSON.parse(multiSchemaRaw) as { collections?: Array<Record<string, any>> };
+    multiGameList = parsedMulti.collections || [];
+  }
+
+  const schemaList = [...baseSchemaList, ...multiGameList];
 
   const applied: string[] = [];
   const errors: string[] = [];
@@ -98,11 +109,12 @@ export const runPocketBaseMigration = async (baseUrl: string,
 
     // Resolve relation collection IDs
     const resolvedFields = (col.fields || []).map((f: Record<string, any>) => {
-      if (f.type === 'relation' && typeof f.collectionId === 'string') {
-        const targetId = collectionMap.get(f.collectionId);
+      const refName = f.collectionId || f.collectionName;
+      if (f.type === 'relation' && typeof refName === 'string') {
+        const targetId = collectionMap.get(refName);
         return {
           ...f,
-          collectionId: targetId || f.collectionId
+          collectionId: targetId || refName
         };
       }
       return f;

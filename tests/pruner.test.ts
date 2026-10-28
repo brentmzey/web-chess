@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { prunePocketBaseSessions, restoreArchivedPocketBaseSession } from '../src/server/pocketbase/pruner';
+import {
+  prunePocketBaseSessions,
+  restoreArchivedPocketBaseSession,
+  triggerPocketBaseServerCron
+} from '../src/server/pocketbase/pruner';
 
 describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => {
   const originalFetch = globalThis.fetch;
@@ -458,5 +462,80 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     const instanceRes = await client.setDoNotDelete(false);
     expect(instanceRes.isSuccess()).toBe(true);
     expect(patchedBody).toEqual({ do_not_delete: false });
+  });
+
+  it('sweeps multi-game arcade session collections and triggers server-side PocketBase cron hook', async () => {
+    const deletedArcadeIds: string[] = [];
+    const savedArcadeSnapshots: any[] = [];
+
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+
+      if (urlStr.includes('/api/collections/_superusers/auth-with-password')) {
+        return new Response(JSON.stringify({ token: 'mock-su-token' }), { status: 200 });
+      }
+      if (urlStr.includes('/api/crons/cleanup_stale_chess_sessions') && init?.method === 'POST') {
+        return new Response('', { status: 204 });
+      }
+      if (urlStr.includes('/api/collections/game_sessions/records?filter=')) {
+        return new Response(JSON.stringify({ items: [], totalItems: 0 }), { status: 200 });
+      }
+      if (urlStr.includes('/api/collections/tbl_set_sessions/records?filter=')) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              { id: 'set_stale_1', session_code: 'SET-OLD1', status: 'playing', do_not_delete: false, created: '2026-10-01', updated: '2026-10-01' }
+            ],
+            totalItems: 1
+          }),
+          { status: 200 }
+        );
+      }
+      if (urlStr.includes('/api/collections/tbl_archived_set_snapshots/records') && init?.method === 'POST') {
+        savedArcadeSnapshots.push(JSON.parse(init.body as string));
+        return new Response(JSON.stringify({ id: 'snap_set_1' }), { status: 200 });
+      }
+      if (urlStr.includes('/api/collections/tbl_set_sessions/records/set_stale_1') && init?.method === 'DELETE') {
+        deletedArcadeIds.push('set_stale_1');
+        return new Response('', { status: 204 });
+      }
+      if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'audit_arc_1' }), { status: 200 });
+      }
+      if (urlStr.includes('/api/collections/') && urlStr.includes('/records?filter=')) {
+        return new Response(JSON.stringify({ items: [], totalItems: 0 }), { status: 200 });
+      }
+      return new Response('Not found', { status: 404 });
+    }) as any;
+
+    const cronRes = await triggerPocketBaseServerCron('https://test.pockethost.io', 'admin@test.com', 'pass');
+    expect(cronRes.isSuccess()).toBe(true);
+    expect(cronRes.getOrThrow().cronId).toBe('cleanup_stale_chess_sessions');
+
+    const pruneRes = await prunePocketBaseSessions('https://test.pockethost.io', 'admin@test.com', 'pass', 3);
+    expect(pruneRes.isSuccess()).toBe(true);
+    expect(pruneRes.getOrThrow().sessionCodes).toEqual(['SET-OLD1']);
+    expect(deletedArcadeIds).toEqual(['set_stale_1']);
+    expect(savedArcadeSnapshots.length).toBe(1);
+    expect(savedArcadeSnapshots[0].txt_session_code).toBe('SET-OLD1');
+  });
+
+  it('handles triggerPocketBaseServerCron admin fallback, auth failure, and cron failure', async () => {
+    // 1. Admin fallback + cron failure
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('_superusers')) return new Response('Not Found', { status: 404 });
+      if (urlStr.includes('admins/auth-with-password')) return new Response(JSON.stringify({ token: 'adm' }), { status: 200 });
+      if (urlStr.includes('/api/crons/')) return new Response('Cron error', { status: 500, statusText: 'Cron Error' });
+      return new Response('Not found', { status: 404 });
+    }) as any;
+
+    const failCron = await triggerPocketBaseServerCron('https://test.pockethost.io', 'admin@test.com', 'pass');
+    expect(failCron.isFailure()).toBe(true);
+
+    // 2. Auth failure
+    globalThis.fetch = (async () => new Response('Unauthorized', { status: 401 })) as any;
+    const failAuth = await triggerPocketBaseServerCron('https://test.pockethost.io', 'admin@test.com', 'bad');
+    expect(failAuth.isFailure()).toBe(true);
   });
 });

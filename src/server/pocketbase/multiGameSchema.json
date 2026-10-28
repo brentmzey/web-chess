@@ -1,6 +1,6 @@
 {
   "$schema": "https://pocketbase.io/schema/collections.json",
-  "description": "Multi-Game Sanctuary Arcade Hungarian Schema: Blackjack, Avalon/Resistance, Uno, and Phase 10 with dedicated tables, snapshots, and history partitions.",
+  "description": "Multi-Game Sanctuary Arcade Hungarian Schema: Blackjack, Avalon/Resistance, Uno, Phase 10, Poker, Skip-Bo, and SET with dedicated tables, snapshots, and history partitions.",
   "collections": [
     {
       "name": "tbl_bjk_sessions",
@@ -11,20 +11,23 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session_code", "type": "text", "required": true, "unique": true },
+        { "name": "session_code", "type": "text", "required": true },
         { "name": "dealer_cards_json", "type": "json", "required": false },
         { "name": "dealer_total", "type": "number", "required": false },
-        { "name": "status", "type": "select", "required": true, "values": ["betting", "player_turn", "dealer_turn", "settled"] },
-        { "name": "min_bet", "type": "number", "required": true },
-        { "name": "max_bet", "type": "number", "required": true },
-        { "name": "deck_shoe_count", "type": "number", "required": true },
-        { "name": "do_not_delete", "type": "bool", "required": false }
+        { "name": "status", "type": "text", "required": true },
+        { "name": "min_bet", "type": "number", "required": false },
+        { "name": "max_bet", "type": "number", "required": false },
+        { "name": "deck_shoe_count", "type": "number", "required": false },
+        { "name": "do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_bjk_session_code ON tbl_bjk_sessions (session_code)",
-        "CREATE INDEX idx_bjk_status ON tbl_bjk_sessions (status)",
-        "CREATE INDEX idx_bjk_do_not_delete ON tbl_bjk_sessions (do_not_delete)",
-        "CREATE INDEX idx_bjk_updated ON tbl_bjk_sessions (updated)"
+        "CREATE UNIQUE INDEX `idx_bjk_session_code` ON `tbl_bjk_sessions` (`session_code`)",
+        "CREATE INDEX `idx_bjk_status` ON `tbl_bjk_sessions` (`status`)",
+        "CREATE INDEX `idx_bjk_do_not_delete` ON `tbl_bjk_sessions` (`do_not_delete`)",
+        "CREATE INDEX `idx_bjk_updated` ON `tbl_bjk_sessions` (`updated`)",
+        "CREATE INDEX `idx_bjk_cleanup_composite` ON `tbl_bjk_sessions` (`do_not_delete`, `updated`, `status`)"
       ]
     },
     {
@@ -36,17 +39,19 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session", "type": "relation", "required": true, "collectionName": "tbl_bjk_sessions", "cascadeDelete": true },
+        { "name": "session", "type": "relation", "required": true, "collectionId": "tbl_bjk_sessions", "cascadeDelete": true, "maxSelect": 1 },
         { "name": "player_id", "type": "text", "required": true },
         { "name": "player_name", "type": "text", "required": true },
         { "name": "cards_json", "type": "json", "required": true },
-        { "name": "bet_amount", "type": "number", "required": true },
-        { "name": "hand_total", "type": "number", "required": true },
-        { "name": "status", "type": "select", "required": true, "values": ["betting", "playing", "hit", "stood", "busted", "doubled", "blackjack", "won", "lost", "push"] }
+        { "name": "bet_amount", "type": "number", "required": false },
+        { "name": "hand_total", "type": "number", "required": false },
+        { "name": "status", "type": "text", "required": true },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_bjk_hand_session ON tbl_bjk_hands (session)",
-        "CREATE INDEX idx_bjk_hand_player ON tbl_bjk_hands (session, player_id)"
+        "CREATE INDEX `idx_bjk_hand_session` ON `tbl_bjk_hands` (`session`)",
+        "CREATE INDEX `idx_bjk_hand_player` ON `tbl_bjk_hands` (`session`, `player_id`)"
       ]
     },
     {
@@ -58,21 +63,23 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session", "type": "relation", "required": true, "collectionName": "tbl_bjk_sessions", "cascadeDelete": true },
+        { "name": "session", "type": "relation", "required": true, "collectionId": "tbl_bjk_sessions", "cascadeDelete": true, "maxSelect": 1 },
         { "name": "seat_number", "type": "number", "required": true },
         { "name": "player_id", "type": "text", "required": true },
         { "name": "player_name", "type": "text", "required": true },
-        { "name": "is_bot", "type": "bool", "required": true },
+        { "name": "is_bot", "type": "bool", "required": false },
         { "name": "bot_model", "type": "text", "required": false },
-        { "name": "chip_bank", "type": "number", "required": true },
-        { "name": "current_bet", "type": "number", "required": true },
+        { "name": "chip_bank", "type": "number", "required": false },
+        { "name": "current_bet", "type": "number", "required": false },
         { "name": "cards_json", "type": "json", "required": false },
         { "name": "hand_total", "type": "number", "required": false },
-        { "name": "hand_status", "type": "text", "required": true }
+        { "name": "hand_status", "type": "text", "required": true },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_bjk_seat_session ON tbl_bjk_seats (session)",
-        "CREATE UNIQUE INDEX idx_bjk_seat_number ON tbl_bjk_seats (session, seat_number)"
+        "CREATE INDEX `idx_bjk_seat_session` ON `tbl_bjk_seats` (`session`)",
+        "CREATE UNIQUE INDEX `idx_bjk_seat_number` ON `tbl_bjk_seats` (`session`, `seat_number`)"
       ]
     },
     {
@@ -84,16 +91,18 @@
       "updateRule": null,
       "deleteRule": null,
       "fields": [
-        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_outcome", "type": "text", "required": false },
-        { "name": "int_total_hands", "type": "number", "required": true },
+        { "name": "int_total_hands", "type": "number", "required": false },
         { "name": "int_dealer_total", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_snap_bjk_code ON tbl_archived_bjk_snapshots (txt_session_code)",
-        "CREATE INDEX idx_snap_bjk_created ON tbl_archived_bjk_snapshots (created)"
+        "CREATE UNIQUE INDEX `idx_snap_bjk_code` ON `tbl_archived_bjk_snapshots` (`txt_session_code`)",
+        "CREATE INDEX `idx_snap_bjk_created` ON `tbl_archived_bjk_snapshots` (`created`)"
       ]
     },
     {
@@ -107,14 +116,16 @@
       "fields": [
         { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_outcome", "type": "text", "required": false },
-        { "name": "int_total_hands", "type": "number", "required": true },
+        { "name": "int_total_hands", "type": "number", "required": false },
         { "name": "int_dealer_total", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_hist_snap_bjk_code ON tbl_archived_bjk_snapshots_history (txt_session_code)",
-        "CREATE INDEX idx_hist_snap_bjk_created ON tbl_archived_bjk_snapshots_history (created)"
+        "CREATE INDEX `idx_hist_snap_bjk_code` ON `tbl_archived_bjk_snapshots_history` (`txt_session_code`)",
+        "CREATE INDEX `idx_hist_snap_bjk_created` ON `tbl_archived_bjk_snapshots_history` (`created`)"
       ]
     },
     {
@@ -126,20 +137,23 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session_code", "type": "text", "required": true, "unique": true },
-        { "name": "player_count", "type": "number", "required": true },
-        { "name": "current_mission", "type": "number", "required": true },
-        { "name": "failed_proposals", "type": "number", "required": true },
+        { "name": "session_code", "type": "text", "required": true },
+        { "name": "player_count", "type": "number", "required": false },
+        { "name": "current_mission", "type": "number", "required": false },
+        { "name": "failed_proposals", "type": "number", "required": false },
         { "name": "leader_id", "type": "text", "required": false },
-        { "name": "winner", "type": "select", "required": false, "values": ["good", "evil"] },
-        { "name": "status", "type": "select", "required": true, "values": ["lobby", "team_building", "team_voting", "questing", "assassination", "concluded"] },
-        { "name": "do_not_delete", "type": "bool", "required": false }
+        { "name": "winner", "type": "text", "required": false },
+        { "name": "status", "type": "text", "required": true },
+        { "name": "do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_res_session_code ON tbl_res_sessions (session_code)",
-        "CREATE INDEX idx_res_status ON tbl_res_sessions (status)",
-        "CREATE INDEX idx_res_do_not_delete ON tbl_res_sessions (do_not_delete)",
-        "CREATE INDEX idx_res_updated ON tbl_res_sessions (updated)"
+        "CREATE UNIQUE INDEX `idx_res_session_code` ON `tbl_res_sessions` (`session_code`)",
+        "CREATE INDEX `idx_res_status` ON `tbl_res_sessions` (`status`)",
+        "CREATE INDEX `idx_res_do_not_delete` ON `tbl_res_sessions` (`do_not_delete`)",
+        "CREATE INDEX `idx_res_updated` ON `tbl_res_sessions` (`updated`)",
+        "CREATE INDEX `idx_res_cleanup_composite` ON `tbl_res_sessions` (`do_not_delete`, `updated`, `status`)"
       ]
     },
     {
@@ -151,16 +165,18 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session", "type": "relation", "required": true, "collectionName": "tbl_res_sessions", "cascadeDelete": true },
+        { "name": "session", "type": "relation", "required": true, "collectionId": "tbl_res_sessions", "cascadeDelete": true, "maxSelect": 1 },
         { "name": "mission_number", "type": "number", "required": true },
-        { "name": "team_size", "type": "number", "required": true },
-        { "name": "fails_required", "type": "number", "required": true },
-        { "name": "outcome", "type": "select", "required": false, "values": ["success", "fail"] },
-        { "name": "fail_count", "type": "number", "required": false }
+        { "name": "team_size", "type": "number", "required": false },
+        { "name": "fails_required", "type": "number", "required": false },
+        { "name": "outcome", "type": "text", "required": false },
+        { "name": "fail_count", "type": "number", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_res_mission_session ON tbl_res_missions (session)",
-        "CREATE INDEX idx_res_mission_number ON tbl_res_missions (session, mission_number)"
+        "CREATE INDEX `idx_res_mission_session` ON `tbl_res_missions` (`session`)",
+        "CREATE INDEX `idx_res_mission_number` ON `tbl_res_missions` (`session`, `mission_number`)"
       ]
     },
     {
@@ -172,17 +188,19 @@
       "updateRule": null,
       "deleteRule": null,
       "fields": [
-        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner", "type": "text", "required": false },
-        { "name": "int_player_count", "type": "number", "required": true },
-        { "name": "int_missions_passed", "type": "number", "required": true },
-        { "name": "int_missions_failed", "type": "number", "required": true },
+        { "name": "int_player_count", "type": "number", "required": false },
+        { "name": "int_missions_passed", "type": "number", "required": false },
+        { "name": "int_missions_failed", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_snap_res_code ON tbl_archived_res_snapshots (txt_session_code)",
-        "CREATE INDEX idx_snap_res_created ON tbl_archived_res_snapshots (created)"
+        "CREATE UNIQUE INDEX `idx_snap_res_code` ON `tbl_archived_res_snapshots` (`txt_session_code`)",
+        "CREATE INDEX `idx_snap_res_created` ON `tbl_archived_res_snapshots` (`created`)"
       ]
     },
     {
@@ -196,15 +214,17 @@
       "fields": [
         { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner", "type": "text", "required": false },
-        { "name": "int_player_count", "type": "number", "required": true },
-        { "name": "int_missions_passed", "type": "number", "required": true },
-        { "name": "int_missions_failed", "type": "number", "required": true },
+        { "name": "int_player_count", "type": "number", "required": false },
+        { "name": "int_missions_passed", "type": "number", "required": false },
+        { "name": "int_missions_failed", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_hist_snap_res_code ON tbl_archived_res_snapshots_history (txt_session_code)",
-        "CREATE INDEX idx_hist_snap_res_created ON tbl_archived_res_snapshots_history (created)"
+        "CREATE INDEX `idx_hist_snap_res_code` ON `tbl_archived_res_snapshots_history` (`txt_session_code`)",
+        "CREATE INDEX `idx_hist_snap_res_created` ON `tbl_archived_res_snapshots_history` (`created`)"
       ]
     },
     {
@@ -216,20 +236,23 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session_code", "type": "text", "required": true, "unique": true },
-        { "name": "current_color", "type": "select", "required": true, "values": ["red", "blue", "green", "yellow"] },
-        { "name": "top_card_json", "type": "json", "required": true },
-        { "name": "turn_direction", "type": "number", "required": true },
-        { "name": "draw_pile_count", "type": "number", "required": true },
-        { "name": "status", "type": "select", "required": true, "values": ["lobby", "playing", "concluded"] },
+        { "name": "session_code", "type": "text", "required": true },
+        { "name": "current_color", "type": "text", "required": false },
+        { "name": "top_card_json", "type": "json", "required": false },
+        { "name": "turn_direction", "type": "number", "required": false },
+        { "name": "draw_pile_count", "type": "number", "required": false },
+        { "name": "status", "type": "text", "required": true },
         { "name": "winner_name", "type": "text", "required": false },
-        { "name": "do_not_delete", "type": "bool", "required": false }
+        { "name": "do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_uno_session_code ON tbl_uno_sessions (session_code)",
-        "CREATE INDEX idx_uno_status ON tbl_uno_sessions (status)",
-        "CREATE INDEX idx_uno_do_not_delete ON tbl_uno_sessions (do_not_delete)",
-        "CREATE INDEX idx_uno_updated ON tbl_uno_sessions (updated)"
+        "CREATE UNIQUE INDEX `idx_uno_session_code` ON `tbl_uno_sessions` (`session_code`)",
+        "CREATE INDEX `idx_uno_status` ON `tbl_uno_sessions` (`status`)",
+        "CREATE INDEX `idx_uno_do_not_delete` ON `tbl_uno_sessions` (`do_not_delete`)",
+        "CREATE INDEX `idx_uno_updated` ON `tbl_uno_sessions` (`updated`)",
+        "CREATE INDEX `idx_uno_cleanup_composite` ON `tbl_uno_sessions` (`do_not_delete`, `updated`, `status`)"
       ]
     },
     {
@@ -241,15 +264,17 @@
       "updateRule": null,
       "deleteRule": null,
       "fields": [
-        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner_name", "type": "text", "required": false },
-        { "name": "int_total_turns", "type": "number", "required": true },
+        { "name": "int_total_turns", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_snap_uno_code ON tbl_archived_uno_snapshots (txt_session_code)",
-        "CREATE INDEX idx_snap_uno_created ON tbl_archived_uno_snapshots (created)"
+        "CREATE UNIQUE INDEX `idx_snap_uno_code` ON `tbl_archived_uno_snapshots` (`txt_session_code`)",
+        "CREATE INDEX `idx_snap_uno_created` ON `tbl_archived_uno_snapshots` (`created`)"
       ]
     },
     {
@@ -263,13 +288,15 @@
       "fields": [
         { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner_name", "type": "text", "required": false },
-        { "name": "int_total_turns", "type": "number", "required": true },
+        { "name": "int_total_turns", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_hist_snap_uno_code ON tbl_archived_uno_snapshots_history (txt_session_code)",
-        "CREATE INDEX idx_hist_snap_uno_created ON tbl_archived_uno_snapshots_history (created)"
+        "CREATE INDEX `idx_hist_snap_uno_code` ON `tbl_archived_uno_snapshots_history` (`txt_session_code`)",
+        "CREATE INDEX `idx_hist_snap_uno_created` ON `tbl_archived_uno_snapshots_history` (`created`)"
       ]
     },
     {
@@ -281,18 +308,21 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session_code", "type": "text", "required": true, "unique": true },
-        { "name": "current_round", "type": "number", "required": true },
-        { "name": "top_discard_json", "type": "json", "required": true },
-        { "name": "status", "type": "select", "required": true, "values": ["lobby", "playing", "round_ended", "concluded"] },
+        { "name": "session_code", "type": "text", "required": true },
+        { "name": "current_round", "type": "number", "required": false },
+        { "name": "top_discard_json", "type": "json", "required": false },
+        { "name": "status", "type": "text", "required": true },
         { "name": "winner_name", "type": "text", "required": false },
-        { "name": "do_not_delete", "type": "bool", "required": false }
+        { "name": "do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_p10_session_code ON tbl_p10_sessions (session_code)",
-        "CREATE INDEX idx_p10_status ON tbl_p10_sessions (status)",
-        "CREATE INDEX idx_p10_do_not_delete ON tbl_p10_sessions (do_not_delete)",
-        "CREATE INDEX idx_p10_updated ON tbl_p10_sessions (updated)"
+        "CREATE UNIQUE INDEX `idx_p10_session_code` ON `tbl_p10_sessions` (`session_code`)",
+        "CREATE INDEX `idx_p10_status` ON `tbl_p10_sessions` (`status`)",
+        "CREATE INDEX `idx_p10_do_not_delete` ON `tbl_p10_sessions` (`do_not_delete`)",
+        "CREATE INDEX `idx_p10_updated` ON `tbl_p10_sessions` (`updated`)",
+        "CREATE INDEX `idx_p10_cleanup_composite` ON `tbl_p10_sessions` (`do_not_delete`, `updated`, `status`)"
       ]
     },
     {
@@ -304,15 +334,17 @@
       "updateRule": null,
       "deleteRule": null,
       "fields": [
-        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner_name", "type": "text", "required": false },
-        { "name": "int_winning_phase", "type": "number", "required": true },
+        { "name": "int_winning_phase", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_snap_p10_code ON tbl_archived_p10_snapshots (txt_session_code)",
-        "CREATE INDEX idx_snap_p10_created ON tbl_archived_p10_snapshots (created)"
+        "CREATE UNIQUE INDEX `idx_snap_p10_code` ON `tbl_archived_p10_snapshots` (`txt_session_code`)",
+        "CREATE INDEX `idx_snap_p10_created` ON `tbl_archived_p10_snapshots` (`created`)"
       ]
     },
     {
@@ -326,13 +358,15 @@
       "fields": [
         { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner_name", "type": "text", "required": false },
-        { "name": "int_winning_phase", "type": "number", "required": true },
+        { "name": "int_winning_phase", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_hist_snap_p10_code ON tbl_archived_p10_snapshots_history (txt_session_code)",
-        "CREATE INDEX idx_hist_snap_p10_created ON tbl_archived_p10_snapshots_history (created)"
+        "CREATE INDEX `idx_hist_snap_p10_code` ON `tbl_archived_p10_snapshots_history` (`txt_session_code`)",
+        "CREATE INDEX `idx_hist_snap_p10_created` ON `tbl_archived_p10_snapshots_history` (`created`)"
       ]
     },
     {
@@ -344,17 +378,20 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session_code", "type": "text", "required": true, "unique": true },
-        { "name": "variant", "type": "text", "required": true },
-        { "name": "status", "type": "select", "required": true, "values": ["lobby", "pre-flop", "flop", "turn", "river", "showdown", "settled"] },
+        { "name": "session_code", "type": "text", "required": true },
+        { "name": "variant", "type": "text", "required": false },
+        { "name": "status", "type": "text", "required": true },
         { "name": "pot", "type": "number", "required": false },
-        { "name": "do_not_delete", "type": "bool", "required": false }
+        { "name": "do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_pok_session_code ON tbl_pok_sessions (session_code)",
-        "CREATE INDEX idx_pok_status ON tbl_pok_sessions (status)",
-        "CREATE INDEX idx_pok_do_not_delete ON tbl_pok_sessions (do_not_delete)",
-        "CREATE INDEX idx_pok_updated ON tbl_pok_sessions (updated)"
+        "CREATE UNIQUE INDEX `idx_pok_session_code` ON `tbl_pok_sessions` (`session_code`)",
+        "CREATE INDEX `idx_pok_status` ON `tbl_pok_sessions` (`status`)",
+        "CREATE INDEX `idx_pok_do_not_delete` ON `tbl_pok_sessions` (`do_not_delete`)",
+        "CREATE INDEX `idx_pok_updated` ON `tbl_pok_sessions` (`updated`)",
+        "CREATE INDEX `idx_pok_cleanup_composite` ON `tbl_pok_sessions` (`do_not_delete`, `updated`, `status`)"
       ]
     },
     {
@@ -366,16 +403,18 @@
       "updateRule": null,
       "deleteRule": null,
       "fields": [
-        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner_name", "type": "text", "required": false },
-        { "name": "txt_variant", "type": "text", "required": true },
+        { "name": "txt_variant", "type": "text", "required": false },
         { "name": "int_final_pot", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_snap_pok_code ON tbl_archived_pok_snapshots (txt_session_code)",
-        "CREATE INDEX idx_snap_pok_created ON tbl_archived_pok_snapshots (created)"
+        "CREATE UNIQUE INDEX `idx_snap_pok_code` ON `tbl_archived_pok_snapshots` (`txt_session_code`)",
+        "CREATE INDEX `idx_snap_pok_created` ON `tbl_archived_pok_snapshots` (`created`)"
       ]
     },
     {
@@ -389,14 +428,16 @@
       "fields": [
         { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner_name", "type": "text", "required": false },
-        { "name": "txt_variant", "type": "text", "required": true },
+        { "name": "txt_variant", "type": "text", "required": false },
         { "name": "int_final_pot", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_hist_snap_pok_code ON tbl_archived_pok_snapshots_history (txt_session_code)",
-        "CREATE INDEX idx_hist_snap_pok_created ON tbl_archived_pok_snapshots_history (created)"
+        "CREATE INDEX `idx_hist_snap_pok_code` ON `tbl_archived_pok_snapshots_history` (`txt_session_code`)",
+        "CREATE INDEX `idx_hist_snap_pok_created` ON `tbl_archived_pok_snapshots_history` (`created`)"
       ]
     },
     {
@@ -408,16 +449,19 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session_code", "type": "text", "required": true, "unique": true },
+        { "name": "session_code", "type": "text", "required": true },
         { "name": "status", "type": "text", "required": true },
         { "name": "stockpile_size", "type": "number", "required": false },
         { "name": "building_piles_json", "type": "json", "required": false },
-        { "name": "do_not_delete", "type": "bool", "required": false }
+        { "name": "do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_skp_session_code ON tbl_skp_sessions (session_code)",
-        "CREATE INDEX idx_skp_do_not_delete ON tbl_skp_sessions (do_not_delete)",
-        "CREATE INDEX idx_skp_updated ON tbl_skp_sessions (updated)"
+        "CREATE UNIQUE INDEX `idx_skp_session_code` ON `tbl_skp_sessions` (`session_code`)",
+        "CREATE INDEX `idx_skp_do_not_delete` ON `tbl_skp_sessions` (`do_not_delete`)",
+        "CREATE INDEX `idx_skp_updated` ON `tbl_skp_sessions` (`updated`)",
+        "CREATE INDEX `idx_skp_cleanup_composite` ON `tbl_skp_sessions` (`do_not_delete`, `updated`, `status`)"
       ]
     },
     {
@@ -429,14 +473,16 @@
       "updateRule": null,
       "deleteRule": null,
       "fields": [
-        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner_name", "type": "text", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_snap_skp_code ON tbl_archived_skp_snapshots (txt_session_code)",
-        "CREATE INDEX idx_snap_skp_created ON tbl_archived_skp_snapshots (created)"
+        "CREATE UNIQUE INDEX `idx_snap_skp_code` ON `tbl_archived_skp_snapshots` (`txt_session_code`)",
+        "CREATE INDEX `idx_snap_skp_created` ON `tbl_archived_skp_snapshots` (`created`)"
       ]
     },
     {
@@ -451,11 +497,13 @@
         { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner_name", "type": "text", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_hist_snap_skp_code ON tbl_archived_skp_snapshots_history (txt_session_code)",
-        "CREATE INDEX idx_hist_snap_skp_created ON tbl_archived_skp_snapshots_history (created)"
+        "CREATE INDEX `idx_hist_snap_skp_code` ON `tbl_archived_skp_snapshots_history` (`txt_session_code`)",
+        "CREATE INDEX `idx_hist_snap_skp_created` ON `tbl_archived_skp_snapshots_history` (`created`)"
       ]
     },
     {
@@ -467,19 +515,22 @@
       "updateRule": "",
       "deleteRule": null,
       "fields": [
-        { "name": "session_code", "type": "text", "required": true, "unique": true },
-        { "name": "status", "type": "select", "required": true, "values": ["lobby", "playing", "concluded"] },
+        { "name": "session_code", "type": "text", "required": true },
+        { "name": "status", "type": "text", "required": true },
         { "name": "deck_remaining", "type": "number", "required": false },
         { "name": "claimed_sets_count", "type": "number", "required": false },
         { "name": "table_cards_json", "type": "json", "required": false },
         { "name": "winner_name", "type": "text", "required": false },
-        { "name": "do_not_delete", "type": "bool", "required": false }
+        { "name": "do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_set_session_code ON tbl_set_sessions (session_code)",
-        "CREATE INDEX idx_set_status ON tbl_set_sessions (status)",
-        "CREATE INDEX idx_set_do_not_delete ON tbl_set_sessions (do_not_delete)",
-        "CREATE INDEX idx_set_updated ON tbl_set_sessions (updated)"
+        "CREATE UNIQUE INDEX `idx_set_session_code` ON `tbl_set_sessions` (`session_code`)",
+        "CREATE INDEX `idx_set_status` ON `tbl_set_sessions` (`status`)",
+        "CREATE INDEX `idx_set_do_not_delete` ON `tbl_set_sessions` (`do_not_delete`)",
+        "CREATE INDEX `idx_set_updated` ON `tbl_set_sessions` (`updated`)",
+        "CREATE INDEX `idx_set_cleanup_composite` ON `tbl_set_sessions` (`do_not_delete`, `updated`, `status`)"
       ]
     },
     {
@@ -491,15 +542,17 @@
       "updateRule": null,
       "deleteRule": null,
       "fields": [
-        { "name": "txt_session_code", "type": "text", "required": true, "unique": true },
+        { "name": "txt_session_code", "type": "text", "required": true },
         { "name": "txt_winner_name", "type": "text", "required": false },
         { "name": "int_claimed_sets", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_snap_set_code ON tbl_archived_set_snapshots (txt_session_code)",
-        "CREATE INDEX idx_snap_set_created ON tbl_archived_set_snapshots (created)"
+        "CREATE UNIQUE INDEX `idx_snap_set_code` ON `tbl_archived_set_snapshots` (`txt_session_code`)",
+        "CREATE INDEX `idx_snap_set_created` ON `tbl_archived_set_snapshots` (`created`)"
       ]
     },
     {
@@ -515,11 +568,13 @@
         { "name": "txt_winner_name", "type": "text", "required": false },
         { "name": "int_claimed_sets", "type": "number", "required": false },
         { "name": "bln_do_not_delete", "type": "bool", "required": false },
-        { "name": "json_snapshot_payload", "type": "json", "required": true }
+        { "name": "json_snapshot_payload", "type": "json", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX idx_hist_snap_set_code ON tbl_archived_set_snapshots_history (txt_session_code)",
-        "CREATE INDEX idx_hist_snap_set_created ON tbl_archived_set_snapshots_history (created)"
+        "CREATE INDEX `idx_hist_snap_set_code` ON `tbl_archived_set_snapshots_history` (`txt_session_code`)",
+        "CREATE INDEX `idx_hist_snap_set_created` ON `tbl_archived_set_snapshots_history` (`created`)"
       ]
     }
   ]
