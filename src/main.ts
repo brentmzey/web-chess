@@ -62,6 +62,9 @@ import {
   type BlackjackDifficulty
 } from './games/blackjack/blackjackEngine';
 import {
+  BlackjackMultiSeatEngine
+} from './games/blackjack/blackjackMultiSeatEngine';
+import {
   CathedralPokerEngine,
   evaluatePokerHand,
   type PokerPlayerData
@@ -2078,9 +2081,41 @@ function main(): void {
 
   // Gothic Blackjack Table Engine & Event Binding
   const bjkEngine = new BlackjackEngine(500, 'micro-neural', 'balanced');
+  let bjkMultiEngine = new BlackjackMultiSeatEngine(3, 10, 500);
+  bjkMultiEngine.seatManager.claimSeat(1, 'p1', 'You (Pilgrim)');
+  bjkMultiEngine.populateBotOpponents();
 
   const renderBlackjackTable = () => {
     const s = bjkEngine.state;
+    domById('bjk-seats-track').map((track: HTMLElement) => {
+      const occupied = bjkMultiEngine.seatManager.getOccupiedSeats();
+      track.innerHTML = occupied
+        .map(seat => {
+          const isTurn = bjkMultiEngine.state.activeSeatTurn.getOrElse(-1) === seat.seatNumber;
+          return `
+            <div data-bjk-seat="${seat.seatNumber}" class="px-3.5 py-2 rounded-2xl bg-black/65 border-2 ${
+              isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-purple-500/40'
+            } flex items-center gap-2.5 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
+              <div class="w-2.5 h-2.5 rounded-full ${seat.isBot ? 'bg-purple-400' : 'bg-emerald-400'}"></div>
+              <span class="font-bold text-stone-100">S${seat.seatNumber}: ${seat.playerName}</span>
+              <span class="text-amber-300 font-mono font-bold">${seat.extraData.chipBank}🪙</span>
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                seat.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
+              }">${seat.isBot ? 'AI' : 'Human'}</span>
+            </div>
+          `;
+        })
+        .join('');
+      track.querySelectorAll('[data-bjk-seat]').forEach(el => {
+        el.addEventListener('click', () => {
+          const seatNum = parseInt(el.getAttribute('data-bjk-seat') || '1', 10);
+          bjkMultiEngine.seatManager.claimSeat(seatNum, `human_s${seatNum}`, `Player ${seatNum}`);
+          soundFX.playSelect();
+          renderBlackjackTable();
+        });
+      });
+    });
+
     fromNullable(document.getElementById('bjk-bank-val')).map(el => {
       el.textContent = `${s.chipBank} Relics`;
     });
@@ -2249,6 +2284,33 @@ function main(): void {
     })
   );
 
+  domById<HTMLSelectElement>('bjk-seats-select').map(sel =>
+    sel.addEventListener('change', () => {
+      const targetSeats = parseInt(sel.value || '3', 10);
+      bjkMultiEngine = new BlackjackMultiSeatEngine(7, 10, 500);
+      bjkMultiEngine.seatManager.claimSeat(1, 'p1', 'You (Pilgrim)');
+      for (let i = 2; i <= targetSeats; i++) {
+        bjkMultiEngine.addPlayer(`Cathedral Pilgrim ${i}`, false);
+      }
+      soundFX.playSelect();
+      renderBlackjackTable();
+    })
+  );
+
+  domById('bjk-btn-add-player').map(btn =>
+    btn.addEventListener('click', () => {
+      const nextNum = bjkMultiEngine.seatManager.getOccupiedSeats().length + 1;
+      const res = bjkMultiEngine.addPlayer(`Pilgrim User ${nextNum}`, false);
+      if (res.isSuccess()) {
+        soundFX.playSelect();
+        domById<HTMLSelectElement>('bjk-seats-select').map(sel => {
+          sel.value = String(bjkMultiEngine.seatManager.getOccupiedSeats().length);
+        });
+      }
+      renderBlackjackTable();
+    })
+  );
+
   // Common Arcade Live Session Sharing Helper
   const generateArcadeCode = (prefix: string) =>
     `${prefix}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
@@ -2379,6 +2441,36 @@ function main(): void {
 
   const renderPokerTable = () => {
     const s = pokerEngine.state;
+    domById('poker-seats-track').map((track: HTMLElement) => {
+      const occupied = pokerEngine.seatManager.getOccupiedSeats();
+      track.innerHTML = occupied
+        .map(seat => {
+          const isTurn = s.activeSeatTurn.getOrElse(-1) === seat.seatNumber;
+          const isDealer = seat.seatNumber === 1;
+          return `
+            <div data-poker-seat="${seat.seatNumber}" class="px-3.5 py-2 rounded-2xl bg-black/65 border-2 ${
+              isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : seat.extraData.folded ? 'border-white/10 opacity-50' : 'border-amber-500/40'
+            } flex items-center gap-2 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
+              ${isDealer ? '<span class="px-1.5 py-0.5 rounded-full bg-amber-400 text-stone-950 font-extrabold text-[10px]">D</span>' : ''}
+              <span class="font-bold text-stone-100">S${seat.seatNumber}: ${seat.playerName}</span>
+              <span class="text-emerald-300 font-mono font-bold">$${seat.extraData.chipBank}</span>
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                seat.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
+              }">${seat.isBot ? 'AI' : 'Human'}</span>
+            </div>
+          `;
+        })
+        .join('');
+      track.querySelectorAll('[data-poker-seat]').forEach(el => {
+        el.addEventListener('click', () => {
+          const seatNum = parseInt(el.getAttribute('data-poker-seat') || '1', 10);
+          pokerEngine.seatManager.claimSeat(seatNum, `human_p${seatNum}`, `Player ${seatNum}`);
+          soundFX.playSelect();
+          renderPokerTable();
+        });
+      });
+    });
+
     fromNullable(document.getElementById('poker-pot-val')).map(el => {
       el.textContent = `$${s.pot}`;
     });
@@ -2479,8 +2571,37 @@ function main(): void {
   fromNullable(document.getElementById('poker-variant-select') as HTMLSelectElement | null).map(sel =>
     sel.addEventListener('change', () => {
       pokerVariant = sel.value as PokerVariantEnum;
-      pokerEngine = new CathedralPokerEngine(pokerVariant, 6, 10, 20);
+      const seatCount = domById<HTMLSelectElement>('poker-seats-select')
+        .map(s => parseInt(s.value || '6', 10))
+        .getOrElse(6);
+      pokerEngine = new CathedralPokerEngine(pokerVariant, seatCount, 10, 20);
+      pokerEngine.seatManager.claimSeat(1, 'p1', 'You (Pilgrim)');
       pokerEngine.populateBotOpponents();
+      renderPokerTable();
+    })
+  );
+
+  domById<HTMLSelectElement>('poker-seats-select').map(sel =>
+    sel.addEventListener('change', () => {
+      const seatCount = parseInt(sel.value || '6', 10);
+      pokerEngine = new CathedralPokerEngine(pokerVariant, seatCount, 10, 20);
+      pokerEngine.seatManager.claimSeat(1, 'p1', 'You (Pilgrim)');
+      pokerEngine.populateBotOpponents();
+      soundFX.playSelect();
+      renderPokerTable();
+    })
+  );
+
+  domById('poker-btn-add-player').map(btn =>
+    btn.addEventListener('click', () => {
+      const nextNum = pokerEngine.seatManager.getOccupiedSeats().length + 1;
+      const res = pokerEngine.addPlayer(`Poker Pilgrim ${nextNum}`, false);
+      if (res.isSuccess()) {
+        soundFX.playSelect();
+        domById<HTMLSelectElement>('poker-seats-select').map(sel => {
+          sel.value = String(pokerEngine.seatManager.getOccupiedSeats().length);
+        });
+      }
       renderPokerTable();
     })
   );
@@ -2553,7 +2674,7 @@ function main(): void {
   // =========================================================================
   // Sacred Skip-Bo Engine & Table Controls
   // =========================================================================
-  let skipboEngine = new SkipBoEngine('Pilgrim', 'Cathedral Abbot', 15);
+  let skipboEngine = new SkipBoEngine('Pilgrim', 'Cathedral Abbot', 15, undefined, 4);
   let skipboLiveCode = generateArcadeCode(GameCodePrefixEnum.SkipBo);
   let selectedSkipBoSource: SkipBoSourcePileEnum = SkipBoSourcePileEnum.Hand;
   let selectedSkipBoIndex: number = 0;
@@ -2562,6 +2683,41 @@ function main(): void {
     const s = skipboEngine.state;
     const p1 = s.players[0]!;
     const p2 = s.players[1]!;
+
+    domById('skipbo-opponents-track').map((track: HTMLElement) => {
+      track.innerHTML = s.players
+        .map((p, idx) => {
+          const isTurn = s.currentTurnIndex === idx;
+          const topCard = p.stockpile.length > 0 ? p.stockpile[p.stockpile.length - 1] : null;
+          const topLabel = topCard
+            ? topCard.type === SkipBoCardTypeEnum.Wild
+              ? '★'
+              : `${topCard.value}`
+            : 'Done';
+          return `
+            <div data-skipbo-seat="${idx}" class="px-3.5 py-2 rounded-2xl bg-black/65 border-2 ${
+              isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-blue-500/40'
+            } flex items-center gap-2.5 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
+              <div class="w-2.5 h-2.5 rounded-full ${p.isBot ? 'bg-purple-400' : 'bg-emerald-400'}"></div>
+              <span class="font-bold text-stone-100">${p.name}</span>
+              <span class="px-2 py-0.5 rounded-lg bg-amber-950/90 border border-amber-400/40 text-amber-200 font-mono font-extrabold text-xs">Top: ${topLabel} (${p.stockpile.length})</span>
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                p.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
+              }">${p.isBot ? 'AI' : 'Human'}</span>
+            </div>
+          `;
+        })
+        .join('');
+
+      track.querySelectorAll('[data-skipbo-seat]').forEach(el => {
+        el.addEventListener('click', () => {
+          const seatIdx = parseInt(el.getAttribute('data-skipbo-seat') || '0', 10);
+          skipboEngine.claimSeatForHuman(seatIdx, `Human Player ${seatIdx + 1}`);
+          soundFX.playSelect();
+          renderSkipBoTable();
+        });
+      });
+    });
 
     fromNullable(document.getElementById('skipbo-opp-stock')).map(el => {
       el.textContent = `${p2.stockpile.length} remaining`;
@@ -2748,16 +2904,68 @@ function main(): void {
     })
   );
 
+  domById<HTMLSelectElement>('skipbo-seats-select').map(sel =>
+    sel.addEventListener('change', () => {
+      const count = parseInt(sel.value || '4', 10);
+      skipboEngine = new SkipBoEngine('Pilgrim', 'Cathedral Abbot', 15, undefined, count);
+      soundFX.playSelect();
+      renderSkipBoTable();
+    })
+  );
+
+  domById('skipbo-btn-add-player').map(btn =>
+    btn.addEventListener('click', () => {
+      const nextNum = skipboEngine.state.players.length + 1;
+      const res = skipboEngine.addPlayer(`Skip-Bo Pilgrim ${nextNum}`, false);
+      if (res.isSuccess()) {
+        soundFX.playSelect();
+        domById<HTMLSelectElement>('skipbo-seats-select').map(sel => {
+          sel.value = String(skipboEngine.state.players.length);
+        });
+      }
+      renderSkipBoTable();
+    })
+  );
+
   // =========================================================================
   // Ten Rites (Phase 10) Engine & Table Controls
   // =========================================================================
-  let phase10Engine = new Phase10Engine('Pilgrim', 'Cathedral Prior');
+  let phase10Engine = new Phase10Engine('Pilgrim', 'Cathedral Prior', undefined, 4);
   let phase10LiveCode = generateArcadeCode(GameCodePrefixEnum.Phase10);
   let selectedPhase10Indices: number[] = [];
 
   const renderPhase10Table = () => {
     const s = phase10Engine.state;
     const p1 = s.players[0]!;
+
+    domById('phase10-opponents-track').map((track: HTMLElement) => {
+      track.innerHTML = s.players
+        .map((p, idx) => {
+          const isTurn = s.currentTurnIndex === idx;
+          return `
+            <div data-p10-seat="${idx}" class="px-3.5 py-2 rounded-2xl bg-black/65 border-2 ${
+              isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-emerald-500/40'
+            } flex items-center gap-2 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
+              <div class="w-2.5 h-2.5 rounded-full ${p.isBot ? 'bg-purple-400' : 'bg-emerald-400'}"></div>
+              <span class="font-bold text-stone-100">${p.name}</span>
+              <span class="px-2 py-0.5 rounded-lg bg-emerald-950/90 border border-emerald-400/40 text-emerald-200 font-mono font-extrabold text-xs">P${p.currentPhase} • ${p.hand.length}🂠 • ${p.score}pts</span>
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                p.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
+              }">${p.isBot ? 'AI' : 'Human'}</span>
+            </div>
+          `;
+        })
+        .join('');
+
+      track.querySelectorAll('[data-p10-seat]').forEach(el => {
+        el.addEventListener('click', () => {
+          const seatIdx = parseInt(el.getAttribute('data-p10-seat') || '0', 10);
+          phase10Engine.claimSeatForHuman(seatIdx, `Human Player ${seatIdx + 1}`);
+          soundFX.playSelect();
+          renderPhase10Table();
+        });
+      });
+    });
 
     const contract = PHASE_10_REQUIREMENTS[p1.currentPhase - 1] || { description: 'Mastery', shortLabel: 'Complete' };
     fromNullable(document.getElementById('phase10-target-contract')).map(el => {
@@ -2960,6 +3168,38 @@ function main(): void {
     })
   );
 
+  domById('phase10-btn-bot-step').map(b =>
+    b.addEventListener('click', () => {
+      phase10Engine.autoPlayBotTurn();
+      soundFX.playCathedralOrganAndBell();
+      renderPhase10Table();
+    })
+  );
+
+  domById<HTMLSelectElement>('phase10-seats-select').map(sel =>
+    sel.addEventListener('change', () => {
+      const count = parseInt(sel.value || '4', 10);
+      phase10Engine = new Phase10Engine('Pilgrim', 'Cathedral Prior', undefined, count);
+      selectedPhase10Indices = [];
+      soundFX.playSelect();
+      renderPhase10Table();
+    })
+  );
+
+  domById('phase10-btn-add-player').map(btn =>
+    btn.addEventListener('click', () => {
+      const nextNum = phase10Engine.state.players.length + 1;
+      const res = phase10Engine.addPlayer(`Phase 10 Pilgrim ${nextNum}`, false);
+      if (res.isSuccess()) {
+        soundFX.playSelect();
+        domById<HTMLSelectElement>('phase10-seats-select').map(sel => {
+          sel.value = String(phase10Engine.state.players.length);
+        });
+      }
+      renderPhase10Table();
+    })
+  );
+
   // =========================================================================
   // Cardinal Uno Engine & Table Controls
   // =========================================================================
@@ -2977,19 +3217,31 @@ function main(): void {
       container.innerHTML = opponents
         .map(
           (p, idx) => `
-        <div class="px-4 py-2 rounded-2xl bg-black/65 border ${
+        <div data-uno-seat="${idx + 1}" class="px-4 py-2 rounded-2xl bg-black/65 border ${
           s.currentTurnIndex === idx + 1 ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-white/15'
-        } flex items-center gap-2.5 text-sm shadow-md">
+        } flex items-center gap-2.5 text-sm shadow-md cursor-pointer hover:border-amber-300 transition" title="Click to claim seat as Human User">
           <div class="w-2.5 h-2.5 rounded-full ${p.isBot ? 'bg-purple-400' : 'bg-sky-400'}"></div>
           <span class="font-bold text-stone-100">${p.name}</span>
           <span class="px-2.5 py-0.5 rounded-full bg-red-950/85 border border-red-500/40 text-amber-300 font-mono text-xs sm:text-sm font-extrabold">
             ${p.hand.length} 🂠
           </span>
+          <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
+            p.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-sky-950/90 text-sky-200 border border-sky-400/30'
+          }">${p.isBot ? 'AI' : 'Human'}</span>
           ${p.calledUno ? '<span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider">UNO!</span>' : ''}
         </div>
       `
         )
         .join('');
+
+      container.querySelectorAll('[data-uno-seat]').forEach(el => {
+        el.addEventListener('click', () => {
+          const seatIdx = parseInt(el.getAttribute('data-uno-seat') || '1', 10);
+          unoEngine.claimSeatForHuman(seatIdx, `Human Player ${seatIdx + 1}`);
+          soundFX.playSelect();
+          renderUnoTable();
+        });
+      });
     });
 
     // Active Color Badge
@@ -3182,6 +3434,30 @@ function main(): void {
       const res = unoEngine.callUno('p1');
       if (res.isSuccess()) {
         soundFX.playCathedralOrganAndBell();
+      }
+      renderUnoTable();
+    })
+  );
+
+  domById<HTMLSelectElement>('uno-seats-select').map(sel =>
+    sel.addEventListener('change', () => {
+      const count = parseInt(sel.value || '4', 10);
+      unoEngine = new CardinalUnoEngine('Pilgrim', count);
+      pendingWildCardIndex = null;
+      soundFX.playSelect();
+      renderUnoTable();
+    })
+  );
+
+  domById('uno-btn-add-player').map(btn =>
+    btn.addEventListener('click', () => {
+      const nextNum = unoEngine.state.players.length + 1;
+      const res = unoEngine.addPlayer(`Cardinal User ${nextNum}`, false);
+      if (res.isSuccess()) {
+        soundFX.playSelect();
+        domById<HTMLSelectElement>('uno-seats-select').map(sel => {
+          sel.value = String(unoEngine.state.players.length);
+        });
       }
       renderUnoTable();
     })
@@ -3451,6 +3727,30 @@ function main(): void {
     })
   );
 
+  domById<HTMLSelectElement>('avalon-seats-select').map(sel =>
+    sel.addEventListener('change', () => {
+      const count = parseInt(sel.value || '5', 10);
+      avalonEngine = new AvalonEngine('Percival', count);
+      selectedAvalonKnights = [];
+      soundFX.playSelect();
+      renderAvalonTable();
+    })
+  );
+
+  domById('avalon-btn-add-player').map(btn =>
+    btn.addEventListener('click', () => {
+      const nextNum = avalonEngine.state.players.length + 1;
+      const res = avalonEngine.addPlayer(`Knight User ${nextNum}`, false);
+      if (res.isSuccess()) {
+        soundFX.playSelect();
+        domById<HTMLSelectElement>('avalon-seats-select').map(sel => {
+          sel.value = String(avalonEngine.state.players.length);
+        });
+      }
+      renderAvalonTable();
+    })
+  );
+
   // Sacred Geometry SET Table Engine & Event Binding
   let setEngine = new SetEngine(3, 'You (Sanctuary Geometer)');
   let selectedSetIndices: number[] = [];
@@ -3505,14 +3805,22 @@ function main(): void {
     ['set-players-scoreboard', 'set-players-strip'].forEach(id => {
       domById(id).map(strip => {
         strip.innerHTML = '';
-        s.players.forEach(p => {
+        s.players.forEach((p, idx) => {
           const badge = document.createElement('div');
           badge.className = `px-4 py-2 rounded-xl border-2 ${
             p.id === 'p1'
               ? 'border-fuchsia-400 bg-fuchsia-950/75'
               : 'border-white/15 bg-black/55'
-          } text-xs sm:text-sm flex items-center gap-2.5 shadow-md`;
-          badge.innerHTML = `<span class="font-bold text-stone-100">${p.name}</span><span class="text-amber-300 font-mono font-bold">Sets: ${p.score}</span><span class="text-stone-300 font-mono text-xs">(-${p.penalties})</span>`;
+          } text-xs sm:text-sm flex items-center gap-2.5 shadow-md cursor-pointer hover:border-amber-300 transition`;
+          badge.title = 'Click to claim seat as Human User';
+          badge.innerHTML = `<span class="font-bold text-stone-100">${p.name}</span><span class="text-amber-300 font-mono font-bold">Sets: ${p.score}</span><span class="text-stone-300 font-mono text-xs">(-${p.penalties})</span><span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+            p.isBot ? 'bg-purple-950 text-purple-200' : 'bg-emerald-950 text-emerald-200'
+          }">${p.isBot ? 'AI' : 'Human'}</span>`;
+          badge.addEventListener('click', () => {
+            setEngine.claimSeatForHuman(idx, `Geometer ${idx + 1}`);
+            soundFX.playSelect();
+            renderSetTable();
+          });
           strip.appendChild(badge);
         });
       });
@@ -3667,10 +3975,38 @@ function main(): void {
 
   fromNullable(document.getElementById('set-btn-new-game')).map(b =>
     b.addEventListener('click', () => {
-      setEngine = new SetEngine(3, 'You (Sanctuary Geometer)');
+      const seatCount = domById<HTMLSelectElement>('set-seats-select')
+        .map(s => parseInt(s.value || '3', 10))
+        .getOrElse(3);
+      setEngine = new SetEngine(seatCount, 'You (Sanctuary Geometer)');
       selectedSetIndices = [];
       setHintIndex = null;
       soundFX.playSelect();
+      renderSetTable();
+    })
+  );
+
+  domById<HTMLSelectElement>('set-seats-select').map(sel =>
+    sel.addEventListener('change', () => {
+      const seatCount = parseInt(sel.value || '3', 10);
+      setEngine = new SetEngine(seatCount, 'You (Sanctuary Geometer)');
+      selectedSetIndices = [];
+      setHintIndex = null;
+      soundFX.playSelect();
+      renderSetTable();
+    })
+  );
+
+  domById('set-btn-add-player').map(btn =>
+    btn.addEventListener('click', () => {
+      const nextNum = setEngine.state.players.length + 1;
+      const res = setEngine.addPlayer(`Geometer User ${nextNum}`, false);
+      if (res.isSuccess()) {
+        soundFX.playSelect();
+        domById<HTMLSelectElement>('set-seats-select').map(sel => {
+          sel.value = String(setEngine.state.players.length);
+        });
+      }
       renderSetTable();
     })
   );

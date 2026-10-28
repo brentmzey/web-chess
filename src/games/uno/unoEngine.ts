@@ -6,7 +6,8 @@ import {
   success,
   failure
 } from '../../utils/fp';
-import { ArcadeGameEnum, REAL_LIFE_GAME_CAPACITIES } from '../../constants/gameEnums';
+import { AIModelEnum, ArcadeGameEnum, REAL_LIFE_GAME_CAPACITIES } from '../../constants/gameEnums';
+import { TableSeatManager } from '../multiplayer/tableSeatManager';
 import { logger } from '../../utils/logger';
 
 export type UnoColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
@@ -81,6 +82,7 @@ export function createUnoDeck(): UnoCard[] {
 
 export class CardinalUnoEngine {
   public state: UnoGameState;
+  public readonly seatManager: TableSeatManager<UnoPlayerState>;
 
   constructor(player1Name: string = 'Human Pilgrim',
               playerCount: number = 4,
@@ -88,6 +90,7 @@ export class CardinalUnoEngine {
     const maxAllowed = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.Uno].maxPlayers;
     const totalPlayers = Math.max(2, Math.min(maxAllowed, playerCount));
     const deck = customDeck || createUnoDeck();
+    this.seatManager = new TableSeatManager<UnoPlayerState>(maxAllowed, 2, AIModelEnum.MicroNeural);
 
     const botNames = [
       'Cardinal AI',
@@ -109,13 +112,19 @@ export class CardinalUnoEngine {
         hand.push(deck.pop()!);
       }
       const pName = pIdx === 0 ? player1Name : botNames[pIdx - 1] || `UnoBot #${pIdx + 1}`;
-      playersList.push({
+      const pState: UnoPlayerState = {
         id: `p${pIdx + 1}`,
         name: pName,
         isBot: pIdx > 0,
         hand,
         calledUno: false
-      });
+      };
+      playersList.push(pState);
+      if (pIdx === 0) {
+        this.seatManager.claimSeat(1, pState.id, pState.name, pState);
+      } else {
+        this.seatManager.updateSeatData(pIdx + 1, () => pState);
+      }
     }
 
     // Discard pile start card (non-wild preferred)
@@ -136,6 +145,77 @@ export class CardinalUnoEngine {
       winner: none(),
       historyText: [`Cardinal Uno initiated with ${totalPlayers} players. Start card: ${startCard.color} ${startCard.type === 'number' ? startCard.value : startCard.type}.`]
     };
+  }
+
+  /**
+   * Dynamically adds a new player (human or AI bot) to the Uno table up to 10 players.
+   */
+  public addPlayer(playerName: string,
+                   isBot: boolean = false): Result<UnoPlayerState, string> {
+    const maxAllowed = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.Uno].maxPlayers;
+    if (this.state.players.length >= maxAllowed) {
+      return failure(`Cardinal Uno table is at maximum capacity (${maxAllowed} players).`);
+    }
+
+    const seatIdx = this.state.players.length + 1;
+    const hand: UnoCard[] = [];
+    for (let i = 0; i < 7; i++) {
+      this.checkRecycleDeck();
+      if (this.state.drawPile.length > 0) {
+        hand.push(this.state.drawPile.pop()!);
+      }
+    }
+
+    const newPlayer: UnoPlayerState = {
+      id: `p${seatIdx}`,
+      name: playerName,
+      isBot,
+      hand,
+      calledUno: false
+    };
+
+    this.state.players.push(newPlayer);
+    if (!isBot) {
+      this.seatManager.claimSeat(seatIdx, newPlayer.id, newPlayer.name, newPlayer);
+    } else {
+      this.seatManager.updateSeatData(seatIdx, () => newPlayer);
+    }
+
+    this.state.historyText.push(`${playerName} (${isBot ? 'AI Bot' : 'Human'}) joined Seat #${seatIdx} (${this.state.players.length}/${maxAllowed} players).`);
+    return success(newPlayer);
+  }
+
+  /**
+   * Hot-swaps an existing seat to a Human user.
+   */
+  public claimSeatForHuman(playerIndex: number,
+                           humanName: string): Result<UnoPlayerState, string> {
+    if (playerIndex < 0 || playerIndex >= this.state.players.length) {
+      return failure(`Invalid player index ${playerIndex}.`);
+    }
+    const target = this.state.players[playerIndex]!;
+    target.name = humanName;
+    target.isBot = false;
+    this.seatManager.claimSeat(playerIndex + 1, target.id, humanName, target);
+    this.state.historyText.push(`${humanName} claimed Seat #${playerIndex + 1}.`);
+    return success(target);
+  }
+
+  /**
+   * Hot-swaps a departing human player back to an AI Bot.
+   */
+  public vacatePlayerSeat(playerId: string,
+                          fallbackBotName: string = 'Cardinal Guardian Bot'): Result<UnoPlayerState, string> {
+    const idx = this.state.players.findIndex(p => p.id === playerId);
+    if (idx < 0) {
+      return failure(`Player ${playerId} not found.`);
+    }
+    const target = this.state.players[idx]!;
+    target.isBot = true;
+    target.name = `${fallbackBotName} #${idx + 1}`;
+    this.seatManager.vacateSeat(idx + 1, AIModelEnum.MicroNeural, fallbackBotName);
+    this.state.historyText.push(`Seat #${idx + 1} hot-swapped to ${target.name}.`);
+    return success(target);
   }
 
   public getCurrentPlayer(): UnoPlayerState {

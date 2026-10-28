@@ -8,9 +8,13 @@ import {
   match
 } from '../../utils/fp';
 import {
+  AIModelEnum,
+  ArcadeGameEnum,
+  REAL_LIFE_GAME_CAPACITIES,
   SkipBoCardTypeEnum,
   SkipBoSourcePileEnum
 } from '../../constants/gameEnums';
+import { TableSeatManager } from '../multiplayer/tableSeatManager';
 import { logger } from '../../utils/logger';
 
 export interface SkipBoCard {
@@ -78,16 +82,20 @@ export function createSkipBoDeck(): SkipBoCard[] {
 
 export class SkipBoEngine {
   public state: SkipBoGameState;
+  public readonly seatManager: TableSeatManager<SkipBoPlayerState>;
+  private readonly stockpileSize: number;
 
-  constructor(
-    player1Name: string = 'Human Pilgrim',
-    player2Name: string = 'Cathedral AI Abbot',
-    stockpileSize: number = 15,
-    customDeck?: SkipBoCard[],
-    playerCount: number = 2
-  ) {
+  constructor(player1Name: string = 'Human Pilgrim',
+              player2Name: string = 'Cathedral AI Abbot',
+              stockpileSize: number = 15,
+              customDeck?: SkipBoCard[],
+              playerCount: number = 2) {
     const deck = customDeck || createSkipBoDeck();
-    const totalPlayers = Math.max(2, Math.min(6, playerCount));
+    const maxSeats = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.SkipBo].maxPlayers;
+    const totalPlayers = Math.max(2, Math.min(maxSeats, playerCount));
+    this.stockpileSize = stockpileSize;
+    this.seatManager = new TableSeatManager<SkipBoPlayerState>(maxSeats, 2, AIModelEnum.MicroNeural);
+
     const botNames = ['Cathedral AI Abbot', 'Brother Luke', 'Prior Anselm', 'Deacon Francis', 'Archon Benedict'];
 
     const playersList: SkipBoPlayerState[] = [];
@@ -111,14 +119,21 @@ export class SkipBoEngine {
         ? player2Name
         : botNames[pIdx - 1] || `SkipBot #${pIdx + 1}`;
 
-      playersList.push({
+      const playerState: SkipBoPlayerState = {
         id: `p${pIdx + 1}`,
         name: pName,
         isBot: pIdx > 0,
         stockpile: pStock,
         hand: pHand,
         discardPiles: [[], [], [], []]
-      });
+      };
+      playersList.push(playerState);
+
+      if (pIdx === 0) {
+        this.seatManager.claimSeat(1, playerState.id, playerState.name, playerState);
+      } else {
+        this.seatManager.updateSeatData(pIdx + 1, () => playerState);
+      }
     }
 
     this.state = {
@@ -131,6 +146,87 @@ export class SkipBoEngine {
       winner: none(),
       historyText: [`Sacred Skip-Bo match commenced (${totalPlayers} players). Deal complete.`]
     };
+  }
+
+  /**
+   * Dynamically adds a new player (human or AI bot) to the Skip-Bo table up to the 6-player capacity.
+   */
+  public addPlayer(playerName: string,
+                   isBot: boolean = false): Result<SkipBoPlayerState, string> {
+    const maxSeats = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.SkipBo].maxPlayers;
+    if (this.state.players.length >= maxSeats) {
+      return failure(`Skip-Bo table is at maximum capacity (${maxSeats} players).`);
+    }
+
+    const seatIdx = this.state.players.length + 1;
+    const pStock: SkipBoCard[] = [];
+    for (let i = 0; i < this.stockpileSize; i++) {
+      this.checkRecycleDrawPile();
+      if (this.state.drawPile.length > 0) {
+        pStock.push(this.state.drawPile.pop()!);
+      }
+    }
+
+    const pHand: SkipBoCard[] = [];
+    for (let i = 0; i < 5; i++) {
+      this.checkRecycleDrawPile();
+      if (this.state.drawPile.length > 0) {
+        pHand.push(this.state.drawPile.pop()!);
+      }
+    }
+
+    const newPlayer: SkipBoPlayerState = {
+      id: `p${seatIdx}`,
+      name: playerName,
+      isBot,
+      stockpile: pStock,
+      hand: pHand,
+      discardPiles: [[], [], [], []]
+    };
+
+    this.state.players.push(newPlayer);
+    if (!isBot) {
+      this.seatManager.claimSeat(seatIdx, newPlayer.id, newPlayer.name, newPlayer);
+    } else {
+      this.seatManager.updateSeatData(seatIdx, () => newPlayer);
+    }
+
+    this.state.historyText.push(`${playerName} (${isBot ? 'AI Bot' : 'Human'}) joined Seat #${seatIdx} (${this.state.players.length}/${maxSeats} players).`);
+    return success(newPlayer);
+  }
+
+  /**
+   * Hot-swaps an existing seat to a Human user or updates their name.
+   */
+  public claimSeatForHuman(playerIndex: number,
+                           humanName: string): Result<SkipBoPlayerState, string> {
+    if (playerIndex < 0 || playerIndex >= this.state.players.length) {
+      return failure(`Invalid player index ${playerIndex}.`);
+    }
+    const target = this.state.players[playerIndex]!;
+    target.name = humanName;
+    target.isBot = false;
+    this.refillHand(target);
+    this.seatManager.claimSeat(playerIndex + 1, target.id, humanName, target);
+    this.state.historyText.push(`${humanName} claimed Seat #${playerIndex + 1}.`);
+    return success(target);
+  }
+
+  /**
+   * Hot-swaps a departing human player back to an AI Bot so the match continues seamlessly.
+   */
+  public vacatePlayerSeat(playerId: string,
+                          fallbackBotName: string = 'Cathedral Guardian Bot'): Result<SkipBoPlayerState, string> {
+    const idx = this.state.players.findIndex(p => p.id === playerId);
+    if (idx < 0) {
+      return failure(`Player ${playerId} not found.`);
+    }
+    const target = this.state.players[idx]!;
+    target.isBot = true;
+    target.name = `${fallbackBotName} #${idx + 1}`;
+    this.seatManager.vacateSeat(idx + 1, AIModelEnum.MicroNeural, fallbackBotName);
+    this.state.historyText.push(`Seat #${idx + 1} hot-swapped to ${target.name}.`);
+    return success(target);
   }
 
   public getCurrentPlayer(): SkipBoPlayerState {

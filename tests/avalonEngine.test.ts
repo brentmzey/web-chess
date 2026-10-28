@@ -152,4 +152,22 @@ describe('The Resistance: Avalon Engine - 5 to 10 Player Capacity & Hidden Roles
     expect(killWrong.isSuccess()).toBe(true);
     expect(engine.state.winner.match({ Some: w => w, None: () => '' })).toBe('good');
   });
+
+  it('adds, claims, and vacates up to 10 knights in The Resistance: Avalon', () => {
+    const engine = new AvalonEngine('Arthur', 8);
+    expect(engine.state.players.length).toBe(8);
+
+    expect(engine.addPlayer('Sir Lancelot', false).isSuccess()).toBe(true);
+    expect(engine.addPlayer('Sir Bors', true).isSuccess()).toBe(true);
+    expect(engine.state.players.length).toBe(10);
+    expect(engine.addPlayer('Overflow Knight', false).isFailure()).toBe(true);
+
+    expect(engine.claimSeatForHuman(1, 'Lady Guinevere').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(false);
+    expect(engine.claimSeatForHuman(99, 'Invalid').isFailure()).toBe(true);
+
+    expect(engine.vacatePlayerSeat('p2', 'Bot Knight #2').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(true);
+    expect(engine.vacatePlayerSeat('unknown').isFailure()).toBe(true);
+  });
 });

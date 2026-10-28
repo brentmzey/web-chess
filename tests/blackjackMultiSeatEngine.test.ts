@@ -317,5 +317,11 @@ describe('BlackjackMultiSeatEngine - Multi-Player (>2) Table Dynamics & Bot Fill
     engineDdBust.startRound();
     engineDdBust.playerDoubleDown(1);
     expect(engineDdBust.seatManager.getSeat(1).getOrThrow().extraData.outcome).toBe('lost');
+
+    // 7. Dynamically add human and AI players via addPlayer
+    const multiAdd = new BlackjackMultiSeatEngine(2, 10, 500);
+    expect(multiAdd.addPlayer('Human1', false).isSuccess()).toBe(true);
+    expect(multiAdd.addPlayer('Bot2', true).isSuccess()).toBe(true);
+    expect(multiAdd.addPlayer('OverflowBot', true).isFailure()).toBe(true);
   });
 });

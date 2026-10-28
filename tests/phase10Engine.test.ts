@@ -338,4 +338,33 @@ describe('Phase10Engine - Liturgical Rites, Set/Run Validation & AI Auto-Play', 
     engine.state.isGameOver = true;
     expect(engine.startNextRound().isFailure()).toBe(true);
   });
+
+  it('adds, claims, vacates, and auto-plays bot turns across up to 6 players in Phase 10', () => {
+    const engine = new Phase10Engine('Alice', 'Prior Bot', undefined, 2);
+    expect(engine.state.players.length).toBe(2);
+
+    // Add players up to 6 capacity
+    expect(engine.addPlayer('Pilgrim 3', false).isSuccess()).toBe(true);
+    expect(engine.addPlayer('Prior Bot 4', true).isSuccess()).toBe(true);
+    expect(engine.addPlayer('Pilgrim 5', false).isSuccess()).toBe(true);
+    expect(engine.addPlayer('Prior Bot 6', true).isSuccess()).toBe(true);
+    expect(engine.state.players.length).toBe(6);
+    expect(engine.addPlayer('Overflow 7', false).isFailure()).toBe(true);
+
+    // Claim seat 1 for human
+    expect(engine.claimSeatForHuman(1, 'Human Two').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(false);
+    expect(engine.claimSeatForHuman(99, 'Invalid').isFailure()).toBe(true);
+
+    // Vacate seat 1 back to AI bot
+    expect(engine.vacatePlayerSeat('p2', 'Prior Bot #2').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(true);
+    expect(engine.vacatePlayerSeat('missing_id').isFailure()).toBe(true);
+
+    // Auto-play bot turn when it is a bot's turn
+    engine.state.currentTurnIndex = 1;
+    engine.state.hasDrawnThisTurn = false;
+    const botLogs = engine.autoPlayBotTurn();
+    expect(botLogs.length).toBeGreaterThan(0);
+  });
 });

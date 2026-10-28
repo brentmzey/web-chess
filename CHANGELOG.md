@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.27] - 2026-10-27
+### Added
+- **Dynamic Multi-Player Seat Addition, Human Seat Claiming & AI Hot-Swapping Across All 7 Arcade Games (`src/games/*`, `src/main.ts`, `index.html`)**:
+  - **Engine-Level `TableSeatManager` & Dynamic Player Management**: Integrated `seatManager: TableSeatManager<T>`, `addPlayer(playerName, isBot)`, `claimSeatForHuman(playerIndex, humanName)`, and `vacatePlayerSeat(playerId, fallbackBotName)` across **Gothic Blackjack** (`1–7 seats`), **Cathedral Poker** (`2–9 seats`), **Sacred Skip-Bo** (`2–6 seats`), **Ten Rites / Phase 10** (`2–6 seats`), **Cardinal Uno** (`2–10 seats`), **The Resistance: Avalon** (`5–10 seats`), and **Sacred Geometry SET** (`1–20 seats`).
+  - **Theater Multi-Player Seat Selectors, `+ Player` Controls & Interactive Seat Strips (`index.html`, `src/main.ts`)**: Added live seat-count selectors (`#bjk-seats-select`, `#poker-seats-select`, `#skipbo-seats-select`, `#phase10-seats-select`, `#uno-seats-select`, `#avalon-seats-select`, `#set-seats-select`), instant `+ Player` / `+ Knight` buttons (`#bjk-btn-add-player`, `#poker-btn-add-player`, `#skipbo-btn-add-player`, `#phase10-btn-add-player`, `#uno-btn-add-player`, `#avalon-btn-add-player`, `#set-btn-add-player`), `#phase10-btn-bot-step`, and interactive multi-player seat tracks (`#bjk-seats-track`, `#poker-seats-track`, `#skipbo-opponents-track`, `#phase10-opponents-track`, `#uno-opponents-track`, `#set-players-scoreboard`) where clicking any seat badge claims it for a human user.
+
 ## [1.2.0-rc.26] - 2026-10-27
 ### Added
 - **Grand Sanctuary Playing Card & Typography UI/UX Overhaul Across All 7 Arcade Game Theaters (`src/styles/main.css`, `src/main.ts`, `index.html`)**:

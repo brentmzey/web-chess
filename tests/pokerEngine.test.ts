@@ -383,5 +383,11 @@ describe('Cathedral Poker Engine - Hand Evaluator, Variants & Multi-Seat Table',
 
     // All-In action
     expect(holdem.playerAction(1, PokerActionEnum.AllIn).isSuccess()).toBe(true);
+
+    // Dynamically add human and AI players via addPlayer
+    const pokerAdd = new PokerEngine(PokerVariantEnum.TexasHoldem, 2, 10, 20);
+    expect(pokerAdd.addPlayer('HumanPoker', false).isSuccess()).toBe(true);
+    expect(pokerAdd.addPlayer('BotPoker', true).isSuccess()).toBe(true);
+    expect(pokerAdd.addPlayer('OverflowBot', true).isFailure()).toBe(true);
   });
 });

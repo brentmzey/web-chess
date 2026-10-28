@@ -6,7 +6,8 @@ import {
   success,
   failure
 } from '../../utils/fp';
-import { ArcadeGameEnum, REAL_LIFE_GAME_CAPACITIES } from '../../constants/gameEnums';
+import { AIModelEnum, ArcadeGameEnum, REAL_LIFE_GAME_CAPACITIES } from '../../constants/gameEnums';
+import { TableSeatManager } from '../multiplayer/tableSeatManager';
 import { logger } from '../../utils/logger';
 
 export type AvalonRole =
@@ -68,12 +69,14 @@ export const QUEST_SIZES_BY_PLAYERS: Record<number, number[]> = {
 
 export class AvalonEngine {
   public state: AvalonGameState;
+  public readonly seatManager: TableSeatManager<AvalonPlayer>;
 
   constructor(leaderName: string = 'Human Knight',
               playerCount: number = 5) {
     const minAllowed = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.Avalon].minPlayers;
     const maxAllowed = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.Avalon].maxPlayers;
     const totalPlayers = Math.max(minAllowed, Math.min(maxAllowed, playerCount));
+    this.seatManager = new TableSeatManager<AvalonPlayer>(maxAllowed, minAllowed, AIModelEnum.MicroNeural);
 
     const botNames = [
       'Galahad Bot',
@@ -87,13 +90,6 @@ export class AvalonEngine {
       'Palamedes Bot'
     ];
 
-    // Alignments distribution:
-    // 5 players: 3 Good, 2 Evil
-    // 6 players: 4 Good, 2 Evil
-    // 7 players: 4 Good, 3 Evil
-    // 8 players: 5 Good, 3 Evil
-    // 9 players: 6 Good, 3 Evil
-    // 10 players: 6 Good, 4 Evil
     const evilCount = totalPlayers <= 6 ? 2 : totalPlayers <= 9 ? 3 : 4;
     const goodCount = totalPlayers - evilCount;
 
@@ -118,13 +114,19 @@ export class AvalonEngine {
     for (let i = 0; i < totalPlayers; i++) {
       const pName = i === 0 ? leaderName : botNames[i - 1] || `Knight #${i + 1}`;
       const r = rolesPool[i]!;
-      playersList.push({
+      const pState: AvalonPlayer = {
         id: `p${i + 1}`,
         name: pName,
         isBot: i > 0,
         role: r.role,
         alignment: r.alignment
-      });
+      };
+      playersList.push(pState);
+      if (i === 0) {
+        this.seatManager.claimSeat(1, pState.id, pState.name, pState);
+      } else {
+        this.seatManager.updateSeatData(i + 1, () => pState);
+      }
     }
 
     const questSizes = QUEST_SIZES_BY_PLAYERS[totalPlayers] || [2, 3, 2, 3, 3];
@@ -148,6 +150,81 @@ export class AvalonEngine {
       winner: none(),
       historyText: [`The Resistance: Avalon commenced with ${totalPlayers} players (${goodCount} Good, ${evilCount} Evil).`]
     };
+  }
+
+  /**
+   * Dynamically adds a new player (human or AI bot) up to 10 players and updates quest team sizes.
+   */
+  public addPlayer(playerName: string,
+                   isBot: boolean = false): Result<AvalonPlayer, string> {
+    const maxAllowed = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.Avalon].maxPlayers;
+    if (this.state.players.length >= maxAllowed) {
+      return failure(`Avalon council is at maximum capacity (${maxAllowed} players).`);
+    }
+
+    const seatIdx = this.state.players.length + 1;
+    const targetEvilCount = seatIdx <= 6 ? 2 : seatIdx <= 9 ? 3 : 4;
+    const currentEvilCount = this.state.players.filter(p => p.alignment === 'evil').length;
+    const isEvil = currentEvilCount < targetEvilCount;
+
+    const newPlayer: AvalonPlayer = {
+      id: `p${seatIdx}`,
+      name: playerName,
+      isBot,
+      role: isEvil ? 'Minion of Mordred' : 'Loyal Servant',
+      alignment: isEvil ? 'evil' : 'good'
+    };
+
+    this.state.players.push(newPlayer);
+    if (!isBot) {
+      this.seatManager.claimSeat(seatIdx, newPlayer.id, newPlayer.name, newPlayer);
+    } else {
+      this.seatManager.updateSeatData(seatIdx, () => newPlayer);
+    }
+
+    const questSizes = QUEST_SIZES_BY_PLAYERS[this.state.players.length] || [2, 3, 2, 3, 3];
+    this.state.quests.forEach((q, idx) => {
+      if (q.outcome.isNone()) {
+        q.teamSize = questSizes[idx] || q.teamSize;
+        q.twoFailsRequired = this.state.players.length >= 7 && idx === 3;
+      }
+    });
+
+    this.state.historyText.push(`${playerName} (${isBot ? 'Bot Knight' : 'Human Knight'}) joined Seat #${seatIdx} (${this.state.players.length}/${maxAllowed} knights).`);
+    return success(newPlayer);
+  }
+
+  /**
+   * Hot-swaps an existing seat to a Human user.
+   */
+  public claimSeatForHuman(playerIndex: number,
+                           humanName: string): Result<AvalonPlayer, string> {
+    if (playerIndex < 0 || playerIndex >= this.state.players.length) {
+      return failure(`Invalid player index ${playerIndex}.`);
+    }
+    const target = this.state.players[playerIndex]!;
+    target.name = humanName;
+    target.isBot = false;
+    this.seatManager.claimSeat(playerIndex + 1, target.id, humanName, target);
+    this.state.historyText.push(`${humanName} claimed Seat #${playerIndex + 1}.`);
+    return success(target);
+  }
+
+  /**
+   * Hot-swaps a departing human player back to an AI Bot.
+   */
+  public vacatePlayerSeat(playerId: string,
+                          fallbackBotName: string = 'Arthurian Bot'): Result<AvalonPlayer, string> {
+    const idx = this.state.players.findIndex(p => p.id === playerId);
+    if (idx < 0) {
+      return failure(`Player ${playerId} not found.`);
+    }
+    const target = this.state.players[idx]!;
+    target.isBot = true;
+    target.name = `${fallbackBotName} #${idx + 1}`;
+    this.seatManager.vacateSeat(idx + 1, AIModelEnum.MicroNeural, fallbackBotName);
+    this.state.historyText.push(`Seat #${idx + 1} hot-swapped to ${target.name}.`);
+    return success(target);
   }
 
   public getCurrentLeader(): AvalonPlayer {

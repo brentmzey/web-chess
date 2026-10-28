@@ -191,4 +191,32 @@ describe('SkipBoEngine - Rules, Building Piles, and AI Auto-Play', () => {
     const logs = engine.autoPlayBotTurn();
     expect(logs.length).toBeGreaterThan(0);
   });
+
+  it('adds, claims, and vacates up to 6 players in Sacred Skip-Bo', () => {
+    const engine = new SkipBoEngine('Alice', 'Bot1', 5, undefined, 2);
+    expect(engine.state.players.length).toBe(2);
+
+    // Add 4 more players up to 6 max capacity
+    expect(engine.addPlayer('Charlie', false).isSuccess()).toBe(true);
+    expect(engine.addPlayer('Diana', true).isSuccess()).toBe(true);
+    expect(engine.addPlayer('Edward', false).isSuccess()).toBe(true);
+    expect(engine.addPlayer('Fiona', true).isSuccess()).toBe(true);
+    expect(engine.state.players.length).toBe(6);
+
+    // Adding a 7th player fails (max 6)
+    expect(engine.addPlayer('George', false).isFailure()).toBe(true);
+
+    // Claim seat 1 (Bot1) for a human user
+    expect(engine.claimSeatForHuman(1, 'Bob Human').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(false);
+    expect(engine.state.players[1]!.name).toBe('Bob Human');
+
+    // Out-of-bounds seat claim fails
+    expect(engine.claimSeatForHuman(99, 'Invalid').isFailure()).toBe(true);
+
+    // Vacate player seat hot-swaps back to AI bot
+    expect(engine.vacatePlayerSeat('p2', 'Abbot Fallback').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(true);
+    expect(engine.vacatePlayerSeat('unknown_id').isFailure()).toBe(true);
+  });
 });

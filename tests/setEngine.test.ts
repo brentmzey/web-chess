@@ -153,4 +153,22 @@ describe('Sacred Geometry SET Engine (GF(3)^4 Finite Geometry Rules)', () => {
     expect(aiEndRes.isFailure()).toBe(true);
     expect(engine.state.isGameOver).toBe(true);
   });
+
+  it('adds, claims, and vacates up to 20 players in Sacred Geometry SET', () => {
+    const engine = new SetEngine(18, 'Euclid');
+    expect(engine.state.players.length).toBe(18);
+
+    expect(engine.addPlayer('Noether', false).isSuccess()).toBe(true);
+    expect(engine.addPlayer('Hilbert Bot', true).isSuccess()).toBe(true);
+    expect(engine.state.players.length).toBe(20);
+    expect(engine.addPlayer('Overflow 21', false).isFailure()).toBe(true);
+
+    expect(engine.claimSeatForHuman(1, 'Riemann').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(false);
+    expect(engine.claimSeatForHuman(99, 'Invalid').isFailure()).toBe(true);
+
+    expect(engine.vacatePlayerSeat('p2', 'Geometer Bot').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(true);
+    expect(engine.vacatePlayerSeat('unknown').isFailure()).toBe(true);
+  });
 });

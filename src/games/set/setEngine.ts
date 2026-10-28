@@ -8,6 +8,7 @@ import {
   success
 } from '../../utils/fp';
 import {
+  AIModelEnum,
   ArcadeGameEnum,
   REAL_LIFE_GAME_CAPACITIES,
   SET_COLORS,
@@ -19,6 +20,7 @@ import {
   SetShadingEnum,
   SetShapeEnum
 } from '../../constants/gameEnums';
+import { TableSeatManager } from '../multiplayer/tableSeatManager';
 import { logger } from '../../utils/logger';
 
 /**
@@ -180,12 +182,14 @@ export function findAllSetsOnTable(tableCards: readonly SetCard[]): Array<readon
 
 export class SetEngine {
   public state: SetGameState;
+  public readonly seatManager: TableSeatManager<SetPlayerState>;
 
   constructor(playerCount: number = 2,
               humanName: string = 'Geometer Pilgrim') {
     const cap = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.Set];
     const totalPlayers = Math.max(cap.minPlayers, Math.min(cap.maxPlayers, playerCount));
     const fullDeck = shuffleSetCards(createSetDeck());
+    this.seatManager = new TableSeatManager<SetPlayerState>(cap.maxPlayers, cap.minPlayers, AIModelEnum.MicroNeural);
 
     const initialTable = fullDeck.splice(0, 12);
     const botNames = [
@@ -199,14 +203,20 @@ export class SetEngine {
 
     const players: SetPlayerState[] = [];
     for (let i = 0; i < totalPlayers; i++) {
-      players.push({
+      const pState: SetPlayerState = {
         id: `p${i + 1}`,
         name: i === 0 ? humanName : botNames[(i - 1) % botNames.length]!,
         isBot: i > 0,
         score: 0,
         setsFound: 0,
         penalties: 0
-      });
+      };
+      players.push(pState);
+      if (i === 0) {
+        this.seatManager.claimSeat(1, pState.id, pState.name, pState);
+      } else {
+        this.seatManager.updateSeatData(i + 1, () => pState);
+      }
     }
 
     this.state = {
@@ -221,6 +231,70 @@ export class SetEngine {
         `Sacred Geometry SET initiated with ${totalPlayers} players. 12 cards dealt on table (${fullDeck.length} remaining in deck).`
       ]
     };
+  }
+
+  /**
+   * Dynamically adds a new player (human or AI bot) up to 20 players.
+   */
+  public addPlayer(playerName: string,
+                   isBot: boolean = false): Result<SetPlayerState, string> {
+    const maxPlayers = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.Set].maxPlayers;
+    if (this.state.players.length >= maxPlayers) {
+      return failure(`SET table is at maximum capacity (${maxPlayers} players).`);
+    }
+
+    const seatIdx = this.state.players.length + 1;
+    const newPlayer: SetPlayerState = {
+      id: `p${seatIdx}`,
+      name: playerName,
+      isBot,
+      score: 0,
+      setsFound: 0,
+      penalties: 0
+    };
+
+    this.state.players.push(newPlayer);
+    if (!isBot) {
+      this.seatManager.claimSeat(seatIdx, newPlayer.id, newPlayer.name, newPlayer);
+    } else {
+      this.seatManager.updateSeatData(seatIdx, () => newPlayer);
+    }
+
+    this.state.historyText.push(`${playerName} (${isBot ? 'AI Bot' : 'Human'}) joined Seat #${seatIdx} (${this.state.players.length}/${maxPlayers} players).`);
+    return success(newPlayer);
+  }
+
+  /**
+   * Hot-swaps an existing seat to a Human user.
+   */
+  public claimSeatForHuman(playerIndex: number,
+                           humanName: string): Result<SetPlayerState, string> {
+    if (playerIndex < 0 || playerIndex >= this.state.players.length) {
+      return failure(`Invalid player index ${playerIndex}.`);
+    }
+    const target = this.state.players[playerIndex]!;
+    target.name = humanName;
+    target.isBot = false;
+    this.seatManager.claimSeat(playerIndex + 1, target.id, humanName, target);
+    this.state.historyText.push(`${humanName} claimed Seat #${playerIndex + 1}.`);
+    return success(target);
+  }
+
+  /**
+   * Hot-swaps a departing human player back to an AI Bot.
+   */
+  public vacatePlayerSeat(playerId: string,
+                          fallbackBotName: string = 'Geometer Bot'): Result<SetPlayerState, string> {
+    const idx = this.state.players.findIndex(p => p.id === playerId);
+    if (idx < 0) {
+      return failure(`Player ${playerId} not found.`);
+    }
+    const target = this.state.players[idx]!;
+    target.isBot = true;
+    target.name = `${fallbackBotName} #${idx + 1}`;
+    this.seatManager.vacateSeat(idx + 1, AIModelEnum.MicroNeural, fallbackBotName);
+    this.state.historyText.push(`Seat #${idx + 1} hot-swapped to ${target.name}.`);
+    return success(target);
   }
 
   /**

@@ -88,6 +88,23 @@ export class BlackjackMultiSeatEngine {
   }
 
   /**
+   * Dynamically adds a human or AI player to the next available seat (or hot-swaps a bot seat for a human).
+   */
+  public addPlayer(playerName: string,
+                   isBot: boolean = false): Result<TableSeat<MultiSeatPlayerData>, string> {
+    if (!isBot) {
+      return this.seatManager.claimAnyAvailableSeat(`usr_${this.seatManager.getHumanCount() + 1}`, playerName);
+    }
+    const emptySeat = this.seatManager.getAllSeats().find(s => !s.isOccupied);
+    if (!emptySeat) {
+      return failure(`All ${this.seatManager.getMaxSeats()} Blackjack seats are already occupied.`);
+    }
+    const res = this.seatManager.claimSeat(emptySeat.seatNumber, `bot_${emptySeat.seatNumber}`, playerName);
+    this.seatManager.vacateSeat(emptySeat.seatNumber, AIModelEnum.MicroNeural, playerName);
+    return res;
+  }
+
+  /**
    * Sets bet for a given seat.
    */
   public placeBet(seatNumber: number, betAmount: number): Result<number, string> {

@@ -310,6 +310,34 @@ export class CathedralPokerEngine {
   }
 
   /**
+   * Dynamically adds a human or AI player to the next available Poker seat (or hot-swaps a bot seat for a human).
+   */
+  public addPlayer(playerName: string,
+                   isBot: boolean = false): Result<TableSeat<PokerPlayerData>, string> {
+    const defaultData: PokerPlayerData = {
+      holeCards: [],
+      currentBet: 0,
+      chipBank: 1000,
+      folded: false,
+      isAllIn: false
+    };
+    if (!isBot) {
+      return this.seatManager.claimAnyAvailableSeat(
+        `usr_${this.seatManager.getHumanCount() + 1}`,
+        playerName,
+        defaultData
+      );
+    }
+    const emptySeat = this.seatManager.getAllSeats().find(s => !s.isOccupied);
+    if (!emptySeat) {
+      return failure(`All ${this.seatManager.getMaxSeats()} Poker seats are already occupied.`);
+    }
+    const res = this.seatManager.claimSeat(emptySeat.seatNumber, `bot_${emptySeat.seatNumber}`, playerName, defaultData);
+    this.seatManager.vacateSeat(emptySeat.seatNumber, AIModelEnum.MicroNeural, playerName);
+    return res;
+  }
+
+  /**
    * Starts a hand by collecting blinds, dealing hole cards, and advancing to Pre-Flop.
    */
   public startHand(): Result<number, string> {

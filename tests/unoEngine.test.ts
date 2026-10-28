@@ -147,4 +147,22 @@ describe('Cardinal Uno Engine - 2 to 10 Player Capacity & Tournament Rules', () 
     expect(engine.drawCard().isFailure()).toBe(true);
     expect(engine.executeAiTurn().isFailure()).toBe(true);
   });
+
+  it('adds, claims, and vacates up to 10 players in Cardinal Uno', () => {
+    const engine = new CardinalUnoEngine('Host', 8);
+    expect(engine.state.players.length).toBe(8);
+
+    expect(engine.addPlayer('Human 9', false).isSuccess()).toBe(true);
+    expect(engine.addPlayer('Cardinal Bot 10', true).isSuccess()).toBe(true);
+    expect(engine.state.players.length).toBe(10);
+    expect(engine.addPlayer('Overflow 11', false).isFailure()).toBe(true);
+
+    expect(engine.claimSeatForHuman(1, 'Joined Human').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(false);
+    expect(engine.claimSeatForHuman(99, 'Invalid').isFailure()).toBe(true);
+
+    expect(engine.vacatePlayerSeat('p2', 'Bot Backup').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.isBot).toBe(true);
+    expect(engine.vacatePlayerSeat('unknown').isFailure()).toBe(true);
+  });
 });

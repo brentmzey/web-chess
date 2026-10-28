@@ -1089,10 +1089,26 @@
             </div>
 
             <!-- Center: Mode Toggle & Live Online Connection Bar -->
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
                     <button type="button" id="bjk-tab-ai" class="px-3 py-1 rounded-xl bg-purple-600 text-white font-bold text-[11px] transition">Play vs Dealer</button>
-                    <button type="button" id="bjk-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-purple-300 font-bold text-[11px] transition">Live 1v1 Online</button>
+                    <button type="button" id="bjk-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-purple-300 font-bold text-[11px] transition">Live Multiplayer (1-7)</button>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-2xl px-2.5 py-1 text-xs">
+                    <span class="text-stone-400 font-semibold">Seats:</span>
+                    <select id="bjk-seats-select" class="bg-black/60 border border-emerald-400/30 rounded-xl px-2 py-0.5 text-xs text-emerald-200 focus:outline-none">
+                        <option value="1">1 Player</option>
+                        <option value="2">2 Players</option>
+                        <option value="3" selected>3 Players</option>
+                        <option value="4">4 Players</option>
+                        <option value="5">5 Players</option>
+                        <option value="6">6 Players</option>
+                        <option value="7">7 Players (Full Table)</option>
+                    </select>
+                    <button type="button" id="bjk-btn-add-player" class="px-2.5 py-0.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-bold text-[11px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">person_add</span>
+                        <span>+ Player</span>
+                    </button>
                 </div>
                 <div id="bjk-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-sky-950/60 border border-sky-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
@@ -1127,6 +1143,10 @@
 
         <!-- Main Felt Arena Container (Spacious Full View) -->
         <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+            <!-- Multi-Seat Casino Arc Track (1 to 7 Players) -->
+            <div id="bjk-seats-track" class="flex flex-wrap items-center justify-center gap-2.5 py-1 shrink-0">
+                <!-- Populated dynamically with all seated Blackjack players -->
+            </div>
             <!-- Grand Velvet Felt Board -->
             <div class="rounded-3xl p-5 sm:p-8 border-2 border-emerald-500/40 felt-blackjack shadow-2xl flex-1 flex flex-col justify-between gap-6 min-h-[420px]">
                 <!-- Dealer Area -->
@@ -1241,7 +1261,21 @@
                 </div>
                 <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
                     <button type="button" id="poker-tab-ai" class="px-3 py-1 rounded-xl bg-amber-500 text-stone-950 font-bold text-[11px] transition">Play vs AI</button>
-                    <button type="button" id="poker-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-amber-300 font-bold text-[11px] transition">Live 1v1 Online</button>
+                    <button type="button" id="poker-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-amber-300 font-bold text-[11px] transition">Live Multiplayer (2-9)</button>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-2xl px-2.5 py-1 text-xs">
+                    <span class="text-stone-400 font-semibold">Seats:</span>
+                    <select id="poker-seats-select" class="bg-black/60 border border-amber-400/30 rounded-xl px-2 py-0.5 text-xs text-amber-200 focus:outline-none">
+                        <option value="2">2 Players (Heads-Up)</option>
+                        <option value="4">4 Players</option>
+                        <option value="6" selected>6 Players (6-Max)</option>
+                        <option value="8">8 Players</option>
+                        <option value="9">9 Players (Full Ring)</option>
+                    </select>
+                    <button type="button" id="poker-btn-add-player" class="px-2.5 py-0.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[11px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">person_add</span>
+                        <span>+ Player</span>
+                    </button>
                 </div>
                 <div id="poker-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-amber-950/60 border border-amber-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
@@ -1263,6 +1297,10 @@
 
         <!-- Main Felt Arena Container -->
         <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+            <!-- Multi-Seat Poker Ring Track (2 to 9 Players) -->
+            <div id="poker-seats-track" class="flex flex-wrap items-center justify-center gap-2.5 py-1 shrink-0">
+                <!-- Populated dynamically with all seated Poker players -->
+            </div>
             <!-- Grand Oval Felt Poker Table -->
             <div class="rounded-3xl p-5 sm:p-8 border-4 border-amber-900/50 felt-poker shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[420px]">
                 <!-- Center Pot & Stage Row -->
@@ -1375,10 +1413,24 @@
             </div>
 
             <!-- Center: Mode Toggle & Live Online Connection Bar -->
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
                     <button type="button" id="skipbo-tab-ai" class="px-3 py-1 rounded-xl bg-blue-600 text-white font-bold text-[11px] transition">Play vs AI</button>
-                    <button type="button" id="skipbo-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-blue-300 font-bold text-[11px] transition">Live 1v1 Online</button>
+                    <button type="button" id="skipbo-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-blue-300 font-bold text-[11px] transition">Live Multiplayer (2-6)</button>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-2xl px-2.5 py-1 text-xs">
+                    <span class="text-stone-400 font-semibold">Players:</span>
+                    <select id="skipbo-seats-select" class="bg-black/60 border border-sky-400/30 rounded-xl px-2 py-0.5 text-xs text-sky-200 focus:outline-none">
+                        <option value="2">2 Players</option>
+                        <option value="3">3 Players</option>
+                        <option value="4" selected>4 Players</option>
+                        <option value="5">5 Players</option>
+                        <option value="6">6 Players (Full Table)</option>
+                    </select>
+                    <button type="button" id="skipbo-btn-add-player" class="px-2.5 py-0.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[11px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">person_add</span>
+                        <span>+ Player</span>
+                    </button>
                 </div>
                 <div id="skipbo-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-blue-950/60 border border-blue-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
@@ -1404,6 +1456,10 @@
 
         <!-- Main Felt Arena Container -->
         <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+            <!-- Multi-Player Skip-Bo Seats Track (2 to 6 Players) -->
+            <div id="skipbo-opponents-track" class="flex flex-wrap items-center justify-center gap-2.5 py-1 shrink-0">
+                <!-- Populated dynamically with all seated Skip-Bo players -->
+            </div>
             <!-- Grand Blue Velvet Table -->
             <div class="rounded-3xl p-5 sm:p-8 border-2 border-sky-500/40 felt-skipbo shadow-2xl flex-1 flex flex-col justify-between gap-5 min-h-[420px]">
                 <!-- Opponent Info & Deck Stats -->
@@ -1500,10 +1556,24 @@
             </div>
 
             <!-- Center: Mode Toggle & Live Online Connection Bar -->
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
                     <button type="button" id="phase10-tab-ai" class="px-3 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px] transition">Play vs AI</button>
-                    <button type="button" id="phase10-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-emerald-300 font-bold text-[11px] transition">Live 1v1 Online</button>
+                    <button type="button" id="phase10-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-emerald-300 font-bold text-[11px] transition">Live Multiplayer (2-6)</button>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-2xl px-2.5 py-1 text-xs">
+                    <span class="text-stone-400 font-semibold">Players:</span>
+                    <select id="phase10-seats-select" class="bg-black/60 border border-emerald-400/30 rounded-xl px-2 py-0.5 text-xs text-emerald-200 focus:outline-none">
+                        <option value="2">2 Players</option>
+                        <option value="3">3 Players</option>
+                        <option value="4" selected>4 Players</option>
+                        <option value="5">5 Players</option>
+                        <option value="6">6 Players (Full Table)</option>
+                    </select>
+                    <button type="button" id="phase10-btn-add-player" class="px-2.5 py-0.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-[11px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">person_add</span>
+                        <span>+ Player</span>
+                    </button>
                 </div>
                 <div id="phase10-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-emerald-950/60 border border-emerald-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
@@ -1515,8 +1585,12 @@
                 </div>
             </div>
 
-            <!-- Right: Fullscreen -->
+            <!-- Right: Auto AI Turn & Fullscreen -->
             <div class="flex items-center gap-2">
+                <button type="button" id="phase10-btn-bot-step" class="px-3 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 border border-white/10 text-stone-200 font-bold text-xs flex items-center gap-1.5 shadow-sm transition">
+                    <span class="material-symbols-rounded text-sm text-emerald-400">smart_toy</span>
+                    <span class="hidden sm:inline">Auto AI Turn</span>
+                </button>
                 <button type="button" id="btn-phase10-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -1525,6 +1599,10 @@
 
         <!-- Main Felt Arena Container -->
         <main class="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col justify-between overflow-y-auto space-y-4">
+            <!-- Multi-Player Phase 10 Seats Track (2 to 6 Players) -->
+            <div id="phase10-opponents-track" class="flex flex-wrap items-center justify-center gap-2.5 py-1 shrink-0">
+                <!-- Populated dynamically with all seated Phase 10 players -->
+            </div>
             <!-- Liturgical Phase Contract Banner -->
             <div class="p-3.5 sm:p-4 rounded-2xl bg-emerald-950/65 border border-emerald-400/40 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm backdrop-blur-sm shrink-0">
                 <div class="space-y-0.5">
@@ -1631,10 +1709,25 @@
             </div>
 
             <!-- Center: Mode Toggle & Live Online Connection Bar -->
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
                     <button type="button" id="uno-tab-ai" class="px-3 py-1 rounded-xl bg-red-600 text-white font-bold text-[11px] transition">Play vs AI</button>
-                    <button type="button" id="uno-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-red-300 font-bold text-[11px] transition">Live Multiplayer</button>
+                    <button type="button" id="uno-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-red-300 font-bold text-[11px] transition">Live Multiplayer (2-10)</button>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-2xl px-2.5 py-1 text-xs">
+                    <span class="text-stone-400 font-semibold">Players:</span>
+                    <select id="uno-seats-select" class="bg-black/60 border border-red-400/30 rounded-xl px-2 py-0.5 text-xs text-red-200 focus:outline-none">
+                        <option value="2">2 Players</option>
+                        <option value="3">3 Players</option>
+                        <option value="4" selected>4 Players</option>
+                        <option value="6">6 Players</option>
+                        <option value="8">8 Players</option>
+                        <option value="10">10 Players (Full Table)</option>
+                    </select>
+                    <button type="button" id="uno-btn-add-player" class="px-2.5 py-0.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">person_add</span>
+                        <span>+ Player</span>
+                    </button>
                 </div>
                 <div id="uno-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-red-950/60 border border-red-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
@@ -1752,10 +1845,25 @@
             </div>
 
             <!-- Center: Mode Toggle & Live Online Connection Bar -->
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
                     <button type="button" id="avalon-tab-ai" class="px-3 py-1 rounded-xl bg-sky-600 text-white font-bold text-[11px] transition">Play vs AI</button>
-                    <button type="button" id="avalon-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-sky-300 font-bold text-[11px] transition">Live Multiplayer</button>
+                    <button type="button" id="avalon-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-sky-300 font-bold text-[11px] transition">Live Multiplayer (5-10)</button>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-2xl px-2.5 py-1 text-xs">
+                    <span class="text-stone-400 font-semibold">Knights:</span>
+                    <select id="avalon-seats-select" class="bg-black/60 border border-sky-400/30 rounded-xl px-2 py-0.5 text-xs text-sky-200 focus:outline-none">
+                        <option value="5" selected>5 Knights</option>
+                        <option value="6">6 Knights</option>
+                        <option value="7">7 Knights</option>
+                        <option value="8">8 Knights</option>
+                        <option value="9">9 Knights</option>
+                        <option value="10">10 Knights (Full Council)</option>
+                    </select>
+                    <button type="button" id="avalon-btn-add-player" class="px-2.5 py-0.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[11px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">person_add</span>
+                        <span>+ Knight</span>
+                    </button>
                 </div>
                 <div id="avalon-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-sky-950/60 border border-sky-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
@@ -1878,10 +1986,26 @@
             </div>
 
             <!-- Center: Mode Toggle & Live Online Connection Bar -->
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
                     <button type="button" id="set-tab-ai" class="px-3 py-1 rounded-xl bg-fuchsia-600 text-white font-bold text-[11px] transition">Play vs AI</button>
-                    <button type="button" id="set-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-fuchsia-300 font-bold text-[11px] transition">Live Multiplayer</button>
+                    <button type="button" id="set-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-fuchsia-300 font-bold text-[11px] transition">Live Multiplayer (1-20)</button>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-2xl px-2.5 py-1 text-xs">
+                    <span class="text-stone-400 font-semibold">Players:</span>
+                    <select id="set-seats-select" class="bg-black/60 border border-fuchsia-400/30 rounded-xl px-2 py-0.5 text-xs text-fuchsia-200 focus:outline-none">
+                        <option value="2">2 Players</option>
+                        <option value="3" selected>3 Players</option>
+                        <option value="4">4 Players</option>
+                        <option value="6">6 Players</option>
+                        <option value="8">8 Players</option>
+                        <option value="12">12 Players</option>
+                        <option value="20">20 Players (Full Hall)</option>
+                    </select>
+                    <button type="button" id="set-btn-add-player" class="px-2.5 py-0.5 rounded-xl bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-bold text-[11px] flex items-center gap-1 transition">
+                        <span class="material-symbols-rounded text-xs">person_add</span>
+                        <span>+ Player</span>
+                    </button>
                 </div>
                 <div id="set-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-fuchsia-950/60 border border-fuchsia-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-fuchsia-400 animate-ping"></span>

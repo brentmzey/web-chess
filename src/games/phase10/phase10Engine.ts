@@ -7,11 +7,15 @@ import {
   failure
 } from '../../utils/fp';
 import {
+  AIModelEnum,
+  ArcadeGameEnum,
   Phase10ColorEnum,
   Phase10SpecialEnum,
-  PHASE_10_REQUIREMENTS
+  PHASE_10_REQUIREMENTS,
+  REAL_LIFE_GAME_CAPACITIES
 } from '../../constants/gameEnums';
 export { PHASE_10_REQUIREMENTS };
+import { TableSeatManager } from '../multiplayer/tableSeatManager';
 import { logger } from '../../utils/logger';
 
 export interface Phase10Card {
@@ -156,15 +160,16 @@ export function isValidColorGroup(cards: Phase10Card[], minSize: number): boolea
 
 export class Phase10Engine {
   public state: Phase10GameState;
+  public readonly seatManager: TableSeatManager<Phase10PlayerState>;
 
-  constructor(
-    player1Name: string = 'Human Pilgrim',
-    player2Name: string = 'Cathedral AI Prior',
-    customDeck?: Phase10Card[],
-    playerCount: number = 2
-  ) {
+  constructor(player1Name: string = 'Human Pilgrim',
+              player2Name: string = 'Cathedral AI Prior',
+              customDeck?: Phase10Card[],
+              playerCount: number = 2) {
     const deck = customDeck || createPhase10Deck();
-    const totalPlayers = Math.max(2, Math.min(6, playerCount));
+    const maxSeats = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.Phase10].maxPlayers;
+    const totalPlayers = Math.max(2, Math.min(maxSeats, playerCount));
+    this.seatManager = new TableSeatManager<Phase10PlayerState>(maxSeats, 2, AIModelEnum.MicroNeural);
 
     const playersList: Phase10PlayerState[] = [];
     const botNames = ['Cathedral AI Prior', 'Abbot Brother', 'Deacon Michael', 'Novice Thomas', 'Archon Gregory'];
@@ -181,7 +186,7 @@ export class Phase10Engine {
         ? player2Name
         : botNames[pIdx - 1] || `Sanctuary Bot #${pIdx + 1}`;
 
-      playersList.push({
+      const playerState: Phase10PlayerState = {
         id: `p${pIdx + 1}`,
         name: pName,
         isBot: pIdx > 0,
@@ -190,7 +195,14 @@ export class Phase10Engine {
         hand: pHand,
         laidGroups: [],
         score: 0
-      });
+      };
+      playersList.push(playerState);
+
+      if (pIdx === 0) {
+        this.seatManager.claimSeat(1, playerState.id, playerState.name, playerState);
+      } else {
+        this.seatManager.updateSeatData(pIdx + 1, () => playerState);
+      }
     }
 
     // Top card to discard pile
@@ -207,6 +219,80 @@ export class Phase10Engine {
       winner: none(),
       historyText: [`Phase 10 match started (${totalPlayers} players). Phase 1 active (2 Sets of 3).`]
     };
+  }
+
+  /**
+   * Dynamically adds a new player (human or AI bot) to the Phase 10 table up to 6 players.
+   */
+  public addPlayer(playerName: string,
+                   isBot: boolean = false): Result<Phase10PlayerState, string> {
+    const maxSeats = REAL_LIFE_GAME_CAPACITIES[ArcadeGameEnum.Phase10].maxPlayers;
+    if (this.state.players.length >= maxSeats) {
+      return failure(`Phase 10 table is at maximum capacity (${maxSeats} players).`);
+    }
+
+    const seatIdx = this.state.players.length + 1;
+    const pHand: Phase10Card[] = [];
+    for (let i = 0; i < 10; i++) {
+      this.checkRecycleDeck();
+      if (this.state.drawPile.length > 0) {
+        pHand.push(this.state.drawPile.pop()!);
+      }
+    }
+
+    const newPlayer: Phase10PlayerState = {
+      id: `p${seatIdx}`,
+      name: playerName,
+      isBot,
+      currentPhase: 1,
+      phaseCompletedThisRound: false,
+      hand: pHand,
+      laidGroups: [],
+      score: 0
+    };
+
+    this.state.players.push(newPlayer);
+    if (!isBot) {
+      this.seatManager.claimSeat(seatIdx, newPlayer.id, newPlayer.name, newPlayer);
+    } else {
+      this.seatManager.updateSeatData(seatIdx, () => newPlayer);
+    }
+
+    this.state.historyText.push(`${playerName} (${isBot ? 'AI Bot' : 'Human'}) joined Seat #${seatIdx} (${this.state.players.length}/${maxSeats} players).`);
+    return success(newPlayer);
+  }
+
+  /**
+   * Hot-swaps an existing seat to a Human user.
+   */
+  public claimSeatForHuman(playerIndex: number,
+                           humanName: string): Result<Phase10PlayerState, string> {
+    if (playerIndex < 0 || playerIndex >= this.state.players.length) {
+      return failure(`Invalid player index ${playerIndex}.`);
+    }
+    const target = this.state.players[playerIndex]!;
+    target.name = humanName;
+    target.isBot = false;
+    this.seatManager.claimSeat(playerIndex + 1, target.id, humanName, target);
+    this.state.historyText.push(`${humanName} claimed Seat #${playerIndex + 1}.`);
+    return success(target);
+  }
+
+  /**
+   * Hot-swaps a departing human player back to an AI Bot.
+   */
+  public vacatePlayerSeat(playerId: string,
+                          fallbackBotName: string = 'Prior Guardian Bot'): Result<Phase10PlayerState, string> {
+    const idx = this.state.players.findIndex(p => p.id === playerId);
+    if (idx < 0) {
+      return failure(`Player ${playerId} not found.`);
+    }
+    const target = this.state.players[idx]!;
+    target.isBot = true;
+    target.name = `${fallbackBotName} #${idx + 1}`;
+    this.seatManager.vacateSeat(idx + 1, AIModelEnum.MicroNeural, fallbackBotName);
+    this.state.historyText.push(`Seat #${idx + 1} hot-swapped to ${target.name}.`);
+    return success(target);
   }
 
   public getCurrentPlayer(): Phase10PlayerState {
