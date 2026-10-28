@@ -188,4 +188,69 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
 
     db.close();
   });
+
+  it('verifies all 7 Arcade Game Theaters have mobile responsive shells, seat strips, sticky action docks, and dynamic player controls', () => {
+    const htmlPath = resolve(__dirname, '../index.html');
+    const html = readFileSync(htmlPath, 'utf8');
+    const cssPath = resolve(__dirname, '../src/styles/main.css');
+    const css = readFileSync(cssPath, 'utf8');
+
+    // Verify viewport-fit=cover for notched mobile screens
+    expect(html).toContain('viewport-fit=cover');
+
+    // Verify all 7 arcade modals have .arcade-theater-shell
+    for (const modalId of [
+      'id="blackjack-modal"',
+      'id="poker-modal"',
+      'id="skipbo-modal"',
+      'id="phase10-modal"',
+      'id="uno-modal"',
+      'id="avalon-modal"',
+      'id="set-modal"'
+    ]) {
+      expect(html).toContain(modalId);
+    }
+
+    // Verify all 7 multi-player seat selectors and + Player buttons exist in index.html
+    for (const controlId of [
+      'id="bjk-seats-select"',
+      'id="bjk-btn-add-player"',
+      'id="bjk-seats-track"',
+      'id="poker-seats-select"',
+      'id="poker-btn-add-player"',
+      'id="poker-seats-track"',
+      'id="skipbo-seats-select"',
+      'id="skipbo-btn-add-player"',
+      'id="skipbo-opponents-track"',
+      'id="phase10-seats-select"',
+      'id="phase10-btn-add-player"',
+      'id="phase10-btn-bot-step"',
+      'id="phase10-opponents-track"',
+      'id="uno-seats-select"',
+      'id="uno-btn-add-player"',
+      'id="uno-opponents-track"',
+      'id="avalon-seats-select"',
+      'id="avalon-btn-add-player"',
+      'id="set-seats-select"',
+      'id="set-btn-add-player"',
+      'id="set-players-scoreboard"'
+    ]) {
+      expect(html).toContain(controlId);
+    }
+
+    // Verify responsive CSS classes in src/styles/main.css
+    for (const cssRule of [
+      '.playing-card-ui',
+      '.playing-card-corner',
+      '.playing-card-center',
+      '.arcade-set-card-ui',
+      '.arcade-theater-shell',
+      '.arcade-theater-main',
+      '.arcade-seat-strip',
+      '.arcade-action-dock',
+      '@media (max-width: 639px)'
+    ]) {
+      expect(css).toContain(cssRule);
+    }
+  });
 });
