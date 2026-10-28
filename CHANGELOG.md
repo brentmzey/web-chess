@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.29] - 2026-10-28
+### Added
+- **Mobile Un-Smushing, Additive Card Count Equations, Rich Game Displays & Hardware Battery Optimization Across All 8 Arcade Games (`src/games/blackjack/blackjackEngine.ts`, `src/styles/main.css`, `index.html`, `src/main.ts`, `src/graphics/pieces.ts`, `src/graphics/board.ts`, `src/audio/CathedralSoundEngine.ts`)**:
+  - **Blackjack Additive Count Equation (`formatBlackjackAdditiveCount`, `#bjk-dealer-total`, `#bjk-player-total`)**: Formats numerical card equations with soft, bust, and blackjack indicators (`10 + 7 = 17`, `11 + 6 = 17 (Soft)`, `11 + 10 = 21 (Blackjack!)`, `10 + 8 + 5 = 23 (Bust)`, and `10 + ? = 10+?` for dealer hidden hole card) so total values and arithmetic are immediately visible.
+  - **Un-Smushed Felt Boards on iPhone 14 Pro Max & Mobile Viewports (`.arcade-felt-board`)**: Added `.arcade-felt-board` (`flex: 1 0 auto; min-height: max-content;`) across all 7 arcade table felt boards (`felt-blackjack`, `felt-poker`, `felt-skipbo`, `felt-phase10`, `felt-uno`, `felt-avalon`, `felt-set`), eliminating `min-h-0` flex collapse and preventing cards and status banners from colliding or compressing vertically on phones.
+  - **Enhanced Mobile Displays Across All 7 Games**:
+    - **Cathedral Poker**: Displays dynamic call math (`Current Bet: $X • To Call: $Y`) in `#poker-current-bet-val` and live evaluated hand ranking in `#poker-hand-rank`.
+    - **Sacred Skip-Bo**: Upgraded 4 shared building piles to a unified 4-column mobile row (`grid-cols-4 gap-2 sm:gap-5`), displaying sequential progress (`Next: X`), stockpile counts, and discard pile stack counts (`D1 (X)`).
+    - **Ten Rites (Phase 10)**: Displays live additive point totals and selected meld values in `#phase10-hand-count` (`X cards • Y pts in hand • Z sel (W pts)`).
+    - **Cardinal Uno**: Displays liturgical turn direction (`↻ Clockwise` / `↺ Counter`) in `#uno-active-color-badge` and live playable card counts in `#uno-hand-count`.
+    - **The Resistance: Avalon**: Displays rejected votes and live team selection progress (`Rejections: X / 5 • Selected: Y / Z`) in `#avalon-vote-track-val`.
+    - **Sacred Geometry SET**: Displays live available SET count and selected count (`X • Selected: Y/3`) in `#set-available-count`.
+  - **GPU Memory Leak Elimination & Web Audio DAC Battery Optimization**:
+    - **Three.js BufferGeometry Singleton Pooling (`SHARED_PIECE_GEOMETRIES`, `SHARED_SELECT_RING_GEO`, `SHARED_CAPTURE_RING_GEO`, `SHARED_MOVE_DOT_GEO`)**: Cached all 3D piece mesh geometries and square highlight meshes into shared static pools in `src/graphics/pieces.ts` and `src/graphics/board.ts`, eliminating repeated GPU vertex buffer allocations on game resets and piece clicks.
+    - **Web Audio Node Garbage Collection (`bindDisconnectOnEnded`)**: Automatically disconnects all `OscillatorNode`, `AudioBufferSourceNode`, `BiquadFilterNode`, and `GainNode` instances on completion.
+    - **Hardware AudioContext Sleep (`CathedralSoundEngine.suspend`)**: Suspends audio hardware DAC when muted or when browser tab/app is hidden (`visibilitychange`), conserving mobile battery.
+    - **Uno Bot Timer Cleanup (`clearUnoBotTimeout`)**: Prevents orphaned recursive timeouts when switching or closing games.
+
 ## [1.2.0-rc.28] - 2026-10-27
 ### Added
 - **Mobile-First Responsive Viewport, Safe-Area, Container Query & Sticky Action Dock Overhaul Across All 8 Games (`src/styles/main.css`, `index.html`, `src/main.ts`)**:

@@ -57,7 +57,7 @@ import {
 import { UIController } from './ui/uiController';
 import {
   BlackjackEngine,
-  evaluateHand,
+  formatBlackjackAdditiveCount,
   type BlackjackAIModel,
   type BlackjackDifficulty
 } from './games/blackjack/blackjackEngine';
@@ -2174,8 +2174,7 @@ function main(): void {
     });
 
     fromNullable(document.getElementById('bjk-dealer-total')).map(el => {
-      const dEval = evaluateHand(s.dealerHand, true);
-      el.textContent = s.stage === 'player-turn' ? `${dEval.total}+?` : `${evaluateHand(s.dealerHand).total}`;
+      el.textContent = formatBlackjackAdditiveCount(s.dealerHand, s.stage === 'player-turn');
     });
 
     fromNullable(document.getElementById('bjk-player-cards')).map(container => {
@@ -2211,7 +2210,7 @@ function main(): void {
     });
 
     fromNullable(document.getElementById('bjk-player-total')).map(el => {
-      el.textContent = `${evaluateHand(s.playerHand).total}`;
+      el.textContent = formatBlackjackAdditiveCount(s.playerHand, false);
     });
 
     const isPlaying = s.stage === 'player-turn';
@@ -2471,11 +2470,18 @@ function main(): void {
       });
     });
 
+    const seat1Opt = pokerEngine.seatManager.getSeat(1);
+    const p1Data: PokerPlayerData = seat1Opt.match({
+      Some: seat => seat.extraData,
+      None: (): PokerPlayerData => ({ holeCards: [], currentBet: 0, chipBank: 1000, folded: false, isAllIn: false })
+    });
+
     fromNullable(document.getElementById('poker-pot-val')).map(el => {
       el.textContent = `$${s.pot}`;
     });
     fromNullable(document.getElementById('poker-current-bet-val')).map(el => {
-      el.textContent = `Current Bet: $${s.currentBet}`;
+      const toCall = Math.max(0, s.currentBet - p1Data.currentBet);
+      el.textContent = `Bet: $${s.currentBet} • To Call: $${toCall}`;
     });
     fromNullable(document.getElementById('poker-stage-badge')).map(el => {
       el.textContent = s.stage;
@@ -2490,12 +2496,6 @@ function main(): void {
       } else {
         c.innerHTML = s.communityCards.map(formatCardHtml).join('');
       }
-    });
-
-    const seat1Opt = pokerEngine.seatManager.getSeat(1);
-    const p1Data: PokerPlayerData = seat1Opt.match({
-      Some: seat => seat.extraData,
-      None: (): PokerPlayerData => ({ holeCards: [], currentBet: 0, chipBank: 1000, folded: false, isAllIn: false })
     });
 
     fromNullable(document.getElementById('poker-player-cards')).map(c => {
@@ -2816,7 +2816,7 @@ function main(): void {
           const val = top ? (top.type === SkipBoCardTypeEnum.Wild ? 'W' : `${top.value}`) : '—';
           return `
           <div data-skipbo-discard="${idx}" class="p-3 sm:p-3.5 rounded-xl bg-black/65 border-2 border-white/20 text-center cursor-pointer hover:border-purple-400 transition shadow-md">
-            <span class="text-xs uppercase font-extrabold text-stone-300">D${idx + 1}</span>
+            <span class="text-xs uppercase font-extrabold text-stone-300">D${idx + 1} (${pile.length})</span>
             <div class="text-base sm:text-lg font-mono font-extrabold text-purple-200 mt-0.5">${val}</div>
           </div>
         `;
@@ -2975,7 +2975,25 @@ function main(): void {
       el.textContent = `${p1.score} pts`;
     });
     fromNullable(document.getElementById('phase10-hand-count')).map(el => {
-      el.textContent = `${p1.hand.length} cards`;
+      let totalPts = 0;
+      for (const card of p1.hand) {
+        if (card.special === 'wild') totalPts += 25;
+        else if (card.special === 'skip') totalPts += 15;
+        else if (typeof card.value === 'number') totalPts += card.value >= 10 ? 10 : 5;
+      }
+      let selPts = 0;
+      for (const selIdx of selectedPhase10Indices) {
+        const card = p1.hand[selIdx];
+        if (card) {
+          if (card.special === 'wild') selPts += 25;
+          else if (card.special === 'skip') selPts += 15;
+          else if (typeof card.value === 'number') selPts += card.value >= 10 ? 10 : 5;
+        }
+      }
+      el.textContent =
+        selectedPhase10Indices.length > 0
+          ? `${p1.hand.length} cards (${totalPts} pts) • ${selectedPhase10Indices.length} sel (${selPts} pts)`
+          : `${p1.hand.length} cards • ${totalPts} pts in hand`;
     });
     fromNullable(document.getElementById('phase10-status-banner')).map(el => {
       el.textContent = s.historyText[s.historyText.length - 1] || 'Draw from deck or discard to begin.';
@@ -3246,7 +3264,8 @@ function main(): void {
 
     // Active Color Badge
     fromNullable(document.getElementById('uno-active-color-badge')).map(badge => {
-      badge.textContent = s.activeColor.toUpperCase();
+      const dirIcon = s.direction > 0 ? '↻ Clockwise' : '↺ Counter';
+      badge.textContent = `${s.activeColor.toUpperCase()} • ${dirIcon}`;
       const colorMap: Record<UnoColor, string> = {
         red: 'bg-red-950/85 text-red-100 border-red-500/60',
         blue: 'bg-blue-950/85 text-blue-100 border-blue-500/60',
@@ -3287,7 +3306,8 @@ function main(): void {
 
     // Hand Count & Player Hand
     fromNullable(document.getElementById('uno-hand-count')).map(el => {
-      el.textContent = `${humanPlayer.hand.length} cards`;
+      const playable = humanPlayer.hand.filter(c => unoEngine.canPlayCard(c)).length;
+      el.textContent = `${humanPlayer.hand.length} cards • ${playable} playable`;
     });
 
     fromNullable(document.getElementById('uno-player-hand')).map(container => {
@@ -3346,10 +3366,20 @@ function main(): void {
     });
   };
 
+  let unoBotTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  const clearUnoBotTimeout = () => {
+    if (unoBotTimeoutId !== null) {
+      clearTimeout(unoBotTimeoutId);
+      unoBotTimeoutId = null;
+    }
+  };
+
   const checkAndRunUnoBots = () => {
+    clearUnoBotTimeout();
     if (unoEngine.state.isGameOver) return;
     if (unoEngine.state.currentTurnIndex !== 0) {
-      setTimeout(() => {
+      unoBotTimeoutId = setTimeout(() => {
+        unoBotTimeoutId = null;
         if (unoEngine.state.isGameOver) return;
         unoEngine.executeAiTurn();
         renderUnoTable();
@@ -3510,7 +3540,8 @@ function main(): void {
 
     // Vote Track
     fromNullable(document.getElementById('avalon-vote-track-val')).map(el => {
-      el.textContent = `${s.failedVoteCount} / 5`;
+      const currentQuest = avalonEngine.getCurrentQuest();
+      el.textContent = `Rejections: ${s.failedVoteCount} / 5 • Selected: ${selectedAvalonKnights.length} / ${currentQuest.teamSize}`;
     });
 
     // Role Herald
@@ -3793,7 +3824,7 @@ function main(): void {
     });
     ['set-available-count', 'set-available-val'].forEach(id => {
       domById(id).map(el => {
-        el.textContent = String(validSets.length);
+        el.textContent = `${validSets.length} • Selected: ${selectedSetIndices.length}/3`;
       });
     });
     ['set-status-banner', 'set-Banner-msg'].forEach(id => {
@@ -4216,6 +4247,9 @@ function main(): void {
   fromNullable(document.getElementById('btn-audio')).map(btnAudio =>
     btnAudio.addEventListener('click', e => {
       soundFX.enabled = !soundFX.enabled;
+      if (!soundFX.enabled) {
+        soundFX.suspend();
+      }
       fromNullable(audioIcon).map(icon => {
         icon.textContent = matchBool(soundFX.enabled, {
           true: () => 'volume_up',
@@ -4225,6 +4259,12 @@ function main(): void {
       (e.currentTarget as HTMLElement).classList.toggle('active-chip', soundFX.enabled);
     })
   );
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      soundFX.suspend();
+    }
+  });
 
   // Sanctuary Contrast & Visibility Controls
   const btnContrast = document.getElementById('btn-contrast');

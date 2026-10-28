@@ -154,18 +154,34 @@ export function buildChessboardGrid(scene: THREE.Scene, materials: AppMaterials)
   };
 }
 
+const SHARED_SELECT_RING_GEO = new THREE.RingGeometry(0.68, 0.88, 32);
+const SHARED_SELECT_RING_MAT = new THREE.MeshBasicMaterial({
+  color: 0xfacc15,
+  side: THREE.DoubleSide
+});
+const SHARED_CAPTURE_RING_GEO = new THREE.RingGeometry(0.66, 0.92, 28);
+const SHARED_CAPTURE_RING_MAT = new THREE.MeshBasicMaterial({
+  color: 0xef4444,
+  side: THREE.DoubleSide
+});
+const SHARED_MOVE_DOT_GEO = new THREE.CircleGeometry(0.32, 24);
+const SHARED_MOVE_DOT_MAT = new THREE.MeshBasicMaterial({
+  color: 0x38bdf8,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0.85
+});
+
 /**
  * Updates selected square rings, legal move target dots, capture rings, and check indicator highlights
  */
-export function updateBoardHighlights(
-  highlightGroup: THREE.Group,
-  squareMeshes: Record<string, SquareTileMesh>,
-  selectedSquare: string | null,
-  legalMoves: Array<{ to: string; flags: string }>,
-  inCheck: boolean,
-  turnColor: 'w' | 'b',
-  pieceMap: Record<string, THREE.Group>
-): void {
+export function updateBoardHighlights(highlightGroup: THREE.Group,
+                                      squareMeshes: Record<string, SquareTileMesh>,
+                                      selectedSquare: string | null,
+                                      legalMoves: Array<{ to: string; flags: string }>,
+                                      inCheck: boolean,
+                                      turnColor: 'w' | 'b',
+                                      pieceMap: Record<string, THREE.Group>): void {
   while (highlightGroup.children.length > 0) {
     const child = highlightGroup.children[0]!;
     highlightGroup.remove(child);
@@ -195,10 +211,7 @@ export function updateBoardHighlights(
 
   // Selected square gold ring
   const selPos = squareToWorld(selectedSquare);
-  const selRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.68, 0.88, 32),
-    new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide })
-  );
+  const selRing = new THREE.Mesh(SHARED_SELECT_RING_GEO, SHARED_SELECT_RING_MAT);
   selRing.rotation.x = -Math.PI / 2;
   selRing.position.set(selPos.x, 0.03, selPos.z);
   highlightGroup.add(selRing);
@@ -209,10 +222,7 @@ export function updateBoardHighlights(
     const isCapture = move.flags.includes('c') || move.flags.includes('e');
 
     if (isCapture) {
-      const capRing = new THREE.Mesh(
-        new THREE.RingGeometry(0.66, 0.92, 28),
-        new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide })
-      );
+      const capRing = new THREE.Mesh(SHARED_CAPTURE_RING_GEO, SHARED_CAPTURE_RING_MAT);
       capRing.rotation.x = -Math.PI / 2;
       capRing.position.set(targetPos.x, 0.035, targetPos.z);
       highlightGroup.add(capRing);
@@ -222,15 +232,7 @@ export function updateBoardHighlights(
         (targetTile.material as THREE.MeshStandardMaterial).emissive.setHex(0x450a0a);
       }
     } else {
-      const dot = new THREE.Mesh(
-        new THREE.CircleGeometry(0.32, 24),
-        new THREE.MeshBasicMaterial({
-          color: 0x38bdf8,
-          side: THREE.DoubleSide,
-          transparent: true,
-          opacity: 0.85
-        })
-      );
+      const dot = new THREE.Mesh(SHARED_MOVE_DOT_GEO, SHARED_MOVE_DOT_MAT);
       dot.rotation.x = -Math.PI / 2;
       dot.position.set(targetPos.x, 0.03, targetPos.z);
       highlightGroup.add(dot);

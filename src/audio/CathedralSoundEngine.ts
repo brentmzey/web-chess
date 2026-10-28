@@ -11,6 +11,15 @@ export class CathedralSoundEngine {
     // Initialized lazily on first user interaction to comply with browser autoplay policies
   }
 
+  private bindDisconnectOnEnded(source: { onended?: ((this: any, ev: any) => any) | null },
+                                nodes: ReadonlyArray<{ disconnect?: () => void }>): void {
+    source.onended = () => {
+      for (const n of nodes) {
+        n.disconnect?.();
+      }
+    };
+  }
+
   public init(): void {
     if (typeof window === 'undefined') return;
 
@@ -23,6 +32,18 @@ export class CathedralSoundEngine {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {
         // Ignored if user hasn't interacted yet
+      });
+    }
+  }
+
+  /**
+   * Suspends the underlying hardware AudioContext when muted or backgrounded
+   * so mobile CoreAudio/WebAudio DAC hardware can enter low-power sleep.
+   */
+  public suspend(): void {
+    if (this.ctx && this.ctx.state === 'running' && typeof this.ctx.suspend === 'function') {
+      this.ctx.suspend().catch(() => {
+        // Ignore suspend errors
       });
     }
   }
@@ -48,6 +69,7 @@ export class CathedralSoundEngine {
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
+    this.bindDisconnectOnEnded(osc, [osc, gain]);
 
     osc.start(now);
     osc.stop(now + 0.17);
@@ -87,6 +109,7 @@ export class CathedralSoundEngine {
     noise.connect(filter);
     filter.connect(gain);
     gain.connect(this.ctx.destination);
+    this.bindDisconnectOnEnded(noise, [noise, filter, gain]);
     noise.start(now);
 
     // Heavy marble thud at conclusion of sliding
@@ -101,6 +124,7 @@ export class CathedralSoundEngine {
 
     thud.connect(thudGain);
     thudGain.connect(this.ctx.destination);
+    this.bindDisconnectOnEnded(thud, [thud, thudGain]);
 
     thud.start(now + duration - 0.07);
     thud.stop(now + duration + 0.15);
@@ -128,6 +152,7 @@ export class CathedralSoundEngine {
 
     impactOsc.connect(impactGain);
     impactGain.connect(this.ctx.destination);
+    this.bindDisconnectOnEnded(impactOsc, [impactOsc, impactGain]);
     impactOsc.start(now);
     impactOsc.stop(now + 0.5);
 
@@ -154,6 +179,7 @@ export class CathedralSoundEngine {
     noise.connect(filter);
     filter.connect(nGain);
     nGain.connect(this.ctx.destination);
+    this.bindDisconnectOnEnded(noise, [noise, filter, nGain]);
     noise.start(now);
 
     // 3. Cascading individual shard clinks on Cosmati pavement
@@ -168,6 +194,7 @@ export class CathedralSoundEngine {
 
       clink.connect(cGain);
       cGain.connect(this.ctx.destination);
+      this.bindDisconnectOnEnded(clink, [clink, cGain]);
       clink.start(now + delay);
       clink.stop(now + delay + 0.1);
     }
@@ -202,6 +229,7 @@ export class CathedralSoundEngine {
       osc.connect(filter);
       filter.connect(gain);
       gain.connect(this.ctx.destination);
+      this.bindDisconnectOnEnded(osc, [osc, filter, gain]);
       osc.start(now);
       osc.stop(now + 1.9);
     });

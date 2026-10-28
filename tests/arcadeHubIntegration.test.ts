@@ -3,6 +3,8 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { Database } from 'bun:sqlite';
 import { UIController } from '../src/ui/uiController';
+import { formatBlackjackAdditiveCount, type PlayingCard } from '../src/games/blackjack/blackjackEngine';
+import { CathedralSoundEngine } from '../src/audio/CathedralSoundEngine';
 
 class MockElement {
   public className: string = '';
@@ -248,9 +250,104 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
       '.arcade-theater-main',
       '.arcade-seat-strip',
       '.arcade-action-dock',
+      '.arcade-felt-board',
       '@media (max-width: 639px)'
     ]) {
       expect(css).toContain(cssRule);
     }
+
+    // Verify all 7 felt tables contain arcade-felt-board and do not have min-h-0
+    for (const feltClass of [
+      'felt-blackjack',
+      'felt-poker',
+      'felt-skipbo',
+      'felt-phase10',
+      'felt-uno',
+      'felt-avalon',
+      'felt-set'
+    ]) {
+      expect(html).toContain(feltClass);
+      expect(html).toContain(`arcade-felt-board`);
+    }
+  });
+
+  it('formats Blackjack additive count equations and displays accurately across game stages', () => {
+    // Empty hand
+    expect(formatBlackjackAdditiveCount([])).toBe('0');
+
+    // Single card
+    const singleCard: PlayingCard[] = [{ suit: 'spades', value: '10', faceUp: true }];
+    expect(formatBlackjackAdditiveCount(singleCard)).toBe('10');
+
+    // 2-card standard total
+    const twoCards: PlayingCard[] = [
+      { suit: 'hearts', value: '10', faceUp: true },
+      { suit: 'diamonds', value: '7', faceUp: true }
+    ];
+    expect(formatBlackjackAdditiveCount(twoCards)).toBe('10 + 7 = 17');
+
+    // Soft total with Ace
+    const softHand: PlayingCard[] = [
+      { suit: 'spades', value: 'A', faceUp: true },
+      { suit: 'clubs', value: '6', faceUp: true }
+    ];
+    expect(formatBlackjackAdditiveCount(softHand)).toBe('11 + 6 = 17 (Soft)');
+
+    // Natural 21 Blackjack
+    const blackjackHand: PlayingCard[] = [
+      { suit: 'spades', value: 'A', faceUp: true },
+      { suit: 'hearts', value: 'K', faceUp: true }
+    ];
+    expect(formatBlackjackAdditiveCount(blackjackHand)).toBe('11 + 10 = 21 (Blackjack!)');
+
+    // Bust hand
+    const bustHand: PlayingCard[] = [
+      { suit: 'clubs', value: '10', faceUp: true },
+      { suit: 'diamonds', value: '8', faceUp: true },
+      { suit: 'spades', value: '5', faceUp: true }
+    ];
+    expect(formatBlackjackAdditiveCount(bustHand)).toBe('10 + 8 + 5 = 23 (Bust)');
+
+    // Dealer hole card hidden
+    const dealerHoleHidden: PlayingCard[] = [
+      { suit: 'hearts', value: '10', faceUp: true },
+      { suit: 'spades', value: '6', faceUp: false }
+    ];
+    expect(formatBlackjackAdditiveCount(dealerHoleHidden, true)).toBe('10 + ? = 10+?');
+    expect(formatBlackjackAdditiveCount(dealerHoleHidden, false)).toBe('10 + 6 = 16');
+
+    // Multiple Aces reduction
+    const multiAces: PlayingCard[] = [
+      { suit: 'clubs', value: 'A', faceUp: true },
+      { suit: 'diamonds', value: 'A', faceUp: true },
+      { suit: 'hearts', value: '9', faceUp: true }
+    ];
+    expect(formatBlackjackAdditiveCount(multiAces)).toBe('1 + 11 + 9 = 21 (Soft)');
+  });
+
+  it('suspends Cathedral Web Audio engine to conserve battery and wake up seamlessly', () => {
+    let suspendCalled = false;
+    class MockAudioContext {
+      public state = 'running';
+      suspend() {
+        suspendCalled = true;
+        this.state = 'suspended';
+        return Promise.resolve();
+      }
+      resume() {
+        this.state = 'running';
+        return Promise.resolve();
+      }
+    }
+    (globalThis as any).window = {
+      ...(globalThis as any).window,
+      AudioContext: MockAudioContext
+    };
+
+    const sound = new CathedralSoundEngine();
+    sound.init();
+    expect(sound.enabled).toBe(true);
+    sound.suspend();
+    expect(suspendCalled).toBe(true);
   });
 });

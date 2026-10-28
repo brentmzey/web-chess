@@ -86,7 +86,8 @@ export function createShoe(deckCount: number = 2): PlayingCard[] {
 /**
  * Evaluates the numerical total, soft status, and bust status of a hand.
  */
-export function evaluateHand(cards: PlayingCard[], considerOnlyFaceUp: boolean = false): BlackjackHandEvaluation {
+export function evaluateHand(cards: readonly PlayingCard[],
+                             considerOnlyFaceUp: boolean = false): BlackjackHandEvaluation {
   const visibleCards = considerOnlyFaceUp ? cards.filter(c => c.faceUp) : cards;
   let total = 0;
   let aces = 0;
@@ -112,6 +113,59 @@ export function evaluateHand(cards: PlayingCard[], considerOnlyFaceUp: boolean =
   const isBusted = total > 21;
 
   return { total, isSoft, isBlackjack, isBusted };
+}
+
+/**
+ * Formats a Blackjack hand into a clear additive count equation
+ * (e.g. "10 + 7 = 17", "11 + 6 = 17 (Soft)", "1 + 6 + 8 = 15",
+ * "11 + 10 = 21 (Blackjack!)", "10 + 8 + 5 = 23 (Bust)", or "10 + ? = 10+?").
+ */
+export function formatBlackjackAdditiveCount(cards: readonly PlayingCard[],
+                                             considerOnlyFaceUp: boolean = false): string {
+  if (cards.length === 0) return '0';
+
+  const visibleCards = considerOnlyFaceUp ? cards.filter(c => c.faceUp) : cards;
+  const hiddenCount = considerOnlyFaceUp ? cards.length - visibleCards.length : 0;
+
+  if (visibleCards.length === 0) {
+    return '?';
+  }
+
+  const cardValues: number[] = visibleCards.map(card => {
+    if (card.value === 'A') return 11;
+    if (['K', 'Q', 'J', '10'].includes(card.value)) return 10;
+    return parseInt(card.value, 10);
+  });
+
+  let total = cardValues.reduce((sum, val) => sum + val, 0);
+  for (let i = 0; i < cardValues.length && total > 21; i++) {
+    if (cardValues[i] === 11) {
+      cardValues[i] = 1;
+      total -= 10;
+    }
+  }
+
+  if (hiddenCount > 0) {
+    const terms = [...cardValues.map(String), ...Array.from({ length: hiddenCount }, () => '?')];
+    return `${terms.join(' + ')} = ${total}+?`;
+  }
+
+  if (cardValues.length === 1) {
+    return `${total}`;
+  }
+
+  const isSoft = cardValues.includes(11);
+  const isBlackjack = visibleCards.length === 2 && total === 21;
+  const isBusted = total > 21;
+  const suffix = isBlackjack
+    ? ' (Blackjack!)'
+    : isBusted
+      ? ' (Bust)'
+      : isSoft
+        ? ' (Soft)'
+        : '';
+
+  return `${cardValues.join(' + ')} = ${total}${suffix}`;
 }
 
 /**

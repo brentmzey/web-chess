@@ -247,6 +247,12 @@ canvas:active {
   overscroll-behavior-y: contain;
 }
 
+/* Prevent Flexbox from collapsing Felt Boards below their natural content height */
+.arcade-felt-board {
+  flex: 1 0 auto;
+  min-height: max-content;
+}
+
 .arcade-seat-strip {
   display: flex;
   align-items: center;
@@ -311,6 +317,11 @@ canvas:active {
     min-height: clamp(5.4rem, 11.5dvh, 6.75rem);
     padding: 0.5rem 0.35rem;
     border-radius: 0.85rem;
+  }
+
+  .arcade-theater-shell header {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
   }
 }
 

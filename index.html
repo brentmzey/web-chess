@@ -1147,13 +1147,13 @@
                 <!-- Populated dynamically with all seated Blackjack players -->
             </div>
             <!-- Grand Velvet Felt Board -->
-            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-emerald-500/40 felt-blackjack shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-6 min-h-0 sm:min-h-[420px]">
+            <div class="arcade-felt-board rounded-3xl p-3.5 sm:p-8 border-2 border-emerald-500/40 felt-blackjack shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-6">
                 <!-- Dealer Area -->
                 <div class="space-y-2 sm:space-y-3 text-center">
-                    <div class="text-xs sm:text-sm font-bold uppercase tracking-widest text-emerald-300/90 flex items-center justify-center gap-2">
+                    <div class="text-xs sm:text-sm font-bold uppercase tracking-widest text-emerald-300/90 flex flex-wrap items-center justify-center gap-2">
                         <span class="material-symbols-rounded text-base sm:text-lg text-emerald-400">shield_person</span>
                         <span>Cathedral Dealer</span>
-                        <span id="bjk-dealer-total" class="px-2.5 py-0.5 rounded-full bg-black/60 text-amber-300 font-mono text-xs sm:text-sm font-bold border border-emerald-400/40 shadow-sm">0</span>
+                        <span id="bjk-dealer-total" class="px-3 py-0.5 rounded-full bg-black/75 text-amber-300 font-mono text-xs sm:text-sm font-bold border border-emerald-400/50 shadow-md">0</span>
                     </div>
                     <div id="bjk-dealer-cards" class="flex flex-wrap items-center justify-center gap-2 sm:gap-3.5 min-h-[100px] sm:min-h-[145px]">
                         <span class="text-xs sm:text-base text-stone-400 italic">Place bet to deal</span>
@@ -1172,10 +1172,10 @@
                     <div id="bjk-player-cards" class="flex flex-wrap items-center justify-center gap-2 sm:gap-3.5 min-h-[100px] sm:min-h-[145px]">
                         <span class="text-xs sm:text-base text-stone-400 italic">No cards in play</span>
                     </div>
-                    <div class="text-xs sm:text-sm font-bold uppercase tracking-widest text-emerald-300/90 flex items-center justify-center gap-2">
+                    <div class="text-xs sm:text-sm font-bold uppercase tracking-widest text-emerald-300/90 flex flex-wrap items-center justify-center gap-2">
                         <span class="material-symbols-rounded text-base sm:text-lg text-amber-400">person</span>
                         <span>Your Consecrated Hand</span>
-                        <span id="bjk-player-total" class="px-2.5 py-0.5 rounded-full bg-black/60 text-amber-300 font-mono text-xs sm:text-sm font-bold border border-emerald-400/40 shadow-sm">0</span>
+                        <span id="bjk-player-total" class="px-3 py-0.5 rounded-full bg-black/75 text-amber-300 font-mono text-xs sm:text-sm font-bold border border-emerald-400/50 shadow-md">0</span>
                     </div>
                 </div>
             </div>
@@ -1301,7 +1301,7 @@
                 <!-- Populated dynamically with all seated Poker players -->
             </div>
             <!-- Grand Oval Felt Poker Table -->
-            <div class="rounded-3xl p-3.5 sm:p-8 border-4 border-amber-900/50 felt-poker shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
+            <div class="arcade-felt-board rounded-3xl p-3.5 sm:p-8 border-4 border-amber-900/50 felt-poker shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5">
                 <!-- Center Pot & Stage Row -->
                 <div class="flex items-center justify-between border-b border-white/10 pb-3">
                     <div class="flex items-center gap-2.5">
@@ -1460,7 +1460,7 @@
                 <!-- Populated dynamically with all seated Skip-Bo players -->
             </div>
             <!-- Grand Blue Velvet Table -->
-            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-sky-500/40 felt-skipbo shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
+            <div class="arcade-felt-board rounded-3xl p-3.5 sm:p-8 border-2 border-sky-500/40 felt-skipbo shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5">
                 <!-- Opponent Info & Deck Stats -->
                 <div class="flex items-center justify-between border-b border-white/10 pb-3">
                     <div class="flex items-center gap-2 text-xs sm:text-sm text-stone-200">
@@ -1478,7 +1478,7 @@
                 <!-- 4 Shared Building Piles -->
                 <div class="space-y-2.5 text-center">
                     <div class="text-xs sm:text-sm font-bold uppercase tracking-widest text-sky-300/90">4 Shared Building Piles (Must start at 1, build up to 12)</div>
-                    <div id="skipbo-building-piles" class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-5 max-w-3xl mx-auto">
+                    <div id="skipbo-building-piles" class="grid grid-cols-4 gap-2 sm:gap-5 max-w-3xl mx-auto">
                         <!-- Populated dynamically -->
                     </div>
                 </div>
@@ -1617,7 +1617,7 @@
             </div>
 
             <!-- Grand Velvet Felt Table -->
-            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-emerald-500/40 felt-phase10 shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
+            <div class="arcade-felt-board rounded-3xl p-3.5 sm:p-8 border-2 border-emerald-500/40 felt-phase10 shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5">
                 <!-- Center Piles: Draw Deck & Discard Pile -->
                 <div class="flex items-center justify-center gap-8 sm:gap-14 border-b border-white/10 pb-4">
                     <div class="text-center space-y-1.5">
@@ -1754,7 +1754,7 @@
             </div>
 
             <!-- Grand Velvet Felt Table -->
-            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-red-500/40 felt-uno shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
+            <div class="arcade-felt-board rounded-3xl p-3.5 sm:p-8 border-2 border-red-500/40 felt-uno shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5">
                 <!-- Center Piles: Draw Deck & Discard Pile -->
                 <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-14 border-b border-white/10 pb-3 sm:pb-4">
                     <div class="text-center space-y-1.5">
@@ -1901,7 +1901,7 @@
             </div>
 
             <!-- Grand Velvet Felt Table -->
-            <div class="rounded-3xl p-3.5 sm:p-8 border-2 border-sky-500/40 felt-avalon shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5 min-h-0 sm:min-h-[420px]">
+            <div class="arcade-felt-board rounded-3xl p-3.5 sm:p-8 border-2 border-sky-500/40 felt-avalon shadow-2xl flex-1 flex flex-col justify-between gap-3.5 sm:gap-5">
                 <!-- Role Card Herald -->
                 <div id="avalon-role-herald" class="max-w-lg mx-auto w-full p-3 sm:p-4 rounded-2xl bg-black/65 border border-sky-400/40 text-center space-y-1 shadow-lg">
                     <div class="text-[11px] sm:text-xs uppercase font-bold tracking-widest text-sky-400">Your Consecrated Role</div>
@@ -2046,7 +2046,7 @@
             </div>
 
             <!-- Grand Velvet Felt Table -->
-            <div class="rounded-3xl p-3 sm:p-8 border-2 border-fuchsia-500/40 felt-set shadow-2xl flex-1 flex flex-col justify-between gap-3 sm:gap-5 min-h-0 sm:min-h-[420px]">
+            <div class="arcade-felt-board rounded-3xl p-3 sm:p-8 border-2 border-fuchsia-500/40 felt-set shadow-2xl flex-1 flex flex-col justify-between gap-3 sm:gap-5">
                 <!-- 12 to 21 Card Grid (3 Columns on Mobile, 4 on Tablet/Desktop) -->
                 <div id="set-table-grid" class="grid grid-cols-3 md:grid-cols-4 gap-2 sm:gap-5 my-auto">
                     <!-- Populated dynamically with procedural SVG SET cards -->
