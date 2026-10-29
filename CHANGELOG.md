@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.37] - 2026-10-28
+### Added
+- **"Keep Screen Awake" Display Wake Lock Feature (`src/utils/wakeLock.ts`, `tests/wakeLock.test.ts`, `src/ui/uiController.ts`, `index.html`)**:
+  - Implemented `ScreenWakeLockManager` leveraging the W3C Screen Wake Lock API (`navigator.wakeLock`) modeled after Serious Eats recipe "Cook Mode".
+  - Prevents mobile and desktop screens from dimming, timing out, or locking during gameplay, deep tactical analysis, or arcade multiplayer rounds.
+  - Automatically handles `sentinel.addEventListener('release')` and tab visibility restoration via `document.addEventListener('visibilitychange')`, automatically re-acquiring display lock when returning to the tab if the user kept awake mode enabled.
+  - Integrated "Keep Screen Awake" toggle chips and indicators across the bottom navigation bar (`#btn-wake-lock`), Pre-Game Match Settings modal (`#wake-lock-checkbox`, `#wake-lock-pregame-badge`), and the Live Persistent HUD (`#btn-persistent-toggle-wake-lock`).
+  - Added encrypted client-side storage persistence (`keepScreenAwake` in `StoredSessionState` via AES-GCM-256 IndexedDB) and PocketBase system control integration (`SystemControlKeyEnum.WakeLockDefault` / `system.wake_lock_default`).
+  - Achieved **100.00% Line Coverage** on `src/utils/wakeLock.ts` with 13 comprehensive unit tests; all 399 tests passing across 49 test suites (2,975 assertions, 0 failures, 0 type errors).
+
 ## [1.2.0-rc.36] - 2026-10-28
 ### Fixed
 - **Blackjack Unit Test Determinism (`tests/blackjackEngine.test.ts`)**:

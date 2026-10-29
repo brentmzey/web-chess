@@ -205,6 +205,7 @@ export interface StoredSessionState {
   timestamp: number;
   gameStarted?: boolean;
   useActionCam?: boolean;
+  keepScreenAwake?: boolean;
   liveSession?: StoredLiveSessionInfo;
 }
 

@@ -382,7 +382,8 @@ export enum SystemControlKeyEnum {
   ReverbDecaySec = 'audio.reverb_decay_sec',
   MinimaxMaxDepth = 'chess.minimax_max_depth',
   QuickJoinEnabled = 'arcade.quick_join_enabled',
-  StaleSessionDays = 'system.stale_session_days'
+  StaleSessionDays = 'system.stale_session_days',
+  WakeLockDefault = 'system.wake_lock_default'
 }
 
 export enum ConfigCategoryEnum {

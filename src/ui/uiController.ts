@@ -22,6 +22,7 @@ import {
   fromNullable,
   ImmutableBuilder,
   match,
+  matchBool,
   some,
   zipOptions,
   zip3Options,
@@ -135,6 +136,14 @@ export interface UIControllerElements {
   readonly rulesModalRulesList: Option<HTMLElement>;
   readonly rulesModalExternalLink: Option<HTMLAnchorElement>;
   readonly rulesModalExternalLabel: Option<HTMLElement>;
+  readonly btnWakeLock: Option<HTMLButtonElement>;
+  readonly wakeLockIcon: Option<HTMLElement>;
+  readonly wakeLockLabel: Option<HTMLElement>;
+  readonly wakeLockCheckbox: Option<HTMLInputElement>;
+  readonly wakeLockPregameBadge: Option<HTMLElement>;
+  readonly btnPersistentToggleWakeLock: Option<HTMLButtonElement>;
+  readonly iconPersistentWakeLock: Option<HTMLElement>;
+  readonly labelPersistentWakeLock: Option<HTMLElement>;
 }
 
 /**
@@ -231,7 +240,15 @@ export function buildUIControllerElements(overrides?: Readonly<Partial<UIControl
     rulesModalRulesList: domById('rules-modal-rules-list'),
     rulesModalExternalLink: domById<HTMLAnchorElement>('rules-modal-external-link'),
     rulesModalExternalLabel: domById('rules-modal-external-label'),
-    pregameModeLockNotice: domById('pregame-mode-lock-notice')
+    pregameModeLockNotice: domById('pregame-mode-lock-notice'),
+    btnWakeLock: domById<HTMLButtonElement>('btn-wake-lock'),
+    wakeLockIcon: domById('wake-lock-icon'),
+    wakeLockLabel: domById('wake-lock-label'),
+    wakeLockCheckbox: domById<HTMLInputElement>('wake-lock-checkbox'),
+    wakeLockPregameBadge: domById('wake-lock-pregame-badge'),
+    btnPersistentToggleWakeLock: domById<HTMLButtonElement>('btn-persistent-toggle-wake-lock'),
+    iconPersistentWakeLock: domById('icon-persistent-wake-lock'),
+    labelPersistentWakeLock: domById('label-persistent-wake-lock')
   };
 
   const builder = ImmutableBuilder.from(baseElements);
@@ -939,5 +956,65 @@ export class UIController {
       this.isAvalonVisible() ||
       this.isSetVisible()
     );
+  }
+
+  /**
+   * Updates visual presentation of Screen Wake Lock toggle buttons, badges, and icons
+   * across bottom navigation, pregame match rules, and the persistent live HUD.
+   */
+  public updateWakeLockUI(active: boolean,
+                          isSupported: boolean): void {
+    this.el.btnWakeLock.map(btn => {
+      btn.classList.toggle('active-chip', active);
+      btn.classList.toggle('bg-amber-500/20', active);
+      btn.classList.toggle('text-amber-200', active);
+      btn.classList.toggle('border-amber-400/50', active);
+      btn.title = matchBool(isSupported, {
+        true: () => matchBool(active, {
+          true: () => 'Keep Screen Awake active (click to allow normal sleep)',
+          false: () => 'Keep Screen Awake off (click to prevent screen sleep during play)'
+        }),
+        false: () => 'Screen Wake Lock is not supported on this browser'
+      });
+    });
+
+    this.el.wakeLockLabel.map(lbl => {
+      lbl.textContent = matchBool(active, {
+        true: () => 'Awake (ON)',
+        false: () => 'Keep Awake'
+      });
+    });
+
+    this.el.wakeLockCheckbox.map(chk => {
+      chk.checked = active;
+      chk.disabled = !isSupported;
+    });
+
+    this.el.wakeLockPregameBadge.map(badge => {
+      matchBool(isSupported, {
+        false: () => {
+          badge.textContent = 'UNSUPPORTED';
+          badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-red-400/20 text-red-300 font-bold';
+        },
+        true: () => {
+          matchBool(active, {
+            true: () => {
+              badge.textContent = 'ACTIVE';
+              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-bold';
+            },
+            false: () => {
+              badge.textContent = 'OFF';
+              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-stone-300 font-bold';
+            }
+          });
+        }
+      });
+    });
+
+    this.el.btnPersistentToggleWakeLock.map(btn => {
+      btn.classList.toggle('border-amber-400/50', active);
+      btn.classList.toggle('bg-amber-500/20', active);
+      btn.classList.toggle('text-amber-200', active);
+    });
   }
 }

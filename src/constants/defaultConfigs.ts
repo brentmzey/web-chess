@@ -271,5 +271,14 @@ export const DEFAULT_SYSTEM_CONTROLS: readonly SystemControlInput[] = Object.fre
     txt_val_type: ConfigValTypeEnum.Number,
     dec_val_number: 3,
     bln_is_active: true
+  },
+  {
+    txt_config_key: SystemControlKeyEnum.WakeLockDefault,
+    txt_category: ConfigCategoryEnum.System,
+    txt_label: 'Keep Screen Awake Default (W3C Wake Lock)',
+    txt_description: 'Controls default screen wake lock state for all games (prevents display dimming or sleep during matches)',
+    txt_val_type: ConfigValTypeEnum.Boolean,
+    bln_val_boolean: false,
+    bln_is_active: true
   }
 ]);

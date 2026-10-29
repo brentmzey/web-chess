@@ -124,6 +124,7 @@ import {
 import { domById, fromNullable, match, matchBool } from './utils/fp';
 import { logExecutionContext, logger } from './utils/logger';
 import { isDevMode } from './utils/env';
+import { ScreenWakeLockManager } from './utils/wakeLock';
 
 // Entry point initialization
 function main(): void {
@@ -173,6 +174,16 @@ function main(): void {
   const camController = new CameraController(camera);
   const ui = new UIController();
   ui.applyDeviceProfileUI(deviceProfile);
+
+  // Screen Wake Lock Manager (Serious Eats / Recipe Cook Mode display wake lock)
+  const wakeLockManager = new ScreenWakeLockManager(
+    typeof navigator !== 'undefined' ? navigator : undefined,
+    typeof document !== 'undefined' ? document : undefined,
+    active => {
+      ui.updateWakeLockUI(active, wakeLockManager.isSupported());
+    }
+  );
+  ui.updateWakeLockUI(wakeLockManager.isActive(), wakeLockManager.isSupported());
 
   // 6b. Database-Driven PocketBase Configuration Sync (Without Redeployment)
   globalConfigClient.subscribe(() => {
@@ -226,6 +237,7 @@ function main(): void {
       deviceTier: deviceProfile.tier,
       persistenceEnabled,
       useActionCam,
+      keepScreenAwake: wakeLockManager.isActive() || wakeLockManager.isRequested(),
       gameStarted: matchStarted || chess.history().length > 0
     });
     await chessStore.saveToStorage();
@@ -546,6 +558,7 @@ function main(): void {
       btn.classList.toggle('active-chip', willResetBoard);
     });
 
+    ui.updateWakeLockUI(wakeLockManager.isActive(), wakeLockManager.isSupported());
     ui.update(chess, currentMode, undefined, currentDifficulty, allowUndo);
   }
 
@@ -4341,6 +4354,48 @@ function main(): void {
     })
   );
 
+  // Screen Wake Lock Toggle (Cook Mode / Keep Screen Awake - Serious Eats Style)
+  async function toggleKeepScreenAwake(): Promise<void> {
+    const res = await wakeLockManager.toggle();
+    res.match({
+      Ok: active => {
+        chessStore.setState({ keepScreenAwake: active });
+        void persistCurrentSession();
+        ui.updateWakeLockUI(active, wakeLockManager.isSupported());
+        ui.showTemporaryBanner(
+          matchBool(active, {
+            true: () => 'Keep Screen Awake active: display will stay illuminated',
+            false: () => 'Keep Screen Awake deactivated: normal screen sleep resumed'
+          }),
+          2600
+        );
+      },
+      Err: err => {
+        ui.updateWakeLockUI(false, wakeLockManager.isSupported());
+        ui.showTemporaryBanner(`Keep Screen Awake unavailable: ${err.message}`, 3200);
+      }
+    });
+  }
+
+  fromNullable(document.getElementById('btn-wake-lock')).map(btnWakeLock =>
+    btnWakeLock.addEventListener('click', () => {
+      void toggleKeepScreenAwake();
+    })
+  );
+
+  fromNullable(document.getElementById('wake-lock-checkbox') as HTMLInputElement | null).map(
+    wakeLockCheckbox =>
+      wakeLockCheckbox.addEventListener('change', () => {
+        void toggleKeepScreenAwake();
+      })
+  );
+
+  fromNullable(document.getElementById('btn-persistent-toggle-wake-lock')).map(btnPersistentWake =>
+    btnPersistentWake.addEventListener('click', () => {
+      void toggleKeepScreenAwake();
+    })
+  );
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       soundFX.suspend();
@@ -4499,6 +4554,13 @@ function main(): void {
       setDisplaySettings(displaySettings);
       applyDisplaySettings(displaySettings, renderer, hemiLight, boardKeyLight, container);
       syncDisplayInputs();
+
+      // Restore Keep Screen Awake state if previously enabled
+      if (storeState.keepScreenAwake && wakeLockManager.isSupported()) {
+        void wakeLockManager.request().then(res => {
+          res.map(active => ui.updateWakeLockUI(active, true));
+        });
+      }
 
       // Check if restoring a Live session
       if (storeState.mode === GameModeEnum.Live && storeState.liveSession) {

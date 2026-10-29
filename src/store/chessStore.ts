@@ -45,6 +45,7 @@ export interface ChessStoreState {
   deviceTier: DeviceTierEnum;
   isThinking: boolean;
   selectedSquare: Option<string>;
+  keepScreenAwake: boolean;
   legalMovesForSelected: string[];
   pendingPromotionMove: Option<{ from: string; to: string }>;
   isGameOver: boolean;
@@ -69,6 +70,7 @@ export const DEFAULT_CHESS_STORE_STATE: ChessStoreState = {
   deviceTier: DeviceTierEnum.Desktop,
   isThinking: false,
   selectedSquare: none(),
+  keepScreenAwake: false,
   legalMovesForSelected: [],
   pendingPromotionMove: none(),
   isGameOver: false,
@@ -172,6 +174,7 @@ export class ChessStore {
           timestamp: currentEpochMs(),
           gameStarted: this.state.gameStarted,
           useActionCam: this.state.useActionCam,
+          keepScreenAwake: this.state.keepScreenAwake,
           liveSession: this.state.liveSession
         };
 
@@ -231,6 +234,7 @@ export class ChessStore {
       contrast: typeof saved.contrast === 'number' ? saved.contrast : this.state.contrast,
       brightness: typeof saved.brightness === 'number' ? saved.brightness : this.state.brightness,
       useActionCam: fromNullable(saved.useActionCam).getOrElse(this.state.useActionCam),
+      keepScreenAwake: fromNullable(saved.keepScreenAwake).getOrElse(false),
       gameStarted: hasStarted,
       lastPersistedTimestamp: saved.timestamp || currentEpochMs(),
       liveSession: saved.liveSession

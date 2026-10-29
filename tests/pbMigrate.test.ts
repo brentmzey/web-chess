@@ -134,12 +134,13 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password', true);
     expect(res.success).toBe(true);
-    // 36 collections created + 8 games seeded + 10 controls seeded = 54
-    expect(res.applied.length).toBe(54);
+    // 36 collections created + 8 games seeded + 11 controls seeded = 55
+    expect(res.applied.length).toBe(55);
     expect(res.applied).toContain('seeded: chess');
     expect(res.applied).toContain('seeded: blackjack');
     expect(res.applied).toContain('seeded: ui.app_title');
-    expect(seededEndpoints.length).toBe(18);
+    expect(res.applied).toContain('seeded: system.wake_lock_default');
+    expect(seededEndpoints.length).toBe(19);
   });
 
   it('handles seed network exceptions and failed record creation gracefully', async () => {

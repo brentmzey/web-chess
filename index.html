@@ -85,6 +85,10 @@
                     <span class="material-symbols-rounded text-xs" id="icon-persistent-pin">push_pin</span>
                     <span id="label-persistent-pin" class="hidden sm:inline">Pin</span>
                 </button>
+                <button type="button" id="btn-persistent-toggle-wake-lock" class="px-2 py-1 rounded-xl border border-white/20 bg-white/5 hover:bg-white/15 text-stone-300 text-[11px] flex items-center gap-1 transition" title="Toggle Keep Screen Awake (prevents display dimming/sleep)">
+                    <span class="material-symbols-rounded text-xs" id="icon-persistent-wake-lock">screen_lock_portrait</span>
+                    <span id="label-persistent-wake-lock" class="hidden sm:inline">Awake</span>
+                </button>
                 <button type="button" id="btn-persistent-leave-live" class="px-2.5 py-1 rounded-xl bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-bold flex items-center gap-1 shadow-sm transition active:scale-95 shrink-0" title="Exit Live Match and return to solo / AI mode">
                     <span class="material-symbols-rounded text-xs">logout</span>
                     <span>Exit</span>
@@ -235,6 +239,12 @@
             <!-- Procedural Cathedral Audio Toggle -->
             <button id="btn-audio" class="md3-chip active-chip" title="Toggle Cathedral Organ & Shatter Acoustics">
                 <span id="audio-icon" class="material-symbols-rounded">volume_up</span>
+            </button>
+
+            <!-- Screen Wake Lock Toggle (Cook Mode / Keep Screen Awake) -->
+            <button id="btn-wake-lock" class="md3-chip" title="Keep Screen Awake (prevents display from dimming or locking during play)">
+                <span id="wake-lock-icon" class="material-symbols-rounded">screen_lock_portrait</span>
+                <span id="wake-lock-label" class="hidden xl:inline">Keep Awake</span>
             </button>
 
             <!-- Sanctuary Contrast & Visibility Toggle -->
@@ -498,6 +508,21 @@
                     <div class="text-xs leading-snug flex-1">
                         <div class="font-semibold text-amber-100">Do you want to keep your session running to pick up later?</div>
                         <div class="text-[11px] text-stone-400 mt-0.5">Encrypts (AES-GCM-256) and persists board moves, opponent style, difficulty, and undo rule in IndexedDB (zero localStorage).</div>
+                    </div>
+                </label>
+
+                <!-- Keep Screen Awake Option (Serious Eats / Recipe Cook Mode Style) -->
+                <label for="wake-lock-checkbox" class="flex items-start gap-3 p-3 rounded-2xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition">
+                    <input type="checkbox" id="wake-lock-checkbox" class="mt-0.5 accent-amber-400 w-4 h-4 rounded cursor-pointer">
+                    <div class="text-xs leading-snug flex-1">
+                        <div class="font-semibold text-amber-100 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5">
+                                <span class="material-symbols-rounded text-sm text-amber-400">screen_lock_portrait</span>
+                                Keep Screen Awake
+                            </span>
+                            <span id="wake-lock-pregame-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-stone-300 font-bold">OFF</span>
+                        </div>
+                        <div class="text-[11px] text-stone-400 mt-0.5">Keeps display active and prevents screen dimming or sleep while contemplating moves (Serious Eats Cook Mode).</div>
                     </div>
                 </label>
 

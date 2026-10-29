@@ -163,6 +163,7 @@ describe('ChessStore: Centralized Reactive State Store & Tab-Refresh Persistence
       useActionCam: false,
       contrast: 115,
       brightness: 125,
+      keepScreenAwake: true,
       gameStarted: true
     });
     await originalStore.saveToStorage();
@@ -185,6 +186,7 @@ describe('ChessStore: Centralized Reactive State Store & Tab-Refresh Persistence
     expect(state.useActionCam).toBe(false);
     expect(state.contrast).toBe(115);
     expect(state.brightness).toBe(125);
+    expect(state.keepScreenAwake).toBe(true);
     expect(state.gameStarted).toBe(true);
   });
 

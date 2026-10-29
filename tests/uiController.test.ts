@@ -120,7 +120,15 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'avalon-modal': new MockElement(),
       'btn-close-avalon': new MockElement(),
       'set-modal': new MockElement(),
-      'btn-close-set': new MockElement()
+      'btn-close-set': new MockElement(),
+      'btn-wake-lock': new MockElement(),
+      'wake-lock-icon': new MockElement(),
+      'wake-lock-label': new MockElement(),
+      'wake-lock-checkbox': new MockElement(),
+      'wake-lock-pregame-badge': new MockElement(),
+      'btn-persistent-toggle-wake-lock': new MockElement(),
+      'icon-persistent-wake-lock': new MockElement(),
+      'label-persistent-wake-lock': new MockElement()
     };
 
     (globalThis as any).document = {
@@ -513,6 +521,38 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     // Custom elements builder override test
     const customUi = new UIController({});
     expect(customUi.isSetVisible()).toBe(false);
+  });
+
+  it('updates Screen Wake Lock UI across bottom chips, pregame modal, and persistent hud', () => {
+    const ui = new UIController();
+
+    // 1. Supported and active (Cook Mode ON)
+    ui.updateWakeLockUI(true, true);
+    expect(domElements['btn-wake-lock'].classList.contains('active-chip')).toBe(true);
+    expect(domElements['btn-wake-lock'].classList.contains('bg-amber-500/20')).toBe(true);
+    expect(domElements['wake-lock-label'].textContent).toBe('Awake (ON)');
+    expect((domElements['wake-lock-checkbox'] as any).checked).toBe(true);
+    expect((domElements['wake-lock-checkbox'] as any).disabled).toBe(false);
+    expect(domElements['wake-lock-pregame-badge'].textContent).toBe('ACTIVE');
+    expect(domElements['wake-lock-pregame-badge'].className).toContain('bg-emerald-400/20');
+    expect(domElements['btn-persistent-toggle-wake-lock'].classList.contains('bg-amber-500/20')).toBe(true);
+
+    // 2. Supported and inactive (Cook Mode OFF)
+    ui.updateWakeLockUI(false, true);
+    expect(domElements['btn-wake-lock'].classList.contains('active-chip')).toBe(false);
+    expect(domElements['wake-lock-label'].textContent).toBe('Keep Awake');
+    expect((domElements['wake-lock-checkbox'] as any).checked).toBe(false);
+    expect((domElements['wake-lock-checkbox'] as any).disabled).toBe(false);
+    expect(domElements['wake-lock-pregame-badge'].textContent).toBe('OFF');
+    expect(domElements['wake-lock-pregame-badge'].className).toContain('bg-white/10');
+    expect(domElements['btn-persistent-toggle-wake-lock'].classList.contains('bg-amber-500/20')).toBe(false);
+
+    // 3. Unsupported in browser
+    ui.updateWakeLockUI(false, false);
+    expect(domElements['btn-wake-lock'].title).toContain('not supported');
+    expect((domElements['wake-lock-checkbox'] as any).disabled).toBe(true);
+    expect(domElements['wake-lock-pregame-badge'].textContent).toBe('UNSUPPORTED');
+    expect(domElements['wake-lock-pregame-badge'].className).toContain('bg-red-400/20');
   });
 });
 
