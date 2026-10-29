@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.36] - 2026-10-28
+### Fixed
+- **Blackjack Unit Test Determinism (`tests/blackjackEngine.test.ts`)**:
+  - Eliminated non-deterministic (~4.8% probability) natural blackjack dealing in `it('executes complete Blackjack betting and hand lifecycle')` and `it('handles double down rules and chip deductions')` by providing clean, deterministic test shoes via `makeShoeWithCards`.
+  - Guaranteed shoe length exceeds reshuffle threshold (>15 cards) and confirmed 100/100 passes in stress testing.
+
 ## [1.2.0-rc.35] - 2026-10-28
 ### Added
 - **Enshrined Mandatory Off-Hours US Central Commit Policy (`AGENTS.md`)**:

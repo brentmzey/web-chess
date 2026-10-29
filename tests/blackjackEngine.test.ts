@@ -89,72 +89,6 @@ describe('Gothic Blackjack Engine & Dealer AI Opponent Logic', () => {
     expect(mobileAI).toContain('minimax');
   });
 
-  it('executes complete Blackjack betting and hand lifecycle', () => {
-    const engine = new BlackjackEngine(500, 'micro-neural', 'balanced');
-    expect(engine.state.chipBank).toBe(500);
-
-    // Place valid bet
-    expect(engine.placeBet(50)).toBe(true);
-    expect(engine.state.currentBet).toBe(50);
-
-    // Invalid bet rejects
-    expect(engine.placeBet(-10)).toBe(false);
-    expect(engine.placeBet(9999)).toBe(false);
-
-    // Calibrate AI and difficulty
-    engine.setAIModel('minimax');
-    expect(engine.state.aiModel).toBe('minimax');
-    engine.setDifficulty('ruthless');
-    expect(engine.state.difficulty).toBe('ruthless');
-
-    // Start round
-    expect(engine.startRound()).toBe(true);
-    expect(engine.state.playerHand.length).toBe(2);
-    expect(engine.state.dealerHand.length).toBe(2);
-    expect(engine.state.dealerHand[1]?.faceUp).toBe(false);
-
-    // If game didn't end in natural blackjack, test hit & stand
-    if (engine.state.stage === 'player-turn') {
-      const initialTotal = evaluateHand(engine.state.playerHand).total;
-      if (initialTotal < 12) {
-        engine.hit();
-        expect(engine.state.playerHand.length).toBe(3);
-      }
-      engine.stand();
-      expect(engine.state.stage as string).toBe('round-over');
-      expect(engine.state.dealerHand.every(c => c.faceUp)).toBe(true);
-    }
-  });
-
-  it('handles double down rules and chip deductions', () => {
-    const engine = new BlackjackEngine(500, 'minimax', 'cautious');
-    engine.placeBet(25);
-    engine.startRound();
-
-    if (engine.state.stage === 'player-turn') {
-      const ddResult = engine.doubleDown();
-      expect(ddResult).toBe(true);
-      expect(engine.state.currentBet).toBe(50);
-      expect(engine.state.playerHand.length).toBe(3);
-      expect(engine.state.stage as string).toBe('round-over');
-    }
-  });
-
-  it('reshuffles shoe when remaining cards drops below 15', () => {
-    const engine = new BlackjackEngine(500, 'minimax', 'balanced');
-    engine.placeBet(50);
-    engine.state.shoe = [
-      { suit: 'hearts', value: '10', faceUp: true },
-      { suit: 'diamonds', value: '9', faceUp: true },
-      { suit: 'spades', value: '8', faceUp: true }
-    ];
-    expect(engine.state.shoe.length).toBe(3);
-    const started = engine.startRound();
-    expect(started).toBe(true);
-    expect(engine.state.shoe.length).toBeGreaterThan(50);
-    expect(engine.state.historyText).toContain('Shoe reshuffled with fresh consecrated decks.');
-  });
-
   const makeShoeWithCards = (dealOrder: {
     player1: PlayingCard;
     player2: PlayingCard;
@@ -177,6 +111,89 @@ describe('Gothic Blackjack Engine & Dealer AI Opponent Logic', () => {
       dealOrder.player1
     ];
   };
+
+  it('executes complete Blackjack betting and hand lifecycle', () => {
+    const engine = new BlackjackEngine(500, 'micro-neural', 'balanced');
+    expect(engine.state.chipBank).toBe(500);
+
+    // Place valid bet
+    expect(engine.placeBet(50)).toBe(true);
+    expect(engine.state.currentBet).toBe(50);
+
+    // Invalid bet rejects
+    expect(engine.placeBet(-10)).toBe(false);
+    expect(engine.placeBet(9999)).toBe(false);
+
+    // Calibrate AI and difficulty
+    engine.setAIModel('minimax');
+    expect(engine.state.aiModel).toBe('minimax');
+    engine.setDifficulty('ruthless');
+    expect(engine.state.difficulty).toBe('ruthless');
+
+    // Seed a clean deterministic shoe (>15 cards so no reshuffle triggers)
+    // Player: 6 + 4 = 10, Dealer: 7 + 8 (hole) = 15, Next Hit card: 3
+    engine.state.shoe = makeShoeWithCards({
+      player1: { suit: 'spades', value: '6', faceUp: true },
+      player2: { suit: 'spades', value: '4', faceUp: true },
+      dealerFirst: { suit: 'hearts', value: '7', faceUp: true },
+      dealerHole: { suit: 'clubs', value: '8', faceUp: true },
+      nextCards: [{ suit: 'diamonds', value: '3', faceUp: true }]
+    });
+
+    // Start round
+    expect(engine.startRound()).toBe(true);
+    expect(engine.state.stage).toBe('player-turn');
+    expect(engine.state.playerHand.length).toBe(2);
+    expect(engine.state.dealerHand.length).toBe(2);
+    expect(engine.state.dealerHand[1]?.faceUp).toBe(false);
+
+    // Test hit & stand
+    const initialTotal = evaluateHand(engine.state.playerHand).total;
+    expect(initialTotal).toBe(10);
+    engine.hit();
+    expect(engine.state.playerHand.length).toBe(3);
+    expect(evaluateHand(engine.state.playerHand).total).toBe(13);
+
+    engine.stand();
+    expect(engine.state.stage as string).toBe('round-over');
+    expect(engine.state.dealerHand.every(c => c.faceUp)).toBe(true);
+  });
+
+  it('handles double down rules and chip deductions', () => {
+    const engine = new BlackjackEngine(500, 'minimax', 'cautious');
+    engine.placeBet(25);
+    // Seed deterministic shoe: Player (5 + 6 = 11), Dealer (7 + 8 = 15), DD draw (9) -> 20
+    engine.state.shoe = makeShoeWithCards({
+      player1: { suit: 'spades', value: '5', faceUp: true },
+      player2: { suit: 'spades', value: '6', faceUp: true },
+      dealerFirst: { suit: 'hearts', value: '7', faceUp: true },
+      dealerHole: { suit: 'clubs', value: '8', faceUp: true },
+      nextCards: [{ suit: 'diamonds', value: '9', faceUp: true }]
+    });
+    engine.startRound();
+    expect(engine.state.stage).toBe('player-turn');
+
+    const ddResult = engine.doubleDown();
+    expect(ddResult).toBe(true);
+    expect(engine.state.currentBet).toBe(50);
+    expect(engine.state.playerHand.length).toBe(3);
+    expect(engine.state.stage as string).toBe('round-over');
+  });
+
+  it('reshuffles shoe when remaining cards drops below 15', () => {
+    const engine = new BlackjackEngine(500, 'minimax', 'balanced');
+    engine.placeBet(50);
+    engine.state.shoe = [
+      { suit: 'hearts', value: '10', faceUp: true },
+      { suit: 'diamonds', value: '9', faceUp: true },
+      { suit: 'spades', value: '8', faceUp: true }
+    ];
+    expect(engine.state.shoe.length).toBe(3);
+    const started = engine.startRound();
+    expect(started).toBe(true);
+    expect(engine.state.shoe.length).toBeGreaterThan(50);
+    expect(engine.state.historyText).toContain('Shoe reshuffled with fresh consecrated decks.');
+  });
 
   it('evaluates Natural Blackjack payouts and mutual pushes accurately', () => {
     // Solo Player Natural Blackjack (3:2 payout)
