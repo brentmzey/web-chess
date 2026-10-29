@@ -6,8 +6,24 @@
  * - Safe monadic constructors (fromNullable, tryCatch, tryCatchAsync)
  */
 
+/**
+ * Functional Programming Utilities inspired by Scala and Rust:
+ * - Optional<T> (Some<T> | None<T>) with map, flatMap, filter, fold, getOrElse
+ * - Result<T, E> (Success<T, E> | Failure<T, E>) with map, flatMap, fold, mapError, tapError, logError
+ * - Exhaustive pattern matching (match / matchPattern)
+ * - Safe monadic constructors (fromNullable, tryCatch, tryCatchAsync)
+ */
+
 const toError = (errOrMsg: unknown): Error =>
   errOrMsg instanceof Error ? errOrMsg : new Error(String(errOrMsg));
+
+export interface NamespacedErrorLike {
+  readonly namespace: string;
+  readonly code: string;
+  readonly message: string;
+  readonly data?: Readonly<Record<string, unknown>>;
+  readonly traceId?: string;
+}
 
 export type Result<T, E = Error> = Success<T, E> | Failure<T, E>;
 
@@ -43,12 +59,75 @@ export class Success<T, E> {
   match<U>(branches: { Ok: (val: T) => U; Err: (err: E) => U }): U {
     return branches.Ok(this.value);
   }
+
+  mapError<E2>(_fn: (err: E) => E2): Result<T, E2> {
+    return new Success(this.value);
+  }
+
+  tapError(_fn: (err: E) => void): Result<T, E> {
+    return this;
+  }
+
+  logError(_targetLogger?: { error: (msg: string, ...args: any[]) => void },
+           _customMessage?: string): Result<T, E> {
+    return this;
+  }
+
+  withData(_extraData: Record<string, unknown>): Result<T, E> {
+    return this;
+  }
+
+  withTraceId(_traceId: string): Result<T, E> {
+    return this;
+  }
+
+  get errorMessage(): string | undefined {
+    return undefined;
+  }
+
+  get errorNamespace(): Option<string> {
+    return none();
+  }
+
+  get errorData(): Option<Readonly<Record<string, unknown>>> {
+    return none();
+  }
+
+  get traceId(): Option<string> {
+    return none();
+  }
 }
 
 export class Failure<T, E> {
   constructor(public readonly error: E) {}
   isSuccess(): this is Success<T, E> { return false; }
   isFailure(): this is Failure<T, E> { return true; }
+
+  get errorMessage(): string {
+    if (this.error instanceof Error) {
+      return this.error.message;
+    }
+    const msg = (this.error as any)?.message;
+    if (typeof msg === 'string') {
+      return msg;
+    }
+    return String(this.error);
+  }
+
+  get errorNamespace(): Option<string> {
+    const ns = (this.error as any)?.namespace;
+    return fromNullable(typeof ns === 'string' ? ns : undefined);
+  }
+
+  get errorData(): Option<Readonly<Record<string, unknown>>> {
+    const data = (this.error as any)?.data ?? (this.error as any)?.context;
+    return fromNullable(data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined);
+  }
+
+  get traceId(): Option<string> {
+    const tid = (this.error as any)?.traceId;
+    return fromNullable(typeof tid === 'string' ? tid : undefined);
+  }
 
   map<U>(_fn: (val: T) => U): Result<U, E> {
     return new Failure<U, E>(this.error);
@@ -82,9 +161,43 @@ export class Failure<T, E> {
   match<U>(branches: { Ok: (val: T) => U; Err: (err: E) => U }): U {
     return branches.Err(this.error);
   }
+
+  mapError<E2>(fn: (err: E) => E2): Result<T, E2> {
+    return new Failure<T, E2>(fn(this.error));
+  }
+
+  tapError(fn: (err: E) => void): Result<T, E> {
+    fn(this.error);
+    return this;
+  }
+
+  logError(targetLogger?: { error: (msg: string, ...args: any[]) => void },
+           customMessage?: string): Result<T, E> {
+    if (typeof (this.error as any)?.log === 'function') {
+      (this.error as any).log(targetLogger, 'error', customMessage);
+    } else if (targetLogger) {
+      const msg = customMessage ? `${customMessage}: ${this.errorMessage}` : this.errorMessage;
+      targetLogger.error(msg, { error: this.error });
+    }
+    return this;
+  }
+
+  withData(extraData: Record<string, unknown>): Result<T, E> {
+    if (typeof (this.error as any)?.withData === 'function') {
+      return new Failure((this.error as any).withData(extraData) as E);
+    }
+    return this;
+  }
+
+  withTraceId(traceId: string): Result<T, E> {
+    if (typeof (this.error as any)?.withTraceId === 'function') {
+      return new Failure((this.error as any).withTraceId(traceId) as E);
+    }
+    return this;
+  }
 }
 
-export const success = <T, E = Error>(value: T): Result<T, E> => new Success(value);
+export const success = <T, E = never>(value: T): Result<T, E> => new Success(value);
 export const failure = <T, E = Error>(error: E): Result<T, E> => new Failure<T, E>(error);
 
 export type Optional<T> = Some<T> | None<T>;
@@ -115,7 +228,9 @@ export class Some<T> {
     return this.value;
   }
 
-  filter(predicate: (val: T) => boolean): Optional<T> {
+  filter<S extends T>(predicate: (val: T) => val is S): Optional<S>;
+  filter(predicate: (val: T) => boolean): Optional<T>;
+  filter(predicate: (val: T) => boolean): Optional<any> {
     return predicate(this.value) ? this : new None<T>();
   }
 
@@ -156,8 +271,10 @@ export class None<T> {
     throw toError(resolved);
   }
 
-  filter(_predicate: (val: T) => boolean): Optional<T> {
-    return new None<T>();
+  filter<S extends T>(_predicate: (val: T) => val is S): Optional<S>;
+  filter(_predicate: (val: T) => boolean): Optional<T>;
+  filter(_predicate: (val: T) => boolean): Optional<any> {
+    return new None<any>();
   }
 
   fold<U>(onNone: () => U, _onSome: (val: T) => U): U {
@@ -261,11 +378,12 @@ export const matchBool = <R>(condition: boolean,
  * Evaluates a synchronous function into a Result monad.
  */
 export const tryCatch = <T, E = Error>(fn: () => T,
-                                       onError: (err: unknown) => E): Result<T, E> => {
+                                       onError?: (err: unknown) => E): Result<T, E> => {
   try {
     return success(fn());
   } catch (err) {
-    return failure(onError(err));
+    const error = onError ? onError(err) : (toError(err) as unknown as E);
+    return failure(error);
   }
 };
 
@@ -273,11 +391,12 @@ export const tryCatch = <T, E = Error>(fn: () => T,
  * Evaluates an asynchronous Promise into a Result monad.
  */
 export const tryCatchAsync = async <T, E = Error>(fn: () => Promise<T>,
-                                                  onError: (err: unknown) => E): Promise<Result<T, E>> => {
+                                                  onError?: (err: unknown) => E): Promise<Result<T, E>> => {
   try {
     const val = await fn();
     return success(val);
   } catch (err) {
-    return failure(onError(err));
+    const error = onError ? onError(err) : (toError(err) as unknown as E);
+    return failure(error);
   }
 };

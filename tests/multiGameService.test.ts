@@ -3,6 +3,8 @@ import { Database } from 'bun:sqlite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { MultiGameService } from '../src/server/services/multiGameService';
+import { DatabaseError } from '../src/errors/sanctuaryError';
+import { isValidUuidV4 } from '../src/utils/uuid';
 
 describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partitions', () => {
   const initDb = (): Database => {
@@ -322,5 +324,205 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
 
     const archivedSol = db.query('SELECT txt_session_code FROM tbl_archived_sol_snapshots').all() as Array<{ txt_session_code: string }>;
     expect(archivedSol.map(r => r.txt_session_code)).toEqual(['SOL-STALE']);
+  });
+
+  it('captures DatabaseError with structured contextual data and UUID v4 traceId on DB failures', () => {
+    // Initialize an empty DB without running the schema to force SQLITE errors
+    const brokenDb = new Database(':memory:');
+    const service = new MultiGameService(brokenDb);
+
+    // 1. Blackjack session creation failure
+    const bjkRes = service.createBlackjackSession('BJK-FAIL');
+    expect(bjkRes.isFailure()).toBe(true);
+    const bjkErr = bjkRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(bjkErr).toBeInstanceOf(DatabaseError);
+    expect(bjkErr.namespace).toBe('DATABASE');
+    expect(bjkErr.code).toBe('ERR_DB_BJK_CREATE_SESSION');
+    expect(bjkErr.data.game).toBe('blackjack');
+    expect(bjkErr.data.sessionCode).toBe('BJK-FAIL');
+    expect(isValidUuidV4(bjkErr.traceId)).toBe(true);
+    expect(bjkErr.cause).toBeDefined();
+
+    // 2. Blackjack seat registration failure
+    const seatRes = service.registerBlackjackSeat('invalid-session', 1, 'usr_1', 'Alice', false);
+    expect(seatRes.isFailure()).toBe(true);
+    const seatErr = seatRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(seatErr.code).toBe('ERR_DB_BJK_REGISTER_SEAT');
+    expect(isValidUuidV4(seatErr.traceId)).toBe(true);
+
+    // 3. Blackjack event failure
+    const eventRes = service.recordBlackjackEvent('invalid-session', 1, 'deal', {});
+    expect(eventRes.isFailure()).toBe(true);
+    const eventErr = eventRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(eventErr.code).toBe('ERR_DB_BJK_RECORD_EVENT');
+
+    // 4. Archive snapshot failure
+    const snapRes = service.archiveBlackjackSnapshot('BJK-FAIL', 'dealer_won', 1, 20, {});
+    expect(snapRes.isFailure()).toBe(true);
+    const snapErr = snapRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(snapErr.code).toBe('ERR_DB_BJK_ARCHIVE_SNAPSHOT');
+
+    // 5. Migrate history failure
+    const migRes = service.migrateBlackjackSnapshotsToHistory();
+    expect(migRes.isFailure()).toBe(true);
+    const migErr = migRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(migErr.code).toBe('ERR_DB_BJK_MIGRATE_HISTORY');
+
+    // 6. Avalon failure
+    const avRes = service.createAvalonSession('AV-FAIL');
+    expect(avRes.isFailure()).toBe(true);
+    const avErr = avRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(avErr.code).toBe('ERR_DB_AVALON_CREATE_SESSION');
+
+    const avSeatRes = service.registerAvalonSeat('invalid-avalon', 1, 'usr_1', 'Merlin', false);
+    expect(avSeatRes.isFailure()).toBe(true);
+    expect(avSeatRes.errorMessage).toContain('Failed to register avalon seat');
+
+    // 7. Uno failure
+    const unoRes = service.createUnoSession('UNO-FAIL');
+    expect(unoRes.isFailure()).toBe(true);
+    const unoErr = unoRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(unoErr.code).toBe('ERR_DB_UNO_CREATE_SESSION');
+
+    // 8. Phase 10 failure
+    const p10Res = service.createPhase10Session('P10-FAIL');
+    expect(p10Res.isFailure()).toBe(true);
+    const p10Err = p10Res.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(p10Err.code).toBe('ERR_DB_P10_CREATE_SESSION');
+
+    // 9. Poker failure
+    const pokRes = service.createPokerSession('POK-FAIL');
+    expect(pokRes.isFailure()).toBe(true);
+    const pokErr = pokRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(pokErr.code).toBe('ERR_DB_POKER_CREATE_SESSION');
+
+    const pokSeatRes = service.registerPokerSeat('invalid-pok', 1, 'usr_1', 'Player', false);
+    expect(pokSeatRes.isFailure()).toBe(true);
+
+    const pokSnapRes = service.archivePokerSnapshot('POK-FAIL', 'Winner', 'texas-holdem', 100, {});
+    expect(pokSnapRes.isFailure()).toBe(true);
+
+    // 10. SkipBo failure
+    const skpRes = service.createSkipBoSession('SKP-FAIL');
+    expect(skpRes.isFailure()).toBe(true);
+    const skpErr = skpRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(skpErr.code).toBe('ERR_DB_SKIPBO_CREATE_SESSION');
+
+    const skpSeatRes = service.registerSkipBoSeat('invalid-skp', 1, 'usr_1', 'Player', false);
+    expect(skpSeatRes.isFailure()).toBe(true);
+
+    const skpSnapRes = service.archiveSkipBoSnapshot('SKP-FAIL', 'Winner', {});
+    expect(skpSnapRes.isFailure()).toBe(true);
+
+    // 11. Set failure
+    const setRes = service.createSetSession('SET-FAIL');
+    expect(setRes.isFailure()).toBe(true);
+    const setErr = setRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(setErr.code).toBe('ERR_DB_SET_CREATE_SESSION');
+
+    const setSeatRes = service.registerSetSeat('invalid-set', 1, 'usr_1', 'Player', false);
+    expect(setSeatRes.isFailure()).toBe(true);
+
+    const setEvtRes = service.recordSetEvent('invalid-set', 1, 'claimed', {});
+    expect(setEvtRes.isFailure()).toBe(true);
+
+    const setSnapRes = service.archiveSetSnapshot('SET-FAIL', 'Winner', 5, {});
+    expect(setSnapRes.isFailure()).toBe(true);
+
+    const setMigRes = service.migrateSetSnapshotsToHistory();
+    expect(setMigRes.isFailure()).toBe(true);
+
+    // 12. Solitaire failure
+    const solRes = service.createSolitaireSession('SOL-FAIL');
+    expect(solRes.isFailure()).toBe(true);
+    const solErr = solRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(solErr.code).toBe('ERR_DB_SOL_CREATE_SESSION');
+
+    const solSeatRes = service.registerSolitaireSeat('invalid-sol', 1, 'usr_1', 'Player');
+    expect(solSeatRes.isFailure()).toBe(true);
+
+    const solMoveRes = service.recordSolitaireMove('invalid-sol', 1, 'draw', 'stock', 'waste', '[]');
+    expect(solMoveRes.isFailure()).toBe(true);
+
+    const solEvtRes = service.recordSolitaireEvent('invalid-sol', 1, 'move', '{}');
+    expect(solEvtRes.isFailure()).toBe(true);
+
+    const solSnapRes = service.archiveSolitaireSnapshot('SOL-FAIL', 'Player', 10, 5, false, '{}');
+    expect(solSnapRes.isFailure()).toBe(true);
+
+    const solMigRes = service.migrateSolitaireSnapshotsToHistory();
+    expect(solMigRes.isFailure()).toBe(true);
+
+    // 13. Pruner failure
+    const pruneRes = service.pruneAllStaleArcadeGames(3);
+    expect(pruneRes.isFailure()).toBe(true);
+    const pruneErr = pruneRes.match({
+      Ok: () => {
+        throw new Error('Expected failure');
+      },
+      Err: err => err
+    });
+    expect(pruneErr.code).toBe('ERR_DB_MULTI_GAME_PRUNER');
+    expect(isValidUuidV4(pruneErr.traceId)).toBe(true);
   });
 });

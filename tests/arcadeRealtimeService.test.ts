@@ -209,12 +209,15 @@ describe('ArcadeRealtimeService - Multi-Game Real-Time Seating & Bot Hot-Swappin
     // Non-host attempts to kick -> failure
     const nonHostKick = service.kickPlayer('POKER-KICK-TEST', 'rogue_user_99', hostId);
     expect(nonHostKick.isFailure()).toBe(true);
-    expect(nonHostKick.match({ Ok: () => '', Err: e => e })).toContain('Only the match host');
+    expect(nonHostKick.match({ Ok: () => '', Err: e => e.message })).toContain('Only the match host');
+    expect(nonHostKick.match({ Ok: () => '', Err: e => e.code })).toBe('ERR_UNAUTHORIZED_HOST');
+    expect(nonHostKick.match({ Ok: () => {}, Err: e => e.data.sessionCode })).toBe('POKER-KICK-TEST');
 
     // Host attempts to kick self -> failure
     const selfKick = service.kickPlayer('POKER-KICK-TEST', hostId, hostId);
     expect(selfKick.isFailure()).toBe(true);
-    expect(selfKick.match({ Ok: () => '', Err: e => e })).toContain('Host cannot kick themselves');
+    expect(selfKick.match({ Ok: () => '', Err: e => e.message })).toContain('Host cannot kick themselves');
+    expect(selfKick.match({ Ok: () => '', Err: e => e.code })).toBe('ERR_CANNOT_KICK_SELF');
 
     // Host kicks non-existent player -> failure
     const missingKick = service.kickPlayer('POKER-KICK-TEST', hostId, 'ghost_user');

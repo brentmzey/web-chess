@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.44] - 2026-10-29
+### Added
+- **Namespaced Error Data Model & Subsystem Architecture (`src/errors/sanctuaryError.ts`, `tests/sanctuaryError.test.ts`)**:
+  - Implemented strongly typed first-class namespaced error model `SanctuaryError<TData>` extending `Error`, carrying domain namespaces (`ErrorNamespaceEnum`), unique error codes, human-readable messages, strongly-typed structured context payloads (`data` / `context`), UTC timestamps via ECMAScript Temporal (`currentEpochMs`), distributed trace IDs, and underlying causes (`cause`).
+  - Added dedicated domain subclasses: `DatabaseError`, `GameEngineError`, `RealtimeError`, `ValidationError`, `StorageError`, `SessionError`, `AudioError`, `ConfigError`, `NetworkError`, `SystemError`.
+  - Added static factory builders (`SanctuaryError.database`, `SanctuaryError.from`, etc.) and monadic error wrapping functions (`failureWith`, `tryCatchWithSanctuaryError`, `tryCatchAsyncWithSanctuaryError`).
+- **Nominal Branded UUID v4 & Distributed Trace ID Typing (`src/utils/uuid.ts`, `tests/uuid.test.ts`)**:
+  - Implemented branded nominal types `UuidV4` and `TraceId` conforming to RFC 4122 v4 while maintaining transparent primitive string interchangeability across SQLite, PocketBase, and PocketHost storage layers.
+  - Added pure functional type-guards, regex validators, monadic parsers (`parseUuidV4: Option<UuidV4>`, `validateUuidV4: Result<UuidV4, ValidationError>`), and secure generators (`generateUuidV4`, `generateTraceId`, `ensureUuidV4`, `asUuidV4`).
+- **Enriched `Result<T, E>` Monadic Diagnostics & Structured Logging (`src/utils/fp.ts`, `tests/fp.test.ts`)**:
+  - Enhanced `Result<T, E>` monad with namespaced error inspection properties (`errorMessage`, `errorNamespace: Option<string>`, `errorData: Option<Record<string, unknown>>`, `traceId: Option<string>`), error mapping (`mapError`), side-effects (`tapError`), structured error logging (`logError`), and immutable context enrichment (`withData`, `withTraceId`).
+  - Upgraded `Option.filter` with TypeScript type-guard overloads for seamless monadic type narrowing.
+- **Service Layer Migration to `DatabaseError` & `RealtimeError` (`src/server/services/multiGameService.ts`, `src/server/services/arcadeRealtimeService.ts`, `tests/multiGameService.test.ts`, `tests/arcadeRealtimeService.test.ts`)**:
+  - Migrated all 27 database operations in `MultiGameService` across all 8 arcade games (Blackjack, Avalon, Uno, Phase 10, Poker, Skip-Bo, SET, Solitaire) from `Result<T, string>` to `Result<T, DatabaseError>` carrying rich error codes, domain data payloads, and UUID v4 trace IDs.
+  - Integrated `RealtimeError` across `ArcadeRealtimeService` and `SanctuaryRealtimeServer` with automated logging and HTTP 400 bad request error responses.
+  - Achieved **100% line & function test coverage** on `sanctuaryError.ts`, `multiGameService.ts`, `fp.ts`, and `uuid.ts`, expanding total tests to **461 passing tests across 53 files** (3,714 assertions, 0 failures, 0 type errors).
+
 ## [1.2.0-rc.43] - 2026-10-29
 ### Added
 - **Cathedral Solitaire (Klondike Patience) Theater & Game Engine (`src/games/solitaire/solitaireEngine.ts`, `tests/solitaireEngine.test.ts`, `index.html`)**:

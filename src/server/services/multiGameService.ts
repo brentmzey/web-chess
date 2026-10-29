@@ -1,11 +1,12 @@
-import { randomUUID } from 'node:crypto';
 import type { Database } from 'bun:sqlite';
 import { Result, tryCatch } from '../../utils/fp';
 import { currentEpochMs } from '../../utils/dateTime';
 import { logger } from '../../utils/logger';
+import { DatabaseError } from '../../errors/sanctuaryError';
+import { generateUuidV4, generateTraceId, type UuidV4 } from '../../utils/uuid';
 
 export interface MultiGameSessionRecord {
-  id: string;
+  id: UuidV4;
   session_code: string;
   status: string;
   do_not_delete: number;
@@ -14,7 +15,7 @@ export interface MultiGameSessionRecord {
 }
 
 export interface MultiGameSeatRecord {
-  id: string;
+  id: UuidV4;
   session_id: string;
   seat_number: number;
   player_id: string;
@@ -26,7 +27,7 @@ export interface MultiGameSeatRecord {
 }
 
 export interface MultiGameMoveRecord {
-  id: string;
+  id: UuidV4;
   session_id: string;
   seat_number: number;
   action_type: string;
@@ -34,7 +35,7 @@ export interface MultiGameMoveRecord {
 }
 
 export interface MultiGameEventRecord {
-  id: string;
+  id: UuidV4;
   session_id: string;
   event_seq: number;
   event_type: string;
@@ -42,7 +43,7 @@ export interface MultiGameEventRecord {
 }
 
 export interface MultiGameSnapshotRecord {
-  id: string;
+  id: UuidV4;
   txt_session_code: string;
   txt_outcome?: string;
   bln_do_not_delete: number;
@@ -69,10 +70,10 @@ export class MultiGameService {
   public createBlackjackSession(sessionCode: string,
                                 minBet: number = 10,
                                 maxBet: number = 500,
-                                doNotDelete: boolean = false): Result<MultiGameSessionRecord, string> {
+                                doNotDelete: boolean = false): Result<MultiGameSessionRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -92,7 +93,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to create blackjack session: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_BJK_CREATE_SESSION',
+          message: `Failed to create blackjack session: ${String(err)}`,
+          data: { game: 'blackjack', sessionCode, minBet, maxBet, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -101,10 +109,10 @@ export class MultiGameService {
                                playerId: string,
                                playerName: string,
                                isBot: boolean,
-                               botModel?: string): Result<MultiGameSeatRecord, string> {
+                               botModel?: string): Result<MultiGameSeatRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -129,17 +137,24 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to register blackjack seat: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_BJK_REGISTER_SEAT',
+          message: `Failed to register blackjack seat: ${String(err)}`,
+          data: { game: 'blackjack', sessionId, seatNumber, playerId, playerName, isBot },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
   public recordBlackjackEvent(sessionId: string,
                               eventSeq: number,
                               eventType: string,
-                              payload: Record<string, unknown>): Result<boolean, string> {
+                              payload: Record<string, unknown>): Result<boolean, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -151,7 +166,14 @@ export class MultiGameService {
         logger.info(`[SERVER_SIDE] [BJK_TRACE] Event #${eventSeq} (${eventType}) recorded for ${sessionId}`);
         return true;
       },
-      err => `Failed to record blackjack event: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_BJK_RECORD_EVENT',
+          message: `Failed to record blackjack event: ${String(err)}`,
+          data: { game: 'blackjack', sessionId, eventSeq, eventType },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -160,10 +182,10 @@ export class MultiGameService {
                                   totalHands: number,
                                   dealerTotal: number,
                                   payload: Record<string, unknown>,
-                                  doNotDelete: boolean = false): Result<MultiGameSnapshotRecord, string> {
+                                  doNotDelete: boolean = false): Result<MultiGameSnapshotRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         const payloadJson = JSON.stringify(payload);
 
@@ -186,11 +208,18 @@ export class MultiGameService {
           created_at: now
         };
       },
-      err => `Failed to archive blackjack snapshot: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_BJK_ARCHIVE_SNAPSHOT',
+          message: `Failed to archive blackjack snapshot: ${String(err)}`,
+          data: { game: 'blackjack', sessionCode, outcome, totalHands, dealerTotal, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
-  public migrateBlackjackSnapshotsToHistory(): Result<number, string> {
+  public migrateBlackjackSnapshotsToHistory(): Result<number, DatabaseError> {
     return tryCatch(
       () => {
         const migratedCount = this.db.transaction(() => {
@@ -210,7 +239,14 @@ export class MultiGameService {
         logger.info(`[SERVER_SIDE] [BJK_TRACE] Migrated ${migratedCount} snapshots to tbl_archived_bjk_snapshots_history`);
         return migratedCount;
       },
-      err => `Failed to migrate snapshots to history: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_BJK_MIGRATE_HISTORY',
+          message: `Failed to migrate snapshots to history: ${String(err)}`,
+          data: { game: 'blackjack' },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -220,10 +256,10 @@ export class MultiGameService {
 
   public createAvalonSession(sessionCode: string,
                              playerCount: number = 5,
-                             doNotDelete: boolean = false): Result<MultiGameSessionRecord, string> {
+                             doNotDelete: boolean = false): Result<MultiGameSessionRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -243,7 +279,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to create avalon session: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_AVALON_CREATE_SESSION',
+          message: `Failed to create avalon session: ${String(err)}`,
+          data: { game: 'avalon', sessionCode, playerCount, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -254,10 +297,10 @@ export class MultiGameService {
                             isBot: boolean,
                             role: string = 'Loyal Servant of Arthur',
                             allegiance: 'good' | 'evil' = 'good',
-                            botModel?: string): Result<MultiGameSeatRecord, string> {
+                            botModel?: string): Result<MultiGameSeatRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -282,7 +325,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to register avalon seat: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_AVALON_REGISTER_SEAT',
+          message: `Failed to register avalon seat: ${String(err)}`,
+          data: { game: 'avalon', sessionId, seatNumber, playerId, playerName, role, allegiance },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -292,10 +342,10 @@ export class MultiGameService {
 
   public createUnoSession(sessionCode: string,
                           initialColor: string = 'red',
-                          doNotDelete: boolean = false): Result<MultiGameSessionRecord, string> {
+                          doNotDelete: boolean = false): Result<MultiGameSessionRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -315,7 +365,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to create uno session: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_UNO_CREATE_SESSION',
+          message: `Failed to create uno session: ${String(err)}`,
+          data: { game: 'uno', sessionCode, initialColor, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -324,10 +381,10 @@ export class MultiGameService {
   // ============================================================================
 
   public createPhase10Session(sessionCode: string,
-                              doNotDelete: boolean = false): Result<MultiGameSessionRecord, string> {
+                              doNotDelete: boolean = false): Result<MultiGameSessionRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -347,7 +404,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to create phase 10 session: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_P10_CREATE_SESSION',
+          message: `Failed to create phase 10 session: ${String(err)}`,
+          data: { game: 'phase10', sessionCode, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -359,10 +423,10 @@ export class MultiGameService {
                             variant: string = 'texas-holdem',
                             smallBlind: number = 10,
                             bigBlind: number = 20,
-                            doNotDelete: boolean = false): Result<MultiGameSessionRecord, string> {
+                            doNotDelete: boolean = false): Result<MultiGameSessionRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -382,7 +446,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to create poker session: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_POKER_CREATE_SESSION',
+          message: `Failed to create poker session: ${String(err)}`,
+          data: { game: 'poker', sessionCode, variant, smallBlind, bigBlind, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -392,10 +463,10 @@ export class MultiGameService {
                            playerName: string,
                            isBot: boolean,
                            chips: number = 1000,
-                           botModel?: string): Result<MultiGameSeatRecord, string> {
+                           botModel?: string): Result<MultiGameSeatRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -420,7 +491,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to register poker seat: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_POKER_REGISTER_SEAT',
+          message: `Failed to register poker seat: ${String(err)}`,
+          data: { game: 'poker', sessionId, seatNumber, playerId, playerName, chips, isBot },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -429,10 +507,10 @@ export class MultiGameService {
                               variant: string,
                               finalPot: number,
                               payload: Record<string, unknown>,
-                              doNotDelete: boolean = false): Result<MultiGameSnapshotRecord, string> {
+                              doNotDelete: boolean = false): Result<MultiGameSnapshotRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         const payloadJson = JSON.stringify(payload);
 
@@ -455,7 +533,14 @@ export class MultiGameService {
           created_at: now
         };
       },
-      err => `Failed to archive poker snapshot: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_POKER_ARCHIVE_SNAPSHOT',
+          message: `Failed to archive poker snapshot: ${String(err)}`,
+          data: { game: 'poker', sessionCode, winnerName, variant, finalPot, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -465,10 +550,10 @@ export class MultiGameService {
 
   public createSkipBoSession(sessionCode: string,
                              stockpileSize: number = 15,
-                             doNotDelete: boolean = false): Result<string, string> {
+                             doNotDelete: boolean = false): Result<UuidV4, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -481,7 +566,14 @@ export class MultiGameService {
         logger.info(`[SERVER_SIDE] [SKIPBO_TRACE] Created Skip-Bo session ${sessionCode} (${id})`);
         return id;
       },
-      err => `Failed to create Skip-Bo session: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SKIPBO_CREATE_SESSION',
+          message: `Failed to create Skip-Bo session: ${String(err)}`,
+          data: { game: 'skipbo', sessionCode, stockpileSize, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -490,10 +582,10 @@ export class MultiGameService {
                             playerId: string,
                             playerName: string,
                             isBot: boolean,
-                            stockpileRemaining: number = 15): Result<string, string> {
+                            stockpileRemaining: number = 15): Result<UuidV4, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -506,17 +598,24 @@ export class MultiGameService {
         logger.info(`[SERVER_SIDE] [SKIPBO_TRACE] Seat ${seatNumber} registered for Skip-Bo ${sessionId}: ${playerName}`);
         return id;
       },
-      err => `Failed to register Skip-Bo seat: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SKIPBO_REGISTER_SEAT',
+          message: `Failed to register Skip-Bo seat: ${String(err)}`,
+          data: { game: 'skipbo', sessionId, seatNumber, playerId, playerName, stockpileRemaining },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
   public archiveSkipBoSnapshot(sessionCode: string,
                                winnerName: string,
                                payload: Record<string, unknown>,
-                               doNotDelete: boolean = false): Result<MultiGameSnapshotRecord, string> {
+                               doNotDelete: boolean = false): Result<MultiGameSnapshotRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         const payloadJson = JSON.stringify(payload);
 
@@ -539,7 +638,14 @@ export class MultiGameService {
           created_at: now
         };
       },
-      err => `Failed to archive Skip-Bo snapshot: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SKIPBO_ARCHIVE_SNAPSHOT',
+          message: `Failed to archive Skip-Bo snapshot: ${String(err)}`,
+          data: { game: 'skipbo', sessionCode, winnerName, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -548,10 +654,10 @@ export class MultiGameService {
   // ==========================================================================
 
   public createSetSession(sessionCode: string,
-                          doNotDelete: boolean = false): Result<MultiGameSessionRecord, string> {
+                          doNotDelete: boolean = false): Result<MultiGameSessionRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -572,7 +678,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to create SET session: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SET_CREATE_SESSION',
+          message: `Failed to create SET session: ${String(err)}`,
+          data: { game: 'set', sessionCode, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -581,10 +694,10 @@ export class MultiGameService {
                          playerId: string,
                          playerName: string,
                          isBot: boolean,
-                         botModel?: string): Result<MultiGameSeatRecord, string> {
+                         botModel?: string): Result<MultiGameSeatRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -608,17 +721,24 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to register SET seat: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SET_REGISTER_SEAT',
+          message: `Failed to register SET seat: ${String(err)}`,
+          data: { game: 'set', sessionId, seatNumber, playerId, playerName, isBot },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
   public recordSetEvent(sessionId: string,
                         eventSeq: number,
                         eventType: string,
-                        payload: Record<string, unknown>): Result<boolean, string> {
+                        payload: Record<string, unknown>): Result<boolean, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -630,7 +750,14 @@ export class MultiGameService {
         logger.info(`[SERVER_SIDE] [SET_TRACE] Event #${eventSeq} (${eventType}) recorded for ${sessionId}`);
         return true;
       },
-      err => `Failed to record SET event: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SET_RECORD_EVENT',
+          message: `Failed to record SET event: ${String(err)}`,
+          data: { game: 'set', sessionId, eventSeq, eventType },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -638,10 +765,10 @@ export class MultiGameService {
                             winnerName: string,
                             claimedSets: number,
                             payload: Record<string, unknown>,
-                            doNotDelete: boolean = false): Result<MultiGameSnapshotRecord, string> {
+                            doNotDelete: boolean = false): Result<MultiGameSnapshotRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         const payloadJson = JSON.stringify(payload);
 
@@ -664,11 +791,18 @@ export class MultiGameService {
           created_at: now
         };
       },
-      err => `Failed to archive SET snapshot: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SET_ARCHIVE_SNAPSHOT',
+          message: `Failed to archive SET snapshot: ${String(err)}`,
+          data: { game: 'set', sessionCode, winnerName, claimedSets, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
-  public migrateSetSnapshotsToHistory(): Result<number, string> {
+  public migrateSetSnapshotsToHistory(): Result<number, DatabaseError> {
     return tryCatch(
       () => {
         const migratedCount = this.db.transaction(() => {
@@ -688,7 +822,14 @@ export class MultiGameService {
         logger.info(`[SERVER_SIDE] [SET_TRACE] Migrated ${migratedCount} snapshots to tbl_archived_set_snapshots_history`);
         return migratedCount;
       },
-      err => `Failed to migrate SET snapshots to history: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SET_MIGRATE_HISTORY',
+          message: `Failed to migrate SET snapshots to history: ${String(err)}`,
+          data: { game: 'set' },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -697,10 +838,10 @@ export class MultiGameService {
   // ==========================================================================
 
   public createSolitaireSession(sessionCode: string,
-                                doNotDelete: boolean = false): Result<MultiGameSessionRecord, string> {
+                                doNotDelete: boolean = false): Result<MultiGameSessionRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -721,7 +862,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to create Solitaire session: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SOL_CREATE_SESSION',
+          message: `Failed to create Solitaire session: ${String(err)}`,
+          data: { game: 'solitaire', sessionCode, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -729,10 +877,10 @@ export class MultiGameService {
                                seatNumber: number,
                                playerId: string,
                                playerName: string,
-                               isSpectator: boolean = false): Result<MultiGameSeatRecord, string> {
+                               isSpectator: boolean = false): Result<MultiGameSeatRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -755,7 +903,14 @@ export class MultiGameService {
           updated_at: now
         };
       },
-      err => `Failed to register Solitaire seat: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SOL_REGISTER_SEAT',
+          message: `Failed to register Solitaire seat: ${String(err)}`,
+          data: { game: 'solitaire', sessionId, seatNumber, playerId, playerName, isSpectator },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -764,10 +919,10 @@ export class MultiGameService {
                              actionType: string,
                              sourcePile: string,
                              targetPile: string,
-                             cardsJson: string): Result<MultiGameMoveRecord, string> {
+                             cardsJson: string): Result<MultiGameMoveRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -787,17 +942,24 @@ export class MultiGameService {
           created_at: now
         };
       },
-      err => `Failed to record Solitaire move: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SOL_RECORD_MOVE',
+          message: `Failed to record Solitaire move: ${String(err)}`,
+          data: { game: 'solitaire', sessionId, moveSeq, actionType, sourcePile, targetPile },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
   public recordSolitaireEvent(sessionId: string,
                               eventSeq: number,
                               eventType: string,
-                              payloadJson: string): Result<MultiGameEventRecord, string> {
+                              payloadJson: string): Result<MultiGameEventRecord, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -817,7 +979,14 @@ export class MultiGameService {
           created_at: now
         };
       },
-      err => `Failed to record Solitaire event: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SOL_RECORD_EVENT',
+          message: `Failed to record Solitaire event: ${String(err)}`,
+          data: { game: 'solitaire', sessionId, eventSeq, eventType },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -826,10 +995,10 @@ export class MultiGameService {
                                   score: number,
                                   movesCount: number,
                                   doNotDelete: boolean,
-                                  payloadJson: string): Result<string, string> {
+                                  payloadJson: string): Result<UuidV4, DatabaseError> {
     return tryCatch(
       () => {
-        const id = randomUUID();
+        const id = generateUuidV4();
         const now = currentEpochMs();
         this.db
           .prepare(
@@ -842,11 +1011,18 @@ export class MultiGameService {
         logger.info(`[SERVER_SIDE] [SOL_TRACE] Archived snapshot for ${sessionCode} into tbl_archived_sol_snapshots`);
         return id;
       },
-      err => `Failed to archive Solitaire snapshot: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SOL_ARCHIVE_SNAPSHOT',
+          message: `Failed to archive Solitaire snapshot: ${String(err)}`,
+          data: { game: 'solitaire', sessionCode, playerName, score, movesCount, doNotDelete },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
-  public migrateSolitaireSnapshotsToHistory(): Result<number, string> {
+  public migrateSolitaireSnapshotsToHistory(): Result<number, DatabaseError> {
     return tryCatch(
       () => {
         const migratedCount = this.db.transaction(() => {
@@ -866,7 +1042,14 @@ export class MultiGameService {
         logger.info(`[SERVER_SIDE] [SOL_TRACE] Migrated ${migratedCount} snapshots to tbl_archived_sol_snapshots_history`);
         return migratedCount;
       },
-      err => `Failed to migrate Solitaire snapshots to history: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_SOL_MIGRATE_HISTORY',
+          message: `Failed to migrate Solitaire snapshots to history: ${String(err)}`,
+          data: { game: 'solitaire' },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 
@@ -881,7 +1064,7 @@ export class MultiGameService {
    * table before cascade-deleting the active session and its child seats/moves/events.
    */
   public pruneAllStaleArcadeGames(olderThanDays: number = 3,
-                                  referenceTimeMs: number = currentEpochMs()): Result<StaleArcadePruneReport, string> {
+                                  referenceTimeMs: number = currentEpochMs()): Result<StaleArcadePruneReport, DatabaseError> {
     return tryCatch(
       () => {
         const cutoffMs = referenceTimeMs - olderThanDays * 86_400_000;
@@ -971,7 +1154,7 @@ export class MultiGameService {
             const deleteStmt = this.db.prepare(`DELETE FROM ${cfg.sessionTable} WHERE id = ?`);
 
             for (const row of staleRows) {
-              const snapId = randomUUID();
+              const snapId = generateUuidV4();
               const snapPayload = JSON.stringify({
                 session: row,
                 prunedReason: 'stale_inactivity_3_days',
@@ -990,7 +1173,14 @@ export class MultiGameService {
         logger.info(`[SERVER_SIDE] [MULTI_GAME_PRUNER] Pruned ${totalPruned} stale arcade sessions older than ${olderThanDays} days.`);
         return { totalPruned, prunedByGame };
       },
-      err => `Failed to prune stale arcade games: ${String(err)}`
+      err =>
+        new DatabaseError({
+          code: 'ERR_DB_MULTI_GAME_PRUNER',
+          message: `Failed to prune stale arcade games: ${String(err)}`,
+          data: { olderThanDays, referenceTimeMs },
+          traceId: generateTraceId(),
+          cause: err
+        })
     );
   }
 }

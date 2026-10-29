@@ -172,13 +172,85 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
       const noneAsync = await none<number>().flatMapAsync(async n => some(n * 3));
       expect(noneAsync.isNone()).toBe(true);
 
-      const okAsync = await success<number, string>(10).flatMapAsync(async n => success(n + 5));
-      expect(okAsync.getOrElse(0)).toBe(15);
+      const okAsync = await success<number, string>(10).flatMapAsync(async n => success(n * 5));
+      expect(okAsync.getOrElse(0)).toBe(50);
 
-      const errAsync = await failure<number, string>('failed').flatMapAsync(async n =>
-        success(n + 5)
-      );
-      expect(errAsync.isFailure()).toBe(true);
+      const failAsync = await failure<number, string>('init fail').flatMapAsync(async n => success(n * 5));
+      expect(failAsync.isFailure()).toBe(true);
+    });
+
+    it('supports namespaced error introspection, mapError, tapError, logError, withData, and withTraceId', () => {
+      // 1. Failure with plain Error
+      const plainErrFail = failure<number, Error>(new Error('Standard node error'));
+      expect(plainErrFail.errorMessage).toBe('Standard node error');
+      expect(plainErrFail.errorNamespace.isNone()).toBe(true);
+      expect(plainErrFail.errorData.isNone()).toBe(true);
+      expect(plainErrFail.traceId.isNone()).toBe(true);
+
+      // 2. Failure with namespaced error-like object
+      const createNamespaced = (data: any, traceId?: string) => ({
+        namespace: 'ENGINE',
+        code: 'ERR_ILLEGAL',
+        message: 'Illegal chess move',
+        data,
+        traceId,
+        log: (logger?: any) => {
+          if (logger) logger.error('namespaced log called');
+        },
+        withData: (d: any) => createNamespaced({ ...data, ...d }, traceId),
+        withTraceId: (t: any) => createNamespaced(data, t)
+      });
+
+      const customFail = failure<number, any>(createNamespaced({ from: 'e2', to: 'e5' }, 'trc_123'));
+      expect(customFail.errorMessage).toBe('Illegal chess move');
+      expect(customFail.errorNamespace.getOrElse('')).toBe('ENGINE');
+      expect(customFail.errorData.getOrElse({} as any)).toEqual({ from: 'e2', to: 'e5' });
+      expect(customFail.traceId.getOrElse('')).toBe('trc_123');
+
+      // tapError
+      let tapped = '';
+      customFail.tapError(e => {
+        tapped = e.code;
+      });
+      expect(tapped).toBe('ERR_ILLEGAL');
+
+      // mapError
+      const mapped = customFail.mapError(e => `Code: ${e.code}`);
+      expect(mapped.match({ Ok: () => '', Err: e => e })).toBe('Code: ERR_ILLEGAL');
+
+      // withData & withTraceId on Failure
+      const enriched = customFail.withData({ ply: 1 }).withTraceId('trc_456');
+      expect(enriched.errorData.getOrElse({} as any)).toEqual({ from: 'e2', to: 'e5', ply: 1 });
+      expect(enriched.traceId.getOrElse('')).toBe('trc_456');
+
+      // logError on Failure with custom log method and fallback
+      let logMsg = '';
+      const dummyLogger = {
+        error: (msg: string) => {
+          logMsg = msg;
+        }
+      };
+      customFail.logError(dummyLogger);
+      expect(logMsg).toBe('namespaced log called');
+
+      const rawFail = failure<number, string>('Raw string fail');
+      rawFail.logError(dummyLogger, 'Operation failed');
+      expect(logMsg).toBe('Operation failed: Raw string fail');
+      expect(rawFail.withData({}).match({ Ok: () => '', Err: e => e })).toBe('Raw string fail');
+      expect(rawFail.withTraceId('trc').match({ Ok: () => '', Err: e => e })).toBe('Raw string fail');
+
+      // Success branch no-ops
+      const okVal = success<number, string>(99);
+      let okTapped = false;
+      okVal.tapError(() => {
+        okTapped = true;
+      });
+      expect(okTapped).toBe(false);
+
+      expect(okVal.mapError(() => 'newErr').getOrElse(0)).toBe(99);
+      expect(okVal.withData({}).getOrElse(0)).toBe(99);
+      expect(okVal.withTraceId('t').getOrElse(0)).toBe(99);
+      expect(okVal.logError(dummyLogger)).toBe(okVal);
     });
   });
 
@@ -219,6 +291,12 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
 
       const bad = tryCatch(() => JSON.parse('{invalid json'), e => (e as Error).message);
       expect(bad.isFailure()).toBe(true);
+
+      const defaultCatch = tryCatch(() => {
+        throw new Error('Fallback error message');
+      });
+      expect(defaultCatch.isFailure()).toBe(true);
+      expect(defaultCatch.errorMessage).toBe('Fallback error message');
     });
 
     it('captures rejected promises into Failure', async () => {
@@ -229,6 +307,12 @@ describe('Functional Programming Utilities (Scala/Rust Style)', () => {
         throw new Error('Async explosion');
       }, e => (e as Error).message);
       expect(bad.isFailure()).toBe(true);
+
+      const defaultAsyncCatch = await tryCatchAsync(async () => {
+        throw new Error('Async fallback error message');
+      });
+      expect(defaultAsyncCatch.isFailure()).toBe(true);
+      expect(defaultAsyncCatch.errorMessage).toBe('Async fallback error message');
     });
   });
 

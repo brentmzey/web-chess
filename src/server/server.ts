@@ -7,6 +7,7 @@ import { SSEManager } from './sse/sseManager';
 import { ArcadeRealtimeService } from './services/arcadeRealtimeService';
 import { MultiGameService } from './services/multiGameService';
 import { ArcadeGameEnum } from '../constants/gameEnums';
+import { SanctuaryError } from '../errors/sanctuaryError';
 
 export interface SanctuaryServerOptions {
   readonly port?: number;
@@ -120,7 +121,19 @@ export class SanctuaryRealtimeServer {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
 
-    const badRequest = (err: string): Response => json({ error: err }, 400);
+    const badRequest = (err: string | SanctuaryError): Response => {
+      if (err instanceof SanctuaryError) {
+        err.log(logger, 'warn');
+        return json({
+          error: err.message,
+          code: err.code,
+          namespace: err.namespace,
+          data: err.data,
+          timestamp: err.timestamp
+        }, 400);
+      }
+      return json({ error: String(err) }, 400);
+    };
 
     // Extract Bearer token from header or query param
     const extractToken = (): string => {

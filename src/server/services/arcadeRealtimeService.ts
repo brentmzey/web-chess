@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import {
   Option,
   Result,
@@ -7,6 +6,7 @@ import {
   tryCatch,
   fromNullable
 } from '../../utils/fp';
+import { RealtimeError } from '../../errors/sanctuaryError';
 import {
   ArcadeGameEnum,
   REAL_LIFE_GAME_CAPACITIES
@@ -14,6 +14,7 @@ import {
 import { logger } from '../../utils/logger';
 import { TableSeatManager } from '../../games/multiplayer/tableSeatManager';
 import { currentEpochMs } from '../../utils/dateTime';
+import { generateUuidV4, generateTraceId } from '../../utils/uuid';
 
 export interface ArcadeRealtimeEvent {
   id: number;
@@ -44,7 +45,7 @@ export class ArcadeRealtimeService {
   public createSession(game: ArcadeGameEnum,
                        sessionCode: string,
                        requestedSeats?: number,
-                       creatorName: string = 'Host Player'): Result<ArcadeSessionState, string> {
+                       creatorName: string = 'Host Player'): Result<ArcadeSessionState, RealtimeError> {
     return tryCatch(
       () => {
         const capacity = REAL_LIFE_GAME_CAPACITIES[game];
@@ -59,12 +60,12 @@ export class ArcadeRealtimeService {
         }
 
         // Creator claims seat 1
-        const creatorId = 'host_' + randomUUID().slice(0, 8);
+        const creatorId = 'host_' + generateUuidV4().slice(0, 8);
         seatManager.claimSeat(1, creatorId, creatorName, undefined, true);
 
         const now = currentEpochMs();
         const session: ArcadeSessionState = {
-          id: randomUUID(),
+          id: generateUuidV4(),
           sessionCode,
           game,
           maxSeats,
@@ -81,7 +82,11 @@ export class ArcadeRealtimeService {
         logger.info(`[SERVER_SIDE] [ARCADE_REALTIME] Session created: ${sessionCode} (${game}, ${maxSeats} seats)`);
         return session;
       },
-      err => `Failed to create arcade session: ${String(err)}`
+      err => new RealtimeError('ERR_CREATE_SESSION', `Failed to create arcade session: ${String(err)}`, {
+        game,
+        sessionCode,
+        requestedSeats
+      }, { cause: err, traceId: generateTraceId() })
     );
   }
 
@@ -91,10 +96,14 @@ export class ArcadeRealtimeService {
 
   public joinSession(sessionCode: string,
                      participantId: string,
-                     displayName: string): Result<{ seatNumber: number; session: ArcadeSessionState }, string> {
+                     displayName: string): Result<{ seatNumber: number; session: ArcadeSessionState }, RealtimeError> {
     const sessionOpt = this.getSession(sessionCode);
     if (!sessionOpt.isSome()) {
-      return failure(`Arcade session '${sessionCode}' not found.`);
+      return failure(new RealtimeError('ERR_SESSION_NOT_FOUND', `Arcade session '${sessionCode}' not found.`, {
+        sessionCode,
+        participantId,
+        displayName
+      }, { traceId: generateTraceId() }));
     }
 
     const session = sessionOpt.getOrThrow();
@@ -116,8 +125,8 @@ export class ArcadeRealtimeService {
     const claimRes = session.seatManager.claimAnyAvailableSeat(participantId, displayName);
     if (!claimRes.isSuccess()) {
       return claimRes.match({
-        Ok: () => failure('Unexpected seat claim state.'),
-        Err: err => failure(err)
+        Ok: () => failure(new RealtimeError('ERR_UNEXPECTED_CLAIM_STATE', 'Unexpected seat claim state.', { sessionCode, participantId }, { traceId: generateTraceId() })),
+        Err: err => failure(new RealtimeError('ERR_SEAT_CLAIM_FAILED', err, { sessionCode, participantId, displayName }, { traceId: generateTraceId() }))
       });
     }
 
@@ -137,9 +146,11 @@ export class ArcadeRealtimeService {
   }
 
   public leaveSession(sessionCode: string,
-                      participantId: string): Result<string, string> {
+                      participantId: string): Result<string, RealtimeError> {
     const sessionOpt = this.getSession(sessionCode);
-    if (!sessionOpt.isSome()) return failure('Session not found.');
+    if (!sessionOpt.isSome()) {
+      return failure(new RealtimeError('ERR_SESSION_NOT_FOUND', 'Session not found.', { sessionCode, participantId }, { traceId: generateTraceId() }));
+    }
 
     const session = sessionOpt.getOrThrow();
     const occupied = session.seatManager.getOccupiedSeats();
@@ -152,7 +163,10 @@ export class ArcadeRealtimeService {
         });
         return success(`Spectator '${participantId}' left the table.`);
       }
-      return failure(`Participant '${participantId}' not found at table.`);
+      return failure(new RealtimeError('ERR_PARTICIPANT_NOT_FOUND', `Participant '${participantId}' not found at table.`, {
+        sessionCode,
+        participantId
+      }, { traceId: generateTraceId() }));
     }
 
     // Vacate seat and restore bot so the table never halts
@@ -172,25 +186,38 @@ export class ArcadeRealtimeService {
   public kickPlayer(sessionCode: string,
                     hostParticipantId: string,
                     targetParticipantId: string,
-                    reason: string = 'Removed by table host'): Result<{ kickedParticipantId: string; seatNumber: number }, string> {
+                    reason: string = 'Removed by table host'): Result<{ kickedParticipantId: string; seatNumber: number }, RealtimeError> {
     const sessionOpt = this.getSession(sessionCode);
-    if (!sessionOpt.isSome()) return failure('Session not found.');
+    if (!sessionOpt.isSome()) {
+      return failure(new RealtimeError('ERR_SESSION_NOT_FOUND', 'Session not found.', { sessionCode }, { traceId: generateTraceId() }));
+    }
 
     const session = sessionOpt.getOrThrow();
 
     // Verify host permission
     if (session.hostParticipantId && session.hostParticipantId !== hostParticipantId) {
-      return failure('Only the match host can kick players.');
+      return failure(new RealtimeError('ERR_UNAUTHORIZED_HOST', 'Only the match host can kick players.', {
+        sessionCode,
+        hostParticipantId: session.hostParticipantId,
+        callerParticipantId: hostParticipantId,
+        targetParticipantId
+      }, { traceId: generateTraceId() }));
     }
 
     if (hostParticipantId === targetParticipantId) {
-      return failure('Host cannot kick themselves.');
+      return failure(new RealtimeError('ERR_CANNOT_KICK_SELF', 'Host cannot kick themselves.', {
+        sessionCode,
+        hostParticipantId
+      }, { traceId: generateTraceId() }));
     }
 
     const occupied = session.seatManager.getOccupiedSeats();
     const userSeat = occupied.find(s => s.playerId === targetParticipantId);
     if (!userSeat) {
-      return failure(`Participant '${targetParticipantId}' not found at table.`);
+      return failure(new RealtimeError('ERR_TARGET_NOT_FOUND', `Participant '${targetParticipantId}' not found at table.`, {
+        sessionCode,
+        targetParticipantId
+      }, { traceId: generateTraceId() }));
     }
 
     const targetSeatNumber = userSeat.seatNumber;
@@ -215,9 +242,15 @@ export class ArcadeRealtimeService {
   public dispatchAction(sessionCode: string,
                         participantId: string,
                         actionType: string,
-                        payload: Record<string, unknown>): Result<ArcadeRealtimeEvent, string> {
+                        payload: Record<string, unknown>): Result<ArcadeRealtimeEvent, RealtimeError> {
     const sessionOpt = this.getSession(sessionCode);
-    if (!sessionOpt.isSome()) return failure('Session not found.');
+    if (!sessionOpt.isSome()) {
+      return failure(new RealtimeError('ERR_SESSION_NOT_FOUND', `Session '${sessionCode}' not found.`, {
+        sessionCode,
+        participantId,
+        actionType
+      }, { traceId: generateTraceId() }));
+    }
 
     const event = this.broadcast(sessionCode, 'game_action', participantId, {
       actionType,

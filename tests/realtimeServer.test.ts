@@ -296,6 +296,24 @@ describe('SanctuaryRealtimeServer HTTP & SSE Endpoints', () => {
     expect(kickData.success).toBe(true);
     expect(kickData.kickedParticipantId).toBe('usr_p3');
 
+    // Non-host attempts kick -> 400 with namespaced RealtimeError payload
+    const unauthorizedKickReq = new Request('http://localhost:3888/api/arcade/sessions/kick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionCode: 'POKER-HTTP-1',
+        hostParticipantId: 'fake_imposter',
+        targetParticipantId: 'usr_p2'
+      })
+    });
+    const unauthKickResp = await server.handleRequest(unauthorizedKickReq);
+    expect(unauthKickResp.status).toBe(400);
+    const unauthErrData = (await unauthKickResp.json()) as any;
+    expect(unauthErrData.error).toContain('Only the match host');
+    expect(unauthErrData.code).toBe('ERR_UNAUTHORIZED_HOST');
+    expect(unauthErrData.namespace).toBe('REALTIME');
+    expect(unauthErrData.data.callerParticipantId).toBe('fake_imposter');
+
     // 6. Connect SSE stream
     const sseReq = new Request('http://localhost:3888/api/arcade/sessions/POKER-HTTP-1/events?participantId=usr_sse_1');
     const sseResp = await server.handleRequest(sseReq);
