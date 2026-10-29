@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.31] - 2026-10-28
+### Added
+- **Database-Driven UI/UX Text, Real-Life Rules & System Controls Architecture (`tbl_cfg_arcade_games`, `tbl_cfg_system_controls`, `tbl_audit_config_history`, `tbl_archived_cfg_snapshots`, `src/types/config.ts`, `src/server/services/configService.ts`, `src/realtime/configClient.ts`, `src/server/pocketbase/migrator.ts`, `src/server/pocketbase/pruner.ts`)**:
+  - **PocketBase Master Config Schema with Hungarian Prefixes**: Deployed 4 new Hungarian-prefixed configuration and audit collections to `https://web-chess.pockethost.io` with composite indexes and strict referential typing:
+    - `tbl_cfg_arcade_games`: Master game definitions, custom UI titles, real-life names, session prefixes, categories, objectives, key rules, official URLs, player caps, badges, and layout configurations.
+    - `tbl_cfg_system_controls`: Dynamic typed system and UI/UX controls (`string`, `number`, `boolean`, `json`) controlling announcements, themes, card scale multipliers, audio defaults, engine limits, and cleanup thresholds without app redeployment.
+    - `tbl_audit_config_history`: Append-only audit history log tracking all create, update, delete, migration, and sync operations on control tables with before/after state snapshots, actor names, and change reasons.
+    - `tbl_archived_cfg_snapshots`: Named backup snapshots of all game and control configurations for disaster recovery and rollback.
+  - **Server-Side `ConfigService` (`src/server/services/configService.ts`)**: Full CRUD and snapshot management engine with automated version incrementation (`int_version`), audit trail creation, and 3+ day history pruning (`pruneConfigAuditHistory`) respecting `bln_do_not_delete`.
+  - **Client-Side Reactive `ConfigClient` (`src/realtime/configClient.ts`, `src/main.ts`, `src/ui/uiController.ts`)**: Dynamic client-side driver that loads live configuration from PocketBase without app redeployment, seamlessly falls back to canonical local defaults during offline or network loss, dispatches update notifications to subscribers, and dynamically supplies rules to `#arcade-rules-modal`.
+  - **Automated PocketBase Migrator Seeder (`src/server/pocketbase/migrator.ts`)**: Automatically seeds default arcade games and system controls if remote tables are newly provisioned or empty.
+  - **Cascade Pruner Extension (`src/server/pocketbase/pruner.ts`)**: Sweeps stale unpinned audit history logs older than the retention threshold during scheduled PocketBase cron executions.
+  - **Quality Assurance & Verification**: Added comprehensive unit test suites in `tests/configService.test.ts` and `tests/configClient.test.ts` (358 tests passing, 0 failures, 2,667 assertions).
+
 ## [1.2.0-rc.30] - 2026-10-28
 ### Added
 - **Sanctuary Arcade Real-Life Game Annotations, In-Game Rulebooks & Universal Rules Dialog Across All 8 Games (`src/constants/gameRules.ts`, `src/ui/uiController.ts`, `index.html`, `src/main.ts`, `tests/arcadeHubIntegration.test.ts`)**:

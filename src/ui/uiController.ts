@@ -4,7 +4,8 @@ import {
   getGameModeConfig,
   UNICODE_PIECES
 } from '../constants/board';
-import { ARCADE_GAME_RULES } from '../constants/gameRules';
+import type { GameRuleInfo } from '../constants/gameRules';
+import { globalConfigClient } from '../realtime/configClient';
 import {
   DeviceTierEnum,
   GameModeEnum,
@@ -21,6 +22,7 @@ import {
   fromNullable,
   ImmutableBuilder,
   match,
+  some,
   zipOptions,
   zip3Options,
   type Option,
@@ -876,26 +878,30 @@ export class UIController {
       .getOrElse(false);
   }
 
-  public showArcadeRules(gameKey: string): void {
-    const rule = ARCADE_GAME_RULES[gameKey];
-    if (!rule) return;
+  public showArcadeRules(gameKey: string,
+                         ruleOverride?: GameRuleInfo): void {
+    const targetRule: Option<GameRuleInfo> = ruleOverride
+      ? some(ruleOverride)
+      : globalConfigClient.getGameRuleInfo(gameKey);
+    if (!targetRule.isSome()) return;
+    const info = targetRule.value;
     this.el.rulesModalTitle.map(el => {
-      el.textContent = rule.title;
+      el.textContent = info.title;
     });
     this.el.rulesModalRealLife.map(el => {
-      el.textContent = `Real-Life Game: ${rule.realLifeName}`;
+      el.textContent = `Real-Life Game: ${info.realLifeName}`;
     });
     this.el.rulesModalObjective.map(el => {
-      el.textContent = rule.objective;
+      el.textContent = info.objective;
     });
     this.el.rulesModalRulesList.map(el => {
-      el.innerHTML = rule.keyRules.map(r => `<li>${r}</li>`).join('');
+      el.innerHTML = info.keyRules.map((r: string) => `<li>${r}</li>`).join('');
     });
     this.el.rulesModalExternalLink.map(link => {
-      link.href = rule.officialUrl;
+      link.href = info.officialUrl;
     });
     this.el.rulesModalExternalLabel.map(lbl => {
-      lbl.textContent = rule.urlLabel;
+      lbl.textContent = info.urlLabel;
     });
     this.el.arcadeRulesModal.map(modal => {
       modal.classList.remove('hidden');

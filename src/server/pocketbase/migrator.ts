@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { logger } from '../../utils/logger';
 import { tryCatchAsync } from '../../utils/fp';
+import { DEFAULT_ARCADE_GAME_CONFIGS, DEFAULT_SYSTEM_CONTROLS } from '../../constants/defaultConfigs';
 
 interface PocketBaseAuthResponse {
   readonly token: string;
@@ -160,6 +161,55 @@ export const runPocketBaseMigration = async (baseUrl: string,
         errors.push(`create ${col.name}: ${errText}`);
       }
     }
+  }
+
+  // 4. Seed initial default arcade games and system controls if table is empty
+  try {
+    const checkGamesRes = await fetch(`${url}/api/collections/tbl_cfg_arcade_games/records?perPage=1`, { headers });
+    if (checkGamesRes.ok) {
+      const checkGames = (await checkGamesRes.json()) as { totalItems?: number };
+      if (!checkGames.totalItems || checkGames.totalItems === 0) {
+        logger.info('Seeding default arcade game configurations to PocketBase...');
+        for (const game of DEFAULT_ARCADE_GAME_CONFIGS) {
+          const createRes = await fetch(`${url}/api/collections/tbl_cfg_arcade_games/records`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              ...game,
+              int_version: 1,
+              txt_updated_by: 'pocketbase_migrator'
+            })
+          });
+          if (createRes.ok) {
+            applied.push(`seeded: ${game.txt_game_key}`);
+          }
+        }
+      }
+    }
+
+    const checkCtrlRes = await fetch(`${url}/api/collections/tbl_cfg_system_controls/records?perPage=1`, { headers });
+    if (checkCtrlRes.ok) {
+      const checkCtrl = (await checkCtrlRes.json()) as { totalItems?: number };
+      if (!checkCtrl.totalItems || checkCtrl.totalItems === 0) {
+        logger.info('Seeding default system controls to PocketBase...');
+        for (const ctrl of DEFAULT_SYSTEM_CONTROLS) {
+          const createRes = await fetch(`${url}/api/collections/tbl_cfg_system_controls/records`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              ...ctrl,
+              int_version: 1,
+              txt_updated_by: 'pocketbase_migrator'
+            })
+          });
+          if (createRes.ok) {
+            applied.push(`seeded: ${ctrl.txt_config_key}`);
+          }
+        }
+      }
+    }
+  } catch (seedErr) {
+    logger.warn(`Configuration seeding encountered error: ${String(seedErr)}`);
   }
 
   logger.info(`PocketBase migration finished. Applied: ${applied.length}, Errors: ${errors.length}`);

@@ -12,7 +12,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('runs schema migration updating existing collections and creating missing collections (including 24 multi-game tables)', async () => {
+  it('runs schema migration updating existing collections and creating missing collections (including 28 multi-game and 4 config tables)', async () => {
     globalThis.fetch = mock(async (url: any, init?: any) => {
       const u = String(url);
       if (u.includes('_superusers/auth-with-password')) {
@@ -25,6 +25,9 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
           ]
         }), { status: 200 });
       }
+      if (u.includes('/records?perPage=1')) {
+        return new Response(JSON.stringify({ totalItems: 1 }), { status: 200 });
+      }
       if (init?.method === 'PATCH') {
         return new Response(JSON.stringify({ id: 'updated' }), { status: 200 });
       }
@@ -36,7 +39,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password');
     expect(res.success).toBe(true);
-    expect(res.applied.length).toBe(32);
+    expect(res.applied.length).toBe(36);
     expect(res.errors.length).toBe(0);
   });
 
@@ -51,6 +54,9 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
       }
       if (u.includes('/api/collections?perPage=200')) {
         return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }
+      if (u.includes('/records?perPage=1')) {
+        return new Response(JSON.stringify({ totalItems: 1 }), { status: 200 });
       }
       return new Response(JSON.stringify({ id: 'created' }), { status: 200 });
     }) as any;

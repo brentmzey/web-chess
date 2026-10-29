@@ -434,6 +434,21 @@ export async function prunePocketBaseSessions(baseUrl: string,
         });
       }
     }
+
+    // 6. Purge config audit records older than retention threshold where bln_do_not_delete != true
+    const oldConfigAuditRes = await fetch(
+      `${url}/api/collections/tbl_audit_config_history/records?filter=${encodeURIComponent(`updated < "${auditRetentionCutoff}" && bln_do_not_delete != true`)}&perPage=50`,
+      { headers }
+    );
+    if (oldConfigAuditRes.ok) {
+      const oldCfgLogs = (await oldConfigAuditRes.json()) as { items: Array<Record<string, any>> };
+      for (const cfgLog of oldCfgLogs.items) {
+        await fetch(`${url}/api/collections/tbl_audit_config_history/records/${cfgLog.id}`, {
+          method: 'DELETE',
+          headers
+        });
+      }
+    }
   }, toError);
 
   const report: PruneReport = {

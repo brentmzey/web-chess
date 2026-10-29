@@ -271,6 +271,7 @@ export interface DeviceProfileConfig {
 }
 
 export * from '../constants/gameEnums';
+export * from './config';
 
 
 

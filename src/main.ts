@@ -34,6 +34,7 @@ import { RenderGovernor } from './graphics/renderGovernor';
 import { ShatterSystem } from './graphics/shatter';
 import { CameraController } from './interaction/camera';
 import { PocketBaseChessClient } from './realtime/pocketbaseClient';
+import { globalConfigClient } from './realtime/configClient';
 import {
   auditEncryptedStorage
 } from './storage/indexedDbStore';
@@ -155,6 +156,15 @@ function main(): void {
   const camController = new CameraController(camera);
   const ui = new UIController();
   ui.applyDeviceProfileUI(deviceProfile);
+
+  // 6b. Database-Driven PocketBase Configuration Sync (Without Redeployment)
+  globalConfigClient.subscribe(() => {
+    const announcement = globalConfigClient.getSystemControlValue<string>('ui.global_announcement', '');
+    if (announcement) {
+      ui.showTemporaryBanner(announcement, 6000);
+    }
+  });
+  globalConfigClient.fetchRemoteConfig().catch(() => {});
 
   // 7. Chess & Match Configuration State
   const chess = new Chess();

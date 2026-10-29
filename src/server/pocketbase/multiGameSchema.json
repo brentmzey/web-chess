@@ -576,6 +576,122 @@
         "CREATE INDEX `idx_hist_snap_set_code` ON `tbl_archived_set_snapshots_history` (`txt_session_code`)",
         "CREATE INDEX `idx_hist_snap_set_created` ON `tbl_archived_set_snapshots_history` (`created`)"
       ]
+    },
+    {
+      "name": "tbl_cfg_arcade_games",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_game_key", "type": "text", "required": true },
+        { "name": "txt_title", "type": "text", "required": true },
+        { "name": "txt_real_life_name", "type": "text", "required": true },
+        { "name": "txt_prefix", "type": "text", "required": true },
+        { "name": "txt_category", "type": "text", "required": true },
+        { "name": "txt_summary", "type": "text", "required": true },
+        { "name": "txt_objective", "type": "text", "required": true },
+        { "name": "json_key_rules", "type": "json", "required": true },
+        { "name": "txt_official_url", "type": "text", "required": true },
+        { "name": "txt_url_label", "type": "text", "required": true },
+        { "name": "int_min_players", "type": "number", "required": true },
+        { "name": "int_max_players", "type": "number", "required": true },
+        { "name": "int_sort_order", "type": "number", "required": true },
+        { "name": "bln_is_active", "type": "bool", "required": true },
+        { "name": "bln_is_maintenance", "type": "bool", "required": true },
+        { "name": "txt_badge_text", "type": "text", "required": true },
+        { "name": "txt_badge_color", "type": "text", "required": true },
+        { "name": "txt_theme_color", "type": "text", "required": true },
+        { "name": "json_layout_config", "type": "json", "required": false },
+        { "name": "int_version", "type": "number", "required": true },
+        { "name": "txt_updated_by", "type": "text", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_cfg_game_key` ON `tbl_cfg_arcade_games` (`txt_game_key`)",
+        "CREATE INDEX `idx_cfg_game_active` ON `tbl_cfg_arcade_games` (`bln_is_active`, `int_sort_order`)"
+      ]
+    },
+    {
+      "name": "tbl_cfg_system_controls",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_config_key", "type": "text", "required": true },
+        { "name": "txt_category", "type": "text", "required": true },
+        { "name": "txt_label", "type": "text", "required": true },
+        { "name": "txt_description", "type": "text", "required": false },
+        { "name": "txt_val_type", "type": "text", "required": true },
+        { "name": "txt_val_string", "type": "text", "required": false },
+        { "name": "dec_val_number", "type": "number", "required": false },
+        { "name": "bln_val_boolean", "type": "bool", "required": false },
+        { "name": "json_val_payload", "type": "json", "required": false },
+        { "name": "bln_is_active", "type": "bool", "required": true },
+        { "name": "int_version", "type": "number", "required": true },
+        { "name": "txt_updated_by", "type": "text", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_cfg_sys_key` ON `tbl_cfg_system_controls` (`txt_config_key`)",
+        "CREATE INDEX `idx_cfg_sys_category` ON `tbl_cfg_system_controls` (`txt_category`, `bln_is_active`)"
+      ]
+    },
+    {
+      "name": "tbl_audit_config_history",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_audit_id", "type": "text", "required": true },
+        { "name": "txt_target_table", "type": "text", "required": true },
+        { "name": "txt_record_key", "type": "text", "required": true },
+        { "name": "txt_action", "type": "text", "required": true },
+        { "name": "json_previous_state", "type": "json", "required": false },
+        { "name": "json_new_state", "type": "json", "required": false },
+        { "name": "txt_performed_by", "type": "text", "required": true },
+        { "name": "txt_change_reason", "type": "text", "required": false },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_audit_cfg_target` ON `tbl_audit_config_history` (`txt_target_table`, `txt_record_key`)",
+        "CREATE INDEX `idx_audit_cfg_action` ON `tbl_audit_config_history` (`txt_action`)",
+        "CREATE INDEX `idx_audit_cfg_cleanup` ON `tbl_audit_config_history` (`bln_do_not_delete`, `updated`)"
+      ]
+    },
+    {
+      "name": "tbl_archived_cfg_snapshots",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_snapshot_label", "type": "text", "required": true },
+        { "name": "int_total_configs", "type": "number", "required": true },
+        { "name": "json_games_payload", "type": "json", "required": true },
+        { "name": "json_controls_payload", "type": "json", "required": true },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_snap_cfg_label` ON `tbl_archived_cfg_snapshots` (`txt_snapshot_label`)",
+        "CREATE INDEX `idx_snap_cfg_cleanup` ON `tbl_archived_cfg_snapshots` (`bln_do_not_delete`, `updated`)"
+      ]
     }
   ]
 }

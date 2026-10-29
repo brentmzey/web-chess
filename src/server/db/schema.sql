@@ -218,3 +218,90 @@ CREATE INDEX IF NOT EXISTS ix_tbl_arch_created ON tbl_archived_game_snapshots(cr
 -- Partitioned Archived Snapshots History Indices
 CREATE INDEX IF NOT EXISTS ix_tbl_arch_hist_code ON tbl_archived_game_snapshots_history(txt_session_code);
 CREATE INDEX IF NOT EXISTS ix_tbl_arch_hist_created ON tbl_archived_game_snapshots_history(created_at DESC);
+
+-- ============================================================================
+-- Configuration & System Control Master Tables (Hungarian Prefix Notation)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS tbl_cfg_arcade_games (
+    id TEXT PRIMARY KEY,
+    txt_game_key TEXT NOT NULL UNIQUE,
+    txt_title TEXT NOT NULL,
+    txt_real_life_name TEXT NOT NULL,
+    txt_prefix TEXT NOT NULL,
+    txt_category TEXT NOT NULL,
+    txt_summary TEXT NOT NULL,
+    txt_objective TEXT NOT NULL,
+    json_key_rules TEXT NOT NULL,
+    txt_official_url TEXT NOT NULL,
+    txt_url_label TEXT NOT NULL,
+    int_min_players INTEGER NOT NULL,
+    int_max_players INTEGER NOT NULL,
+    int_sort_order INTEGER NOT NULL,
+    bln_is_active INTEGER NOT NULL DEFAULT 1,
+    bln_is_maintenance INTEGER NOT NULL DEFAULT 0,
+    txt_badge_text TEXT NOT NULL,
+    txt_badge_color TEXT NOT NULL,
+    txt_theme_color TEXT NOT NULL,
+    json_layout_config TEXT,
+    int_version INTEGER NOT NULL DEFAULT 1,
+    txt_updated_by TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_cfg_game_active ON tbl_cfg_arcade_games(bln_is_active, int_sort_order);
+
+CREATE TABLE IF NOT EXISTS tbl_cfg_system_controls (
+    id TEXT PRIMARY KEY,
+    txt_config_key TEXT NOT NULL UNIQUE,
+    txt_category TEXT NOT NULL,
+    txt_label TEXT NOT NULL,
+    txt_description TEXT,
+    txt_val_type TEXT NOT NULL CHECK (txt_val_type IN ('string', 'number', 'boolean', 'json')),
+    txt_val_string TEXT,
+    dec_val_number REAL,
+    bln_val_boolean INTEGER,
+    json_val_payload TEXT,
+    bln_is_active INTEGER NOT NULL DEFAULT 1,
+    int_version INTEGER NOT NULL DEFAULT 1,
+    txt_updated_by TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_cfg_sys_category ON tbl_cfg_system_controls(txt_category, bln_is_active);
+
+CREATE TABLE IF NOT EXISTS tbl_audit_config_history (
+    id TEXT PRIMARY KEY,
+    txt_audit_id TEXT NOT NULL,
+    txt_target_table TEXT NOT NULL,
+    txt_record_key TEXT NOT NULL,
+    txt_action TEXT NOT NULL CHECK (txt_action IN ('CREATE', 'UPDATE', 'DELETE', 'MIGRATE', 'SYNC', 'PURGE')),
+    json_previous_state TEXT,
+    json_new_state TEXT,
+    txt_performed_by TEXT NOT NULL,
+    txt_change_reason TEXT,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_audit_cfg_target ON tbl_audit_config_history(txt_target_table, txt_record_key);
+CREATE INDEX IF NOT EXISTS ix_audit_cfg_action ON tbl_audit_config_history(txt_action);
+CREATE INDEX IF NOT EXISTS ix_audit_cfg_cleanup ON tbl_audit_config_history(bln_do_not_delete, updated_at);
+
+CREATE TABLE IF NOT EXISTS tbl_archived_cfg_snapshots (
+    id TEXT PRIMARY KEY,
+    txt_snapshot_label TEXT NOT NULL,
+    int_total_configs INTEGER NOT NULL,
+    json_games_payload TEXT NOT NULL,
+    json_controls_payload TEXT NOT NULL,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_snap_cfg_label ON tbl_archived_cfg_snapshots(txt_snapshot_label);
+CREATE INDEX IF NOT EXISTS ix_snap_cfg_cleanup ON tbl_archived_cfg_snapshots(bln_do_not_delete, updated_at);
+
