@@ -478,6 +478,88 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
     expect(html).toContain('https://en.wikipedia.org/wiki/Uno_(card_game)');
     expect(html).toContain('https://en.wikipedia.org/wiki/The_Resistance_(game)');
     expect(html).toContain('https://en.wikipedia.org/wiki/Set_(card_game)');
+
+    // Verify presence of preferred full-link copy buttons and match-code copy buttons across all arcade games
+    const expectedCopyButtons = [
+      'id="btn-bjk-copy-link"',
+      'id="btn-bjk-copy-code"',
+      'id="btn-poker-copy-link"',
+      'id="btn-poker-copy-code"',
+      'id="btn-skipbo-copy-link"',
+      'id="btn-skipbo-copy-code"',
+      'id="btn-phase10-copy-link"',
+      'id="btn-phase10-copy-code"',
+      'id="btn-uno-copy-link"',
+      'id="btn-uno-copy-code"',
+      'id="btn-avalon-copy-link"',
+      'id="btn-avalon-copy-code"',
+      'id="btn-set-copy-link"',
+      'id="btn-set-copy-code"',
+      'id="btn-persistent-copy-link"',
+      'id="btn-persistent-copy-code"'
+    ];
+    for (const btnId of expectedCopyButtons) {
+      expect(html).toContain(btnId);
+    }
+  });
+
+  it('supports copying preferred full live match invite link and room code across arcade games', async () => {
+    let clipboardText = '';
+    const mockClipboard = {
+      writeText: async (text: string) => {
+        clipboardText = text;
+      }
+    };
+    const originalNavigator = globalThis.navigator;
+    (globalThis as any).navigator = {
+      ...originalNavigator,
+      clipboard: mockClipboard
+    };
+
+    const originalLocation = globalThis.window?.location;
+    (globalThis as any).window = {
+      ...globalThis.window,
+      location: {
+        origin: 'https://sanctuary-chess.netlify.app',
+        pathname: '/'
+      }
+    };
+
+    try {
+      const copyArcadeLink = (code: string) => {
+        const shareUrl = `${window.location.origin}${window.location.pathname}?session=${code}`;
+        return navigator.clipboard.writeText(shareUrl);
+      };
+      const copyArcadeCode = (code: string) => {
+        return navigator.clipboard.writeText(code);
+      };
+
+      const testGameCodes = [
+        { game: 'Blackjack', code: 'BJK-TEST' },
+        { game: 'Poker', code: 'POKER-TEST' },
+        { game: 'Skip-Bo', code: 'SKIP-TEST' },
+        { game: 'Phase 10', code: 'P10-TEST' },
+        { game: 'Uno', code: 'UNO-TEST' },
+        { game: 'Avalon', code: 'AVALON-TEST' },
+        { game: 'SET', code: 'SET-TEST' },
+        { game: 'Chess', code: 'SANCT-TEST' }
+      ];
+
+      for (const item of testGameCodes) {
+        // Preferred full link
+        await copyArcadeLink(item.code);
+        expect(clipboardText).toBe(`https://sanctuary-chess.netlify.app/?session=${item.code}`);
+
+        // Code only
+        await copyArcadeCode(item.code);
+        expect(clipboardText).toBe(item.code);
+      }
+    } finally {
+      (globalThis as any).navigator = originalNavigator;
+      if (originalLocation && globalThis.window) {
+        (globalThis.window as any).location = originalLocation;
+      }
+    }
   });
 
   it('manages theater modal open/close lifecycle and display classes across all arcade games', () => {

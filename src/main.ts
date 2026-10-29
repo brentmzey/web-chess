@@ -2440,16 +2440,36 @@ function main(): void {
   const generateArcadeCode = (prefix: string) =>
     `${prefix}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-  const copyArcadeMatchLink = (code: string, btnEl: HTMLElement | null) => {
+  const copyArcadeMatchLink = (code: string,
+                               btnEl: HTMLElement | null,
+                               gameTitle: string = 'Match'): void => {
     const shareUrl = `${window.location.origin}${window.location.pathname}?session=${code}`;
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      if (btnEl) {
-        const originalText = btnEl.innerHTML;
-        btnEl.innerHTML = '<span class="material-symbols-rounded text-xs">done</span><span>Copied!</span>';
+    void navigator.clipboard.writeText(shareUrl).then(() => {
+      soundFX.playSelect();
+      fromNullable(btnEl).map(el => {
+        const originalText = el.innerHTML;
+        el.innerHTML = '<span class="material-symbols-rounded text-xs">done</span><span>Copied!</span>';
         setTimeout(() => {
-          btnEl.innerHTML = originalText;
+          el.innerHTML = originalText;
         }, 2000);
-      }
+      });
+      ui.showTemporaryBanner(`${gameTitle} Live Link copied to clipboard! Share it with your opponents.`, 3000);
+    });
+  };
+
+  const copyArcadeMatchCode = (code: string,
+                               btnEl: HTMLElement | null,
+                               gameTitle: string = 'Match'): void => {
+    void navigator.clipboard.writeText(code).then(() => {
+      soundFX.playSelect();
+      fromNullable(btnEl).map(el => {
+        const originalText = el.innerHTML;
+        el.innerHTML = '<span class="material-symbols-rounded text-xs">done</span><span>Copied!</span>';
+        setTimeout(() => {
+          el.innerHTML = originalText;
+        }, 2000);
+      });
+      ui.showTemporaryBanner(`${gameTitle} Room Code ${code} copied to clipboard!`, 2500);
     });
   };
 
@@ -2538,7 +2558,13 @@ function main(): void {
   fromNullable(document.getElementById('bjk-tab-ai')).map(b => b.addEventListener('click', () => setBlackjackMode(false)));
   fromNullable(document.getElementById('bjk-tab-live')).map(b => b.addEventListener('click', () => setBlackjackMode(true)));
   fromNullable(document.getElementById('btn-bjk-copy-link')).map(b =>
-    b.addEventListener('click', () => copyArcadeMatchLink(bjkLiveCode, b))
+    b.addEventListener('click', () => copyArcadeMatchLink(bjkLiveCode, b, 'Blackjack'))
+  );
+  fromNullable(document.getElementById('btn-bjk-copy-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(bjkLiveCode, b, 'Blackjack'))
+  );
+  fromNullable(document.getElementById('bjk-live-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(bjkLiveCode, b, 'Blackjack'))
   );
 
   // =========================================================================
@@ -2731,7 +2757,13 @@ function main(): void {
   fromNullable(document.getElementById('poker-tab-ai')).map(b => b.addEventListener('click', () => setPokerMode(false)));
   fromNullable(document.getElementById('poker-tab-live')).map(b => b.addEventListener('click', () => setPokerMode(true)));
   fromNullable(document.getElementById('btn-poker-copy-link')).map(b =>
-    b.addEventListener('click', () => copyArcadeMatchLink(pokerLiveCode, b))
+    b.addEventListener('click', () => copyArcadeMatchLink(pokerLiveCode, b, 'Poker'))
+  );
+  fromNullable(document.getElementById('btn-poker-copy-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(pokerLiveCode, b, 'Poker'))
+  );
+  fromNullable(document.getElementById('poker-live-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(pokerLiveCode, b, 'Poker'))
   );
 
   fromNullable(document.getElementById('poker-variant-select') as HTMLSelectElement | null).map(sel =>
@@ -3073,7 +3105,13 @@ function main(): void {
   fromNullable(document.getElementById('skipbo-tab-ai')).map(b => b.addEventListener('click', () => setSkipBoMode(false)));
   fromNullable(document.getElementById('skipbo-tab-live')).map(b => b.addEventListener('click', () => setSkipBoMode(true)));
   fromNullable(document.getElementById('btn-skipbo-copy-link')).map(b =>
-    b.addEventListener('click', () => copyArcadeMatchLink(skipboLiveCode, b))
+    b.addEventListener('click', () => copyArcadeMatchLink(skipboLiveCode, b, 'Skip-Bo'))
+  );
+  fromNullable(document.getElementById('btn-skipbo-copy-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(skipboLiveCode, b, 'Skip-Bo'))
+  );
+  fromNullable(document.getElementById('skipbo-live-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(skipboLiveCode, b, 'Skip-Bo'))
   );
 
   fromNullable(document.getElementById('skipbo-btn-play-selected')).map(b =>
@@ -3367,7 +3405,13 @@ function main(): void {
   fromNullable(document.getElementById('phase10-tab-ai')).map(b => b.addEventListener('click', () => setPhase10Mode(false)));
   fromNullable(document.getElementById('phase10-tab-live')).map(b => b.addEventListener('click', () => setPhase10Mode(true)));
   fromNullable(document.getElementById('btn-phase10-copy-link')).map(b =>
-    b.addEventListener('click', () => copyArcadeMatchLink(phase10LiveCode, b))
+    b.addEventListener('click', () => copyArcadeMatchLink(phase10LiveCode, b, 'Phase 10'))
+  );
+  fromNullable(document.getElementById('btn-phase10-copy-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(phase10LiveCode, b, 'Phase 10'))
+  );
+  fromNullable(document.getElementById('phase10-live-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(phase10LiveCode, b, 'Phase 10'))
   );
 
   fromNullable(document.getElementById('phase10-btn-draw-deck')).map(b =>
@@ -3688,7 +3732,13 @@ function main(): void {
   fromNullable(document.getElementById('uno-tab-ai')).map(b => b.addEventListener('click', () => setUnoMode(false)));
   fromNullable(document.getElementById('uno-tab-live')).map(b => b.addEventListener('click', () => setUnoMode(true)));
   fromNullable(document.getElementById('btn-uno-copy-link')).map(b =>
-    b.addEventListener('click', () => copyArcadeMatchLink(unoLiveCode, b))
+    b.addEventListener('click', () => copyArcadeMatchLink(unoLiveCode, b, 'Uno'))
+  );
+  fromNullable(document.getElementById('btn-uno-copy-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(unoLiveCode, b, 'Uno'))
+  );
+  fromNullable(document.getElementById('uno-live-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(unoLiveCode, b, 'Uno'))
   );
 
   fromNullable(document.getElementById('uno-draw-deck-btn')).map(b =>
@@ -3927,7 +3977,13 @@ function main(): void {
   fromNullable(document.getElementById('avalon-tab-ai')).map(b => b.addEventListener('click', () => setAvalonMode(false)));
   fromNullable(document.getElementById('avalon-tab-live')).map(b => b.addEventListener('click', () => setAvalonMode(true)));
   fromNullable(document.getElementById('btn-avalon-copy-link')).map(b =>
-    b.addEventListener('click', () => copyArcadeMatchLink(avalonLiveCode, b))
+    b.addEventListener('click', () => copyArcadeMatchLink(avalonLiveCode, b, 'Avalon'))
+  );
+  fromNullable(document.getElementById('btn-avalon-copy-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(avalonLiveCode, b, 'Avalon'))
+  );
+  fromNullable(document.getElementById('avalon-live-code')).map(b =>
+    b.addEventListener('click', () => copyArcadeMatchCode(avalonLiveCode, b, 'Avalon'))
   );
 
   fromNullable(document.getElementById('avalon-btn-propose')).map(b =>
@@ -4204,14 +4260,25 @@ function main(): void {
   ['set-tab-live', 'set-mode-live'].forEach(id => {
     domById(id).map(b => b.addEventListener('click', () => setSetMode(true)));
   });
-  ['btn-set-copy-link', 'set-copy-code-btn'].forEach(id => {
+  ['btn-set-copy-link'].forEach(id => {
     domById(id).map(b =>
       b.addEventListener('click', () => {
-        copyArcadeMatchLink(setLiveCode, b);
-        ui.showTemporaryBanner(`SET Room Link Copied: ${setLiveCode}`, 2500);
+        copyArcadeMatchLink(setLiveCode, b, 'SET');
       })
     );
   });
+  ['btn-set-copy-code', 'set-copy-code-btn'].forEach(id => {
+    domById(id).map(b =>
+      b.addEventListener('click', () => {
+        copyArcadeMatchCode(setLiveCode, b, 'SET');
+      })
+    );
+  });
+  domById('set-live-code').map(b =>
+    b.addEventListener('click', () => {
+      copyArcadeMatchCode(setLiveCode, b, 'SET');
+    })
+  );
 
   fromNullable(document.getElementById('set-btn-claim')).map(b =>
     b.addEventListener('click', () => {

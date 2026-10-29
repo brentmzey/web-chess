@@ -1394,12 +1394,16 @@
                         <span>+ Player</span>
                     </button>
                 </div>
-                <div id="bjk-live-session-info" class="hidden flex items-center gap-2 px-2.5 py-1 rounded-2xl bg-sky-950/60 border border-sky-400/40 text-xs">
+                <div id="bjk-live-session-info" class="hidden flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 rounded-2xl bg-sky-950/60 border border-sky-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
-                    <span id="bjk-live-code" class="font-mono text-amber-300 font-bold tracking-wider">BJK-7K9P</span>
-                    <button type="button" id="btn-bjk-copy-link" class="px-2 py-0.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition">
+                    <span id="bjk-live-code" class="font-mono text-amber-300 font-bold tracking-wider cursor-pointer hover:underline" title="Click to copy room code only">BJK-7K9P</span>
+                    <button type="button" id="btn-bjk-copy-link" class="px-2 sm:px-2.5 py-0.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition shadow-sm" title="Copy full match invite link (Recommended)">
+                        <span class="material-symbols-rounded text-xs">link</span>
+                        <span>Copy Link</span>
+                    </button>
+                    <button type="button" id="btn-bjk-copy-code" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-sky-200 border border-sky-400/30 font-bold text-[10px] flex items-center gap-1 transition" title="Copy room code only">
                         <span class="material-symbols-rounded text-xs">content_copy</span>
-                        <span>Copy</span>
+                        <span>Code</span>
                     </button>
                 </div>
             </div>
@@ -1566,12 +1570,16 @@
                         <span>+ Player</span>
                     </button>
                 </div>
-                <div id="poker-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-amber-950/60 border border-amber-400/40 text-xs">
+                <div id="poker-live-session-info" class="hidden flex items-center gap-1.5 sm:gap-2 px-3 py-1 rounded-2xl bg-amber-950/60 border border-amber-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-                    <span id="poker-live-code" class="font-mono text-amber-300 font-bold tracking-wider">POKER-ALPHA</span>
-                    <button type="button" id="btn-poker-copy-link" class="px-2.5 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition">
-                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                    <span id="poker-live-code" class="font-mono text-amber-300 font-bold tracking-wider cursor-pointer hover:underline" title="Click to copy room code only">POKER-ALPHA</span>
+                    <button type="button" id="btn-poker-copy-link" class="px-2 sm:px-2.5 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition shadow-sm" title="Copy full match invite link (Recommended)">
+                        <span class="material-symbols-rounded text-xs">link</span>
                         <span>Copy Link</span>
+                    </button>
+                    <button type="button" id="btn-poker-copy-code" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-amber-200 border border-amber-400/30 font-bold text-[10px] flex items-center gap-1 transition" title="Copy room code only">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                        <span>Code</span>
                     </button>
                 </div>
             </div>
@@ -1727,12 +1735,16 @@
                         <span>+ Player</span>
                     </button>
                 </div>
-                <div id="skipbo-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-blue-950/60 border border-blue-400/40 text-xs">
+                <div id="skipbo-live-session-info" class="hidden flex items-center gap-1.5 sm:gap-2 px-3 py-1 rounded-2xl bg-blue-950/60 border border-blue-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
-                    <span id="skipbo-live-code" class="font-mono text-amber-300 font-bold tracking-wider">SKIP-ALPHA</span>
-                    <button type="button" id="btn-skipbo-copy-link" class="px-2.5 py-0.5 rounded-lg bg-blue-500 hover:bg-blue-400 text-white font-bold text-[10px] flex items-center gap-1 transition">
-                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                    <span id="skipbo-live-code" class="font-mono text-amber-300 font-bold tracking-wider cursor-pointer hover:underline" title="Click to copy room code only">SKIP-ALPHA</span>
+                    <button type="button" id="btn-skipbo-copy-link" class="px-2 sm:px-2.5 py-0.5 rounded-lg bg-blue-500 hover:bg-blue-400 text-white font-bold text-[10px] flex items-center gap-1 transition shadow-sm" title="Copy full match invite link (Recommended)">
+                        <span class="material-symbols-rounded text-xs">link</span>
                         <span>Copy Link</span>
+                    </button>
+                    <button type="button" id="btn-skipbo-copy-code" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-blue-200 border border-blue-400/30 font-bold text-[10px] flex items-center gap-1 transition" title="Copy room code only">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                        <span>Code</span>
                     </button>
                 </div>
             </div>
@@ -1876,12 +1888,16 @@
                         <span>+ Player</span>
                     </button>
                 </div>
-                <div id="phase10-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-emerald-950/60 border border-emerald-400/40 text-xs">
+                <div id="phase10-live-session-info" class="hidden flex items-center gap-1.5 sm:gap-2 px-3 py-1 rounded-2xl bg-emerald-950/60 border border-emerald-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    <span id="phase10-live-code" class="font-mono text-amber-300 font-bold tracking-wider">P10-ALPHA</span>
-                    <button type="button" id="btn-phase10-copy-link" class="px-2.5 py-0.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition">
-                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                    <span id="phase10-live-code" class="font-mono text-amber-300 font-bold tracking-wider cursor-pointer hover:underline" title="Click to copy room code only">P10-ALPHA</span>
+                    <button type="button" id="btn-phase10-copy-link" class="px-2 sm:px-2.5 py-0.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition shadow-sm" title="Copy full match invite link (Recommended)">
+                        <span class="material-symbols-rounded text-xs">link</span>
                         <span>Copy Link</span>
+                    </button>
+                    <button type="button" id="btn-phase10-copy-code" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-emerald-200 border border-emerald-400/30 font-bold text-[10px] flex items-center gap-1 transition" title="Copy room code only">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                        <span>Code</span>
                     </button>
                 </div>
             </div>
@@ -2036,12 +2052,16 @@
                         <span>+ Player</span>
                     </button>
                 </div>
-                <div id="uno-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-red-950/60 border border-red-400/40 text-xs">
+                <div id="uno-live-session-info" class="hidden flex items-center gap-1.5 sm:gap-2 px-3 py-1 rounded-2xl bg-red-950/60 border border-red-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
-                    <span id="uno-live-code" class="font-mono text-amber-300 font-bold tracking-wider">UNO-7X9P</span>
-                    <button type="button" id="btn-uno-copy-link" class="px-2.5 py-0.5 rounded-lg bg-red-500 hover:bg-red-400 text-white font-bold text-[10px] flex items-center gap-1 transition">
-                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                    <span id="uno-live-code" class="font-mono text-amber-300 font-bold tracking-wider cursor-pointer hover:underline" title="Click to copy room code only">UNO-7X9P</span>
+                    <button type="button" id="btn-uno-copy-link" class="px-2 sm:px-2.5 py-0.5 rounded-lg bg-red-500 hover:bg-red-400 text-white font-bold text-[10px] flex items-center gap-1 transition shadow-sm" title="Copy full match invite link (Recommended)">
+                        <span class="material-symbols-rounded text-xs">link</span>
                         <span>Copy Link</span>
+                    </button>
+                    <button type="button" id="btn-uno-copy-code" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-red-200 border border-red-400/30 font-bold text-[10px] flex items-center gap-1 transition" title="Copy room code only">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                        <span>Code</span>
                     </button>
                 </div>
             </div>
@@ -2178,12 +2198,16 @@
                         <span>+ Knight</span>
                     </button>
                 </div>
-                <div id="avalon-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-sky-950/60 border border-sky-400/40 text-xs">
+                <div id="avalon-live-session-info" class="hidden flex items-center gap-1.5 sm:gap-2 px-3 py-1 rounded-2xl bg-sky-950/60 border border-sky-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
-                    <span id="avalon-live-code" class="font-mono text-amber-300 font-bold tracking-wider">AVALON-8888</span>
-                    <button type="button" id="btn-avalon-copy-link" class="px-2.5 py-0.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition">
-                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                    <span id="avalon-live-code" class="font-mono text-amber-300 font-bold tracking-wider cursor-pointer hover:underline" title="Click to copy room code only">AVALON-8888</span>
+                    <button type="button" id="btn-avalon-copy-link" class="px-2 sm:px-2.5 py-0.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition shadow-sm" title="Copy full match invite link (Recommended)">
+                        <span class="material-symbols-rounded text-xs">link</span>
                         <span>Copy Link</span>
+                    </button>
+                    <button type="button" id="btn-avalon-copy-code" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-sky-200 border border-sky-400/30 font-bold text-[10px] flex items-center gap-1 transition" title="Copy room code only">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                        <span>Code</span>
                     </button>
                 </div>
             </div>
@@ -2328,12 +2352,16 @@
                         <span>+ Player</span>
                     </button>
                 </div>
-                <div id="set-live-session-info" class="hidden flex items-center gap-2 px-3 py-1 rounded-2xl bg-fuchsia-950/60 border border-fuchsia-400/40 text-xs">
+                <div id="set-live-session-info" class="hidden flex items-center gap-1.5 sm:gap-2 px-3 py-1 rounded-2xl bg-fuchsia-950/60 border border-fuchsia-400/40 text-xs">
                     <span class="w-2 h-2 rounded-full bg-fuchsia-400 animate-ping"></span>
-                    <span id="set-live-code" class="font-mono text-amber-300 font-bold tracking-wider">SET-GF34</span>
-                    <button type="button" id="btn-set-copy-link" class="px-2.5 py-0.5 rounded-lg bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-bold text-[10px] flex items-center gap-1 transition">
-                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                    <span id="set-live-code" class="font-mono text-amber-300 font-bold tracking-wider cursor-pointer hover:underline" title="Click to copy room code only">SET-GF34</span>
+                    <button type="button" id="btn-set-copy-link" class="px-2 sm:px-2.5 py-0.5 rounded-lg bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-bold text-[10px] flex items-center gap-1 transition shadow-sm" title="Copy full match invite link (Recommended)">
+                        <span class="material-symbols-rounded text-xs">link</span>
                         <span>Copy Link</span>
+                    </button>
+                    <button type="button" id="btn-set-copy-code" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-fuchsia-200 border border-fuchsia-400/30 font-bold text-[10px] flex items-center gap-1 transition" title="Copy room code only">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                        <span>Code</span>
                     </button>
                 </div>
             </div>
