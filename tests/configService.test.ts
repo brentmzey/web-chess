@@ -181,4 +181,70 @@ describe('ConfigService & Hungarian Master Configuration Tables', () => {
     const deletedRow = db.prepare('SELECT * FROM tbl_audit_config_history WHERE id = ?').get('old_1');
     expect(deletedRow).toBeNull();
   });
+
+  it('handles corrupted JSON payloads gracefully in row mappers and returns fallback on unknown types', () => {
+    // Corrupted game JSON
+    db.prepare(
+      `INSERT INTO tbl_cfg_arcade_games (
+        id, txt_game_key, txt_title, txt_real_life_name, txt_prefix, txt_category,
+        txt_summary, txt_objective, json_key_rules, txt_official_url, txt_url_label,
+        int_min_players, int_max_players, int_sort_order, bln_is_active, bln_is_maintenance,
+        txt_badge_text, txt_badge_color, txt_theme_color, json_layout_config,
+        int_version, created_at, updated_at
+      ) VALUES (
+        'corrupt_1', 'corrupt_game', 'Corrupt Game', 'Real Corrupt', 'CRP-', 'test',
+        'Summary', 'Objective', '{invalid_json', 'https://example.com', 'Label',
+        1, 4, 99, 1, 0, 'Badge', 'red', 'red', '{corrupted_layout', 1, 100, 100
+      )`
+    ).run();
+
+    const corruptGame = service.getArcadeGame('corrupt_game').getOrThrow();
+    expect(corruptGame.json_key_rules).toEqual([]);
+    expect(corruptGame.json_layout_config).toBeUndefined();
+
+    // Corrupted control JSON
+    db.prepare(
+      `INSERT INTO tbl_cfg_system_controls (
+        id, txt_config_key, txt_category, txt_label, txt_val_type,
+        json_val_payload, bln_is_active, int_version, created_at, updated_at
+      ) VALUES (
+        'corrupt_ctrl', 'corrupt.key', 'test', 'Corrupt Key', 'json',
+        '{corrupted_payload', 1, 1, 100, 100
+      )`
+    ).run();
+
+    const corruptCtrl = service.getSystemControl('corrupt.key').getOrThrow();
+    expect(corruptCtrl.json_val_payload).toBeUndefined();
+    expect(service.getSystemControlValue('corrupt.key', 'safe_fallback')).toBe('safe_fallback');
+  });
+
+  it('handles database errors gracefully and returns Failure results across all service mutations', () => {
+    db.close(); // Force all subsequent SQL executions to fail
+
+    const upsertGameRes = service.upsertArcadeGame(DEFAULT_ARCADE_GAME_CONFIGS[0]);
+    expect(upsertGameRes.isFailure()).toBe(true);
+    expect(upsertGameRes.fold(err => err, () => '')).toContain('Failed to upsert arcade game');
+
+    const upsertCtrlRes = service.upsertSystemControl({
+      txt_config_key: 'err.key',
+      txt_category: 'test',
+      txt_label: 'Err',
+      txt_val_type: 'string',
+      bln_is_active: true
+    });
+    expect(upsertCtrlRes.isFailure()).toBe(true);
+    expect(upsertCtrlRes.fold(err => err, () => '')).toContain('Failed to upsert system control');
+
+    const snapRes = service.createConfigSnapshot('fail_snap');
+    expect(snapRes.isFailure()).toBe(true);
+    expect(snapRes.fold(err => err, () => '')).toContain('Failed to create config snapshot');
+
+    const pruneRes = service.pruneConfigAuditHistory(1);
+    expect(pruneRes.isFailure()).toBe(true);
+    expect(pruneRes.fold(err => err, () => '')).toContain('Failed to prune config audit history');
+
+    const seedRes = service.seedDefaultConfigurations(true);
+    expect(seedRes.isFailure()).toBe(true);
+    expect(seedRes.fold(err => err, () => '')).toContain('Failed to seed default configurations');
+  });
 });

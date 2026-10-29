@@ -19,6 +19,7 @@ Every general feature change or application behavior update is consolidated unde
   - **Automated PocketBase Migrator Seeder (`src/server/pocketbase/migrator.ts`)**: Automatically seeds default arcade games and system controls if remote tables are newly provisioned or empty.
   - **Cascade Pruner Extension (`src/server/pocketbase/pruner.ts`)**: Sweeps stale unpinned audit history logs older than the retention threshold during scheduled PocketBase cron executions.
   - **Quality Assurance & Verification**: Added comprehensive unit test suites in `tests/configService.test.ts` and `tests/configClient.test.ts` (358 tests passing, 0 failures, 2,667 assertions).
+  - **Comprehensive Migration & Configuration Coverage Hardening**: Achieved **100.00% function & line coverage** on PocketBase migrator (`src/server/pocketbase/migrator.ts`), **100.00% function and 99.45% line coverage** on `ConfigService`, and **99.22% coverage** on `PocketBasePruner`. Expanded tests across `tests/pbMigrate.test.ts`, `tests/pruner.test.ts`, `tests/configService.test.ts`, and `tests/configClient.test.ts` (363 tests passing, 0 failures, 2,698 assertions).
 
 ## [1.2.0-rc.30] - 2026-10-28
 ### Added

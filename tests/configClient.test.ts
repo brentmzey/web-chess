@@ -132,4 +132,115 @@ describe('ConfigClient - Client-Side Database-Driven Dynamic UI Synchronization'
 
     (globalThis as any).fetch = originalFetch;
   });
+
+  it('handles throwing listeners, string rules parsing, corrupted string rules, and unknown control types', async () => {
+    // 1. Throwing listener does not abort other listeners
+    let secondListenerRan = false;
+    client.subscribe(() => {
+      throw new Error('Exploding subscriber');
+    });
+    client.subscribe(() => {
+      secondListenerRan = true;
+    });
+
+    const originalFetch = globalThis.fetch;
+    (globalThis as any).fetch = async (url: string) => {
+      if (url.includes('tbl_cfg_arcade_games')) {
+        return {
+          ok: true,
+          json: async () => ({
+            totalItems: 2,
+            items: [
+              {
+                id: 'pb_g1',
+                txt_game_key: 'chess',
+                txt_title: 'Title Valid String Rules',
+                txt_real_life_name: 'Chess',
+                txt_prefix: 'SANCT-',
+                txt_category: 'board',
+                txt_summary: 'S',
+                txt_objective: 'O',
+                json_key_rules: JSON.stringify(['Rule Alpha', 'Rule Beta']),
+                txt_official_url: 'https://example.com',
+                txt_url_label: 'Label',
+                int_min_players: 2,
+                int_max_players: 2,
+                int_sort_order: 1,
+                bln_is_active: 1,
+                bln_is_maintenance: 0,
+                txt_badge_text: 'Live',
+                txt_badge_color: 'emerald',
+                txt_theme_color: 'amber',
+                json_layout_config: { customKey: 'val' }
+              },
+              {
+                id: 'pb_g2',
+                txt_game_key: 'blackjack',
+                txt_title: 'Corrupt Rules Game',
+                txt_real_life_name: 'Blackjack',
+                txt_prefix: 'BJK-',
+                txt_category: 'cards',
+                txt_summary: 'S',
+                txt_objective: 'O',
+                json_key_rules: '{corrupt_json',
+                txt_official_url: 'https://example.com',
+                txt_url_label: 'Label',
+                int_min_players: 1,
+                int_max_players: 7,
+                int_sort_order: 2,
+                bln_is_active: 1,
+                bln_is_maintenance: 0,
+                txt_badge_text: 'Live',
+                txt_badge_color: 'emerald',
+                txt_theme_color: 'emerald'
+              }
+            ]
+          })
+        };
+      }
+      if (url.includes('tbl_cfg_system_controls')) {
+        return {
+          ok: true,
+          json: async () => ({
+            totalItems: 2,
+            items: [
+              {
+                id: 'ctrl_unknown',
+                txt_config_key: 'custom.unknown_type',
+                txt_category: 'ui',
+                txt_label: 'Unknown',
+                txt_val_type: 'unknown_type_variant',
+                bln_is_active: 1
+              },
+              {
+                id: 'ctrl_json',
+                txt_config_key: 'custom.json_payload',
+                txt_category: 'ui',
+                txt_label: 'JSON Payload',
+                txt_val_type: 'json',
+                json_val_payload: { activeTheme: 'cathedral' },
+                bln_is_active: 1
+              }
+            ]
+          })
+        };
+      }
+      return { ok: false, status: 404 };
+    };
+
+    const fetchRes = await client.fetchRemoteConfig();
+    expect(fetchRes.isSuccess()).toBe(true);
+    expect(secondListenerRan).toBe(true);
+
+    const chessRules = client.getGameConfig('chess').getOrThrow().json_key_rules;
+    expect(chessRules).toEqual(['Rule Alpha', 'Rule Beta']);
+
+    const bjkRules = client.getGameConfig('blackjack').getOrThrow().json_key_rules;
+    expect(bjkRules).toEqual([]);
+
+    expect(client.getSystemControlValue('custom.unknown_type', 'fallback_unknown')).toBe('fallback_unknown');
+    expect(client.getSystemControlValue<any>('custom.json_payload', null)).toEqual({ activeTheme: 'cathedral' });
+
+    (globalThis as any).fetch = originalFetch;
+  });
 });

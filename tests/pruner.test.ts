@@ -146,6 +146,15 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
         return new Response('', { status: 204 });
       }
 
+      // Purge config audit records
+      if (urlStr.includes('/api/collections/tbl_audit_config_history/records?filter=')) {
+        return new Response(JSON.stringify({ items: [{ id: 'old_cfg_log_1' }] }), { status: 200 });
+      }
+
+      if (urlStr.includes('/api/collections/tbl_audit_config_history/records/') && init?.method === 'DELETE') {
+        return new Response('', { status: 204 });
+      }
+
       return new Response('Not found', { status: 404 });
     }) as any;
 

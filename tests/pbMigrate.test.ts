@@ -108,4 +108,80 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
     expect(res.success).toBe(false);
     expect(res.errors.length).toBe(8);
   });
+
+  it('seeds default arcade games and system controls when collections are newly created and empty', async () => {
+    const seededEndpoints: string[] = [];
+    globalThis.fetch = mock(async (url: any, init?: any) => {
+      const u = String(url);
+      if (u.includes('_superusers/auth-with-password')) {
+        return new Response(JSON.stringify({ token: 'test-token' }), { status: 200 });
+      }
+      if (u.includes('/api/collections?perPage=200')) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }
+      if (u.includes('/records?perPage=1')) {
+        // Table is empty, triggers seeding
+        return new Response(JSON.stringify({ totalItems: 0 }), { status: 200 });
+      }
+      if (init?.method === 'POST') {
+        if (u.includes('/records')) {
+          seededEndpoints.push(u);
+        }
+        return new Response(JSON.stringify({ id: 'seeded_rec' }), { status: 200 });
+      }
+      return new Response('Not found', { status: 404 });
+    }) as any;
+
+    const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password', true);
+    expect(res.success).toBe(true);
+    // 36 collections created + 8 games seeded + 10 controls seeded = 54
+    expect(res.applied.length).toBe(54);
+    expect(res.applied).toContain('seeded: chess');
+    expect(res.applied).toContain('seeded: blackjack');
+    expect(res.applied).toContain('seeded: ui.app_title');
+    expect(seededEndpoints.length).toBe(18);
+  });
+
+  it('handles seed network exceptions and failed record creation gracefully', async () => {
+    // 1. Partial seed creation failure (createRes returns 400)
+    globalThis.fetch = mock(async (url: any, init?: any) => {
+      const u = String(url);
+      if (u.includes('auth-with-password')) {
+        return new Response(JSON.stringify({ token: 'test-token' }), { status: 200 });
+      }
+      if (u.includes('/api/collections?perPage=200')) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }
+      if (u.includes('/records?perPage=1')) {
+        return new Response(JSON.stringify({ totalItems: 0 }), { status: 200 });
+      }
+      if (u.includes('/records') && init?.method === 'POST') {
+        return new Response('Seed validation error', { status: 400 });
+      }
+      return new Response(JSON.stringify({ id: 'col_id' }), { status: 200 });
+    }) as any;
+
+    const resFailRecord = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'pass', true);
+    expect(resFailRecord.success).toBe(true);
+    expect(resFailRecord.applied.length).toBe(36); // Only collections, no seeded records added
+
+    // 2. Network error during seed check triggers catch (seedErr)
+    globalThis.fetch = mock(async (url: any) => {
+      const u = String(url);
+      if (u.includes('auth-with-password')) {
+        return new Response(JSON.stringify({ token: 'test-token' }), { status: 200 });
+      }
+      if (u.includes('/api/collections?perPage=200')) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }
+      if (u.includes('/records?perPage=1')) {
+        throw new Error('Connection reset by peer');
+      }
+      return new Response(JSON.stringify({ id: 'col_id' }), { status: 200 });
+    }) as any;
+
+    const resThrow = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'pass', true);
+    expect(resThrow.success).toBe(true);
+    expect(resThrow.applied.length).toBe(36);
+  });
 });
