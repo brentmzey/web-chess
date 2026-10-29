@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.34] - 2026-10-28
+### Added
+- **Inheritable Universal Modal Hierarchy & Outside Hit Box Dismissal (`src/ui/baseModal.ts`, `tests/baseModal.test.ts`, `src/main.ts`, `index.html`)**:
+  - Implemented `BaseModal` root controller providing extensible, monadic (`Option<HTMLElement>`) lifecycle management across all dialogs and theaters.
+  - Automatically binds outside hit box region detection (`isOutsideHitBox`), dismissing any modal when clicks occur on backdrops or outside the interactive card.
+  - Automatically queries and registers all "X" close buttons (supporting IDs, classes, and `[data-modal-close]`).
+  - Added Escape key listeners across all active modals for seamless desktop accessibility.
+  - Added explicit top-right "X" close buttons (`#close-promotion-btn`, `#close-gameover-btn`) and arcade theater header close buttons (`#btn-close-blackjack-x`, `#btn-close-poker-x`, `#btn-close-skipbo-x`, `#btn-close-phase10-x`, `#btn-close-uno-x`, `#btn-close-avalon-x`, `#btn-close-set-x`).
+  - Implemented `ModalManager` singleton with mass dismissal (`hideAll()`), active inspection (`isAnyModalOpen()`), and hook dispatching (`onOpen`, `onClose`).
+  - Achieved **100.00% Line Coverage** on `src/ui/baseModal.ts` with 11 unit tests in `tests/baseModal.test.ts` (386 total project tests passing, 0 failures, 2,903 assertions).
+
 ## [1.2.0-rc.33] - 2026-10-28
 ### Added
 - **Const ENUM Architecture for System Controls, Categories & Actions (`src/constants/gameEnums.ts`, `src/types/config.ts`, `src/constants/defaultConfigs.ts`, `src/main.ts`)**:

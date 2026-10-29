@@ -113,7 +113,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <span id="undo-rule-status-pill" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30 font-semibold">Undo: Allowed</span>
-                <button id="close-drawer-btn" class="p-1 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Chronicle Drawer">
+                <button id="close-drawer-btn" data-modal-close class="p-1 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Chronicle Drawer">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
@@ -259,7 +259,7 @@
                 <span class="material-symbols-rounded text-amber-300">contrast</span>
                 <h3 class="font-cathedral text-xs font-bold text-amber-100 tracking-wider">Sanctuary Contrast & Clarity</h3>
             </div>
-            <button id="close-contrast-btn" class="p-1 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Contrast Panel">
+            <button id="close-contrast-btn" data-modal-close class="p-1 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Contrast Panel">
                 <span class="material-symbols-rounded text-lg">close</span>
             </button>
         </div>
@@ -316,7 +316,7 @@
                         <p class="text-[11px] text-stone-300">Choose your Opponent Style, Difficulty & Match Rules before play begins.</p>
                     </div>
                 </div>
-                <button id="close-pregame-btn" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Setup Modal">
+                <button id="close-pregame-btn" data-modal-close class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Setup Modal">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
@@ -527,7 +527,10 @@
 
     <!-- PAWN PROMOTION MODAL -->
     <div id="promotion-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/75 backdrop-blur-md p-4">
-        <div class="md3-glass rounded-3xl p-6 max-w-md w-full border border-amber-400/40 text-center space-y-5">
+        <div class="relative md3-glass rounded-3xl p-6 max-w-md w-full border border-amber-400/40 text-center space-y-5">
+            <button type="button" id="close-promotion-btn" data-modal-close class="absolute top-3.5 right-3.5 p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Cancel Promotion">
+                <span class="material-symbols-rounded">close</span>
+            </button>
             <div class="space-y-1">
                 <span class="material-symbols-rounded text-amber-300 text-3xl">auto_awesome</span>
                 <h3 class="font-cathedral text-xl font-bold text-amber-100">Pawn Promotion</h3>
@@ -556,7 +559,10 @@
 
     <!-- GAME OVER MODAL -->
     <div id="gameover-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/75 backdrop-blur-md p-4">
-        <div class="md3-glass rounded-3xl p-7 max-w-md w-full border border-amber-400/40 text-center space-y-5">
+        <div class="relative md3-glass rounded-3xl p-7 max-w-md w-full border border-amber-400/40 text-center space-y-5">
+            <button type="button" id="close-gameover-btn" data-modal-close class="absolute top-3.5 right-3.5 p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Dismiss & Inspect Board">
+                <span class="material-symbols-rounded">close</span>
+            </button>
             <div class="w-14 h-14 rounded-full bg-amber-400/15 border border-amber-400/40 flex items-center justify-center mx-auto">
                 <span class="material-symbols-rounded text-amber-300 text-3xl">military_tech</span>
             </div>
@@ -603,7 +609,7 @@
                         <p class="text-[11px] text-stone-300">Raw IndexedDB ciphertext inspection — zero plaintext exposed.</p>
                     </div>
                 </div>
-                <button type="button" id="close-audit-btn" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Storage Audit Modal">
+                <button type="button" id="close-audit-btn" data-modal-close class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Storage Audit Modal">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
@@ -669,7 +675,7 @@
                         <p class="text-[11px] text-stone-300">Real-time chess matches over Server-Sent Events with CSPRNG authentication.</p>
                     </div>
                 </div>
-                <button type="button" id="close-live-session-btn" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Live Match Modal">
+                <button type="button" id="close-live-session-btn" data-modal-close class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Live Match Modal">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
@@ -861,7 +867,7 @@
                         <p id="rules-modal-real-life" class="text-xs text-amber-300 font-semibold font-mono">Real-Life Game: Classical Chess</p>
                     </div>
                 </div>
-                <button type="button" id="btn-close-arcade-rules" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Rules Dialog">
+                <button type="button" id="btn-close-arcade-rules" data-modal-close class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Rules Dialog">
                     <span class="material-symbols-rounded text-xl">close</span>
                 </button>
             </div>
@@ -879,7 +885,7 @@
                         <span class="material-symbols-rounded text-sm">open_in_new</span>
                         <span id="rules-modal-external-label">Read Full Official Rules on Wikipedia</span>
                     </a>
-                    <button type="button" id="btn-dismiss-arcade-rules" class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition">
+                    <button type="button" id="btn-dismiss-arcade-rules" data-modal-close class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition">
                         Got it
                     </button>
                 </div>
@@ -901,7 +907,7 @@
                         <p class="text-[11px] sm:text-xs text-stone-400">High Gothic Real-Time Multiplayer & Procedural Classics</p>
                     </div>
                 </div>
-                <button id="btn-close-arcade-hub" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Arcade Hub">
+                <button id="btn-close-arcade-hub" data-modal-close class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Arcade Hub">
                     <span class="material-symbols-rounded text-xl">close</span>
                 </button>
             </div>
@@ -1387,6 +1393,9 @@
                 <button type="button" id="btn-bjk-fullscreen" class="p-1.5 sm:p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
+                <button type="button" id="btn-close-blackjack-x" data-modal-close class="p-1.5 sm:p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Close Gothic Blackjack" aria-label="Close Gothic Blackjack">
+                    <span class="material-symbols-rounded text-lg">close</span>
+                </button>
             </div>
         </header>
 
@@ -1543,6 +1552,9 @@
                 </button>
                 <button type="button" id="btn-poker-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
+                </button>
+                <button type="button" id="btn-close-poker-x" data-modal-close class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Close Cathedral Poker" aria-label="Close Cathedral Poker">
+                    <span class="material-symbols-rounded text-lg">close</span>
                 </button>
             </div>
         </header>
@@ -1706,6 +1718,9 @@
                 <button type="button" id="btn-skipbo-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
+                <button type="button" id="btn-close-skipbo-x" data-modal-close class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Close Sacred Skip-Bo" aria-label="Close Sacred Skip-Bo">
+                    <span class="material-symbols-rounded text-lg">close</span>
+                </button>
             </div>
         </header>
 
@@ -1851,6 +1866,9 @@
                 </button>
                 <button type="button" id="btn-phase10-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
+                </button>
+                <button type="button" id="btn-close-phase10-x" data-modal-close class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Close Ten Rites" aria-label="Close Ten Rites">
+                    <span class="material-symbols-rounded text-lg">close</span>
                 </button>
             </div>
         </header>
@@ -2005,6 +2023,9 @@
                 <button type="button" id="btn-uno-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
+                <button type="button" id="btn-close-uno-x" data-modal-close class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Close Cardinal Uno" aria-label="Close Cardinal Uno">
+                    <span class="material-symbols-rounded text-lg">close</span>
+                </button>
             </div>
         </header>
 
@@ -2143,6 +2164,9 @@
                 </button>
                 <button type="button" id="btn-avalon-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
+                </button>
+                <button type="button" id="btn-close-avalon-x" data-modal-close class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Close The Resistance: Avalon" aria-label="Close The Resistance: Avalon">
+                    <span class="material-symbols-rounded text-lg">close</span>
                 </button>
             </div>
         </header>
@@ -2290,6 +2314,9 @@
                 </button>
                 <button type="button" id="btn-set-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
+                </button>
+                <button type="button" id="btn-close-set-x" data-modal-close class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Close Sacred Geometry SET" aria-label="Close Sacred Geometry SET">
+                    <span class="material-symbols-rounded text-lg">close</span>
                 </button>
             </div>
         </header>

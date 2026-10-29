@@ -57,6 +57,18 @@ import {
 } from './types';
 import { UIController } from './ui/uiController';
 import {
+  ModalManager,
+  PregameModal,
+  PromotionModal,
+  GameOverModal,
+  StorageAuditModal,
+  LiveSessionModal,
+  ArcadeRulesModal,
+  ArcadeHubModal,
+  ArcadeTheaterModal,
+  FloatingPanelModal
+} from './ui/baseModal';
+import {
   BlackjackEngine,
   formatBlackjackAdditiveCount,
   type BlackjackAIModel,
@@ -1954,64 +1966,84 @@ function main(): void {
     })
   );
 
-  // Close dialog modals on clicking outside their modal card (backdrop click)
-  [
-    {
-      id: 'pregame-modal',
-      close: () => {
-        modalOpenedFromReset = false;
-        ui.hidePreGameModal();
-      }
-    },
-    {
-      id: 'live-session-modal',
-      close: () => ui.hideLiveSessionModal()
-    },
-    {
-      id: 'storage-audit-modal',
-      close: () => ui.hideStorageAuditModal()
-    },
-    {
-      id: 'arcade-hub-modal',
-      close: () => ui.hideArcadeHub()
-    },
-    {
-      id: 'blackjack-modal',
-      close: () => ui.hideBlackjack()
-    },
-    {
-      id: 'poker-modal',
-      close: () => ui.hidePoker()
-    },
-    {
-      id: 'skipbo-modal',
-      close: () => ui.hideSkipBo()
-    },
-    {
-      id: 'phase10-modal',
-      close: () => ui.hidePhase10()
-    },
-    {
-      id: 'uno-modal',
-      close: () => ui.hideUno()
-    },
-    {
-      id: 'avalon-modal',
-      close: () => ui.hideAvalon()
-    },
-    {
-      id: 'set-modal',
-      close: () => ui.hideSet()
-    }
-  ].forEach(({ id, close }) => {
-    fromNullable(document.getElementById(id)).map(modalEl => {
-      modalEl.addEventListener('click', (e: MouseEvent) => {
-        if (e.target === modalEl) {
-          close();
-        }
-      });
-    });
+  // Unified, inheritable modal lifecycle & outside-card hit box interaction binding
+  const modalManager = ModalManager.getInstance();
+
+  modalManager.register(new PregameModal()).onClose(() => {
+    modalOpenedFromReset = false;
+    ui.hidePreGameModal();
   });
+
+  modalManager.register(new PromotionModal()).onClose(() => {
+    pendingPromotionMove = null;
+    ui.hidePromotionModal();
+  });
+
+  modalManager.register(new GameOverModal()).onClose(() => {
+    ui.hideGameOver();
+  });
+
+  modalManager.register(new StorageAuditModal()).onClose(() => {
+    ui.hideStorageAuditModal();
+  });
+
+  modalManager.register(new LiveSessionModal()).onClose(() => {
+    ui.hideLiveSessionModal();
+  });
+
+  modalManager.register(new ArcadeRulesModal()).onClose(() => {
+    ui.hideArcadeRules();
+  });
+
+  modalManager.register(new ArcadeHubModal()).onClose(() => {
+    ui.hideArcadeHub();
+  });
+
+  modalManager.register(
+    new ArcadeTheaterModal('blackjack-modal', ['#btn-close-blackjack', '#btn-close-blackjack-x'])
+  ).onClose(() => {
+    ui.hideBlackjack();
+  });
+
+  modalManager.register(
+    new ArcadeTheaterModal('poker-modal', ['#btn-close-poker', '#btn-close-poker-x'])
+  ).onClose(() => {
+    ui.hidePoker();
+  });
+
+  modalManager.register(
+    new ArcadeTheaterModal('skipbo-modal', ['#btn-close-skipbo', '#btn-close-skipbo-x'])
+  ).onClose(() => {
+    ui.hideSkipBo();
+  });
+
+  modalManager.register(
+    new ArcadeTheaterModal('phase10-modal', ['#btn-close-phase10', '#btn-close-phase10-x'])
+  ).onClose(() => {
+    ui.hidePhase10();
+  });
+
+  modalManager.register(
+    new ArcadeTheaterModal('uno-modal', ['#btn-close-uno', '#btn-close-uno-x'])
+  ).onClose(() => {
+    ui.hideUno();
+  });
+
+  modalManager.register(
+    new ArcadeTheaterModal('avalon-modal', ['#btn-close-avalon', '#btn-close-avalon-x'])
+  ).onClose(() => {
+    ui.hideAvalon();
+  });
+
+  modalManager.register(
+    new ArcadeTheaterModal('set-modal', ['#btn-close-set', '#btn-close-set-x'])
+  ).onClose(() => {
+    ui.hideSet();
+  });
+
+  modalManager.register(
+    new FloatingPanelModal('contrast-panel', '#close-contrast-btn')
+  );
 
   // Sanctuary Arcade Hub Modal & Quick Join Controls
   fromNullable(document.getElementById('btn-arcade-hub')).map(btn =>

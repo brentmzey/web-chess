@@ -69,7 +69,9 @@ export interface UIControllerElements {
   readonly gameoverLiveActions: Option<HTMLElement>;
   readonly modalLeaveLive: Option<HTMLButtonElement>;
   readonly modalInspectLive: Option<HTMLButtonElement>;
+  readonly closeGameoverBtn: Option<HTMLButtonElement>;
   readonly promotionModal: Option<HTMLElement>;
+  readonly closePromotionBtn: Option<HTMLButtonElement>;
   readonly pregameModal: Option<HTMLElement>;
   readonly storageAuditModal: Option<HTMLElement>;
   readonly storageAuditAlgo: Option<HTMLElement>;
@@ -164,7 +166,9 @@ export function buildUIControllerElements(overrides?: Readonly<Partial<UIControl
     gameoverLiveActions: domById('gameover-live-actions'),
     modalLeaveLive: domById<HTMLButtonElement>('modal-leave-live'),
     modalInspectLive: domById<HTMLButtonElement>('modal-inspect-live'),
+    closeGameoverBtn: domById<HTMLButtonElement>('close-gameover-btn'),
     promotionModal: domById('promotion-modal'),
+    closePromotionBtn: domById<HTMLButtonElement>('close-promotion-btn'),
     pregameModal: domById('pregame-modal'),
     storageAuditModal: domById('storage-audit-modal'),
     storageAuditAlgo: domById('storage-audit-algo'),

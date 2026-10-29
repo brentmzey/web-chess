@@ -65,10 +65,12 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
       'gameover-live-actions': new MockElement(),
       'modal-leave-live': new MockElement(),
       'modal-inspect-live': new MockElement(),
+      'close-gameover-btn': new MockElement(),
       'btn-persistent-leave-live': new MockElement(),
       'blackjack-modal': new MockElement(),
       'btn-close-blackjack': new MockElement(),
       'promotion-modal': new MockElement(),
+      'close-promotion-btn': new MockElement(),
       'pregame-modal': new MockElement(),
       'storage-audit-modal': new MockElement(),
       'storage-audit-algo': new MockElement(),
@@ -267,6 +269,8 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['gameover-standard-actions']?.classList.contains('hidden')).toBe(true);
 
     // Promotion modal
+    expect(domElements['close-promotion-btn']).toBeDefined();
+    expect(domElements['close-gameover-btn']).toBeDefined();
     ui.showPromotionModal();
     expect(domElements['promotion-modal']?.classList.contains('flex')).toBe(true);
     ui.hidePromotionModal();
