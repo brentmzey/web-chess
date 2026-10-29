@@ -5,6 +5,7 @@ import { Database } from 'bun:sqlite';
 import { UIController } from '../src/ui/uiController';
 import { formatBlackjackAdditiveCount, type PlayingCard } from '../src/games/blackjack/blackjackEngine';
 import { CathedralSoundEngine } from '../src/audio/CathedralSoundEngine';
+import { ARCADE_GAME_RULES } from '../src/constants/gameRules';
 
 class MockElement {
   public className: string = '';
@@ -349,5 +350,133 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
     expect(sound.enabled).toBe(true);
     sound.suspend();
     expect(suspendCalled).toBe(true);
+  });
+
+  it('validates comprehensive real-life game rules repository for all 8 arcade games', () => {
+    const requiredKeys = ['chess', 'blackjack', 'poker', 'skipbo', 'phase10', 'uno', 'avalon', 'set'];
+    expect(Object.keys(ARCADE_GAME_RULES).sort()).toEqual(requiredKeys.sort());
+
+    for (const key of requiredKeys) {
+      const rule = ARCADE_GAME_RULES[key];
+      expect(rule).toBeDefined();
+      expect(rule.id).toBe(key);
+      expect(rule.title.length).toBeGreaterThan(0);
+      expect(rule.realLifeName.length).toBeGreaterThan(0);
+      expect(rule.objective.length).toBeGreaterThan(0);
+      expect(rule.summary.length).toBeGreaterThan(0);
+      expect(rule.keyRules.length).toBeGreaterThanOrEqual(3);
+      expect(rule.officialUrl).toMatch(/^https:\/\/en\.wikipedia\.org\/wiki\//);
+      expect(rule.urlLabel.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('controls Universal Game Rules modal and renders instructions in UIController', () => {
+    const rulesModal = new MockElement();
+    rulesModal.classList.add('hidden');
+    const titleEl = new MockElement();
+    const realLifeEl = new MockElement();
+    const objectiveEl = new MockElement();
+    const rulesListEl = new MockElement();
+    const linkEl = new MockElement() as any;
+    linkEl.href = '';
+    const labelEl = new MockElement();
+
+    const domMap: Record<string, any> = {
+      'arcade-rules-modal': rulesModal,
+      'rules-modal-title': titleEl,
+      'rules-modal-real-life': realLifeEl,
+      'rules-modal-objective': objectiveEl,
+      'rules-modal-rules-list': rulesListEl,
+      'rules-modal-external-link': linkEl,
+      'rules-modal-external-label': labelEl
+    };
+
+    const originalDoc = (globalThis as any).document;
+    (globalThis as any).document = {
+      getElementById: (id: string) => domMap[id] || null
+    };
+
+    const ui = new UIController();
+    expect(ui.isArcadeRulesVisible()).toBe(false);
+
+    // Show Blackjack rules
+    ui.showArcadeRules('blackjack');
+    expect(ui.isArcadeRulesVisible()).toBe(true);
+    expect(rulesModal.classList.contains('hidden')).toBe(false);
+    expect(titleEl.textContent).toBe('Gothic Blackjack');
+    expect(realLifeEl.textContent).toContain('Blackjack (Twenty-One)');
+    expect(objectiveEl.textContent).toContain('21');
+    expect(rulesListEl.innerHTML).toContain('<li>');
+    expect(linkEl.href).toBe('https://en.wikipedia.org/wiki/Blackjack');
+    expect(labelEl.textContent).toContain('Official');
+
+    // Show SET rules
+    ui.showArcadeRules('set');
+    expect(titleEl.textContent).toBe('Sacred Geometry SET');
+    expect(realLifeEl.textContent).toContain('SET');
+
+    // Hide rules
+    ui.hideArcadeRules();
+    expect(ui.isArcadeRulesVisible()).toBe(false);
+    expect(rulesModal.classList.contains('hidden')).toBe(true);
+
+    // Unknown key does nothing
+    ui.showArcadeRules('nonexistent_game');
+    expect(ui.isArcadeRulesVisible()).toBe(false);
+
+    (globalThis as any).document = originalDoc;
+  });
+
+  it('confirms HTML DOM contains real-life game annotations, accordions, and rules triggers', () => {
+    const htmlPath = resolve(__dirname, '../index.html');
+    const html = readFileSync(htmlPath, 'utf8');
+
+    // Universal rules modal exists
+    expect(html).toContain('id="arcade-rules-modal"');
+    expect(html).toContain('id="rules-modal-title"');
+    expect(html).toContain('id="rules-modal-real-life"');
+    expect(html).toContain('id="rules-modal-objective"');
+    expect(html).toContain('id="rules-modal-rules-list"');
+    expect(html).toContain('id="rules-modal-external-link"');
+    expect(html).toContain('id="btn-close-arcade-rules"');
+    expect(html).toContain('id="btn-dismiss-arcade-rules"');
+
+    // All 8 theater rules buttons exist
+    const rulesButtons = [
+      'id="btn-chess-rules"',
+      'id="btn-bjk-rules"',
+      'id="btn-poker-rules"',
+      'id="btn-skipbo-rules"',
+      'id="btn-phase10-rules"',
+      'id="btn-uno-rules"',
+      'id="btn-avalon-rules"',
+      'id="btn-set-rules"'
+    ];
+    for (const btnId of rulesButtons) {
+      expect(html).toContain(btnId);
+    }
+
+    // Arcade Hub has Real-Life Game annotations and Wikipedia links for each game
+    const expectedRealLifeNames = [
+      'Classical Chess (FIDE)',
+      'Blackjack (Twenty-One)',
+      'The Resistance: Avalon',
+      'UNO (Mattel)',
+      'Phase 10',
+      "Texas Hold'em / Omaha / Stud Poker",
+      'Skip-Bo / Spite and Malice',
+      'SET (Marsha Falco / PlayMonster)'
+    ];
+    for (const name of expectedRealLifeNames) {
+      expect(html).toContain(name);
+    }
+    expect(html).toContain('https://en.wikipedia.org/wiki/Rules_of_chess');
+    expect(html).toContain('https://en.wikipedia.org/wiki/Blackjack');
+    expect(html).toContain('https://en.wikipedia.org/wiki/Texas_hold_%27em');
+    expect(html).toContain('https://en.wikipedia.org/wiki/Skip-Bo');
+    expect(html).toContain('https://en.wikipedia.org/wiki/Phase_10');
+    expect(html).toContain('https://en.wikipedia.org/wiki/Uno_(card_game)');
+    expect(html).toContain('https://en.wikipedia.org/wiki/The_Resistance_(game)');
+    expect(html).toContain('https://en.wikipedia.org/wiki/Set_(card_game)');
   });
 });

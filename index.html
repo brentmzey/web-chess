@@ -220,6 +220,12 @@
                 <span class="hidden sm:inline font-bold">Arcade Hub</span>
             </button>
 
+            <!-- Rules & Guide -->
+            <button id="btn-chess-rules" class="md3-chip" title="Chess Rules & Real-Life Guide">
+                <span class="material-symbols-rounded text-amber-300">menu_book</span>
+                <span class="hidden sm:inline">Rules</span>
+            </button>
+
             <!-- Reset Board / New Game -->
             <button id="btn-reset" class="md3-chip" title="Start New Game">
                 <span class="material-symbols-rounded">restart_alt</span>
@@ -841,6 +847,47 @@
     </div>
 
     <!-- ===================================================================== -->
+    <!-- UNIVERSAL GAME RULES & REAL-LIFE GUIDE MODAL                          -->
+    <!-- ===================================================================== -->
+    <div id="arcade-rules-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md hidden pointer-events-auto select-text">
+        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-amber-400/50 w-full max-w-xl max-h-[90dvh] overflow-y-auto space-y-4 animate-in fade-in duration-200">
+            <div class="flex items-start justify-between border-b border-amber-500/20 pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-400/15 border border-amber-400/40 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-rounded text-amber-300 text-2xl">menu_book</span>
+                    </div>
+                    <div>
+                        <h3 id="rules-modal-title" class="font-cathedral text-base sm:text-lg font-bold text-amber-100">Game Rules &amp; Guide</h3>
+                        <p id="rules-modal-real-life" class="text-xs text-amber-300 font-semibold font-mono">Real-Life Game: Classical Chess</p>
+                    </div>
+                </div>
+                <button type="button" id="btn-close-arcade-rules" class="p-1.5 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Rules Dialog">
+                    <span class="material-symbols-rounded text-xl">close</span>
+                </button>
+            </div>
+            <div class="space-y-3 text-xs sm:text-sm text-stone-200 leading-relaxed">
+                <div class="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                    <span class="text-[10px] uppercase font-bold text-amber-300 tracking-wider">Objective</span>
+                    <p id="rules-modal-objective" class="text-stone-300"></p>
+                </div>
+                <div class="space-y-1.5">
+                    <span class="text-[10px] uppercase font-bold text-stone-400 tracking-wider">How to Play &amp; Core Rules</span>
+                    <ul id="rules-modal-rules-list" class="space-y-1.5 pl-4 list-disc text-stone-300"></ul>
+                </div>
+                <div class="pt-2 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <a id="rules-modal-external-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-sky-400 hover:text-sky-300 hover:underline font-bold text-xs transition">
+                        <span class="material-symbols-rounded text-sm">open_in_new</span>
+                        <span id="rules-modal-external-label">Read Full Official Rules on Wikipedia</span>
+                    </a>
+                    <button type="button" id="btn-dismiss-arcade-rules" class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition">
+                        Got it
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
     <!-- SANCTUARY ARCADE FRONT SCREEN / MULTI-GAME SELECTOR MODAL             -->
     <!-- ===================================================================== -->
     <div id="arcade-hub-modal" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-black/85 backdrop-blur-md hidden pointer-events-auto">
@@ -878,15 +925,40 @@
             <!-- Games Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <!-- 1. Wizard's Chess 3D -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-amber-950/40 via-stone-900/60 to-black/80 border-2 border-amber-400/60 shadow-lg shadow-amber-950/30 flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-amber-950/40 via-stone-900/60 to-black/80 border-2 border-amber-400/60 shadow-lg shadow-amber-950/30 flex flex-col justify-between gap-3.5">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-amber-300">church</span>
                             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Live & Playable</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-amber-100">Wizard's Chess 3D</h3>
+                        <div>
+                            <h3 class="font-cathedral text-base font-bold text-amber-100">Wizard's Chess 3D</h3>
+                            <div class="text-[11px] font-semibold text-amber-300/90 flex items-center gap-1.5 mt-0.5">
+                                <span class="text-stone-400">Real-Life Game:</span>
+                                <span class="font-bold text-amber-200">Classical Chess (FIDE)</span>
+                            </div>
+                        </div>
                         <p class="text-xs text-stone-300 leading-relaxed">Articulated High Gothic Cathedral Chess with 34-shard melee shatter physics, pipe organ acoustics, and Minimax / Micro-Neural / Gemini AI.</p>
                         <div class="text-[10px] text-amber-300/80 font-mono">Prefix: SANCT- • 1-2 Players • All AI Engines</div>
+
+                        <!-- How to Play & Real-Life Rules Accordion -->
+                        <details class="group rounded-xl bg-black/50 border border-white/10 p-2 text-xs transition">
+                            <summary class="font-semibold text-amber-200 cursor-pointer flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-symbols-rounded text-sm text-amber-300">menu_book</span>
+                                    <span>How to Play &amp; Real-Life Rules</span>
+                                </span>
+                                <span class="material-symbols-rounded text-sm text-stone-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-stone-300 text-[11px] leading-relaxed">
+                                <p><strong class="text-amber-100">Objective:</strong> Checkmate the opponent's King so it has no legal moves to escape capture.</p>
+                                <p><strong class="text-amber-100">Core Rules:</strong> Pawns move forward &amp; capture diagonally (promote at 8th rank); Knights move in an L-shape; Bishops move diagonally; Rooks move orthogonally; Queens combine Rook &amp; Bishop powers; Kings move 1 square. Castling and en passant are supported.</p>
+                                <a href="https://en.wikipedia.org/wiki/Rules_of_chess" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline font-bold mt-1">
+                                    <span>Official FIDE Chess Rules (Wikipedia)</span>
+                                    <span class="material-symbols-rounded text-xs">open_in_new</span>
+                                </a>
+                            </div>
+                        </details>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" data-game-ai="chess" class="py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
@@ -901,15 +973,40 @@
                 </div>
 
                 <!-- 2. Gothic Blackjack -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-purple-950/30 via-stone-900/60 to-black/80 border border-purple-400/50 hover:border-purple-400/80 shadow-lg flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-purple-950/30 via-stone-900/60 to-black/80 border border-purple-400/50 hover:border-purple-400/80 shadow-lg flex flex-col justify-between gap-3.5">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-purple-300">playing_cards</span>
                             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">AI Table Active</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-purple-100">Gothic Blackjack</h3>
+                        <div>
+                            <h3 class="font-cathedral text-base font-bold text-purple-100">Gothic Blackjack</h3>
+                            <div class="text-[11px] font-semibold text-purple-300/90 flex items-center gap-1.5 mt-0.5">
+                                <span class="text-stone-400">Real-Life Game:</span>
+                                <span class="font-bold text-purple-200">Blackjack (Twenty-One)</span>
+                            </div>
+                        </div>
                         <p class="text-xs text-stone-300 leading-relaxed">High-stakes sanctuary card tables against the Cathedral Dealer. Split, Double Down, insurance bets, and shoe reshuffling.</p>
                         <div class="text-[10px] text-purple-300/80 font-mono">Prefix: BJK- • 1-7 Players • Minimax / Neural / Gemini</div>
+
+                        <!-- How to Play & Real-Life Rules Accordion -->
+                        <details class="group rounded-xl bg-black/50 border border-white/10 p-2 text-xs transition">
+                            <summary class="font-semibold text-purple-200 cursor-pointer flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-symbols-rounded text-sm text-purple-300">menu_book</span>
+                                    <span>How to Play &amp; Real-Life Rules</span>
+                                </span>
+                                <span class="material-symbols-rounded text-sm text-stone-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-stone-300 text-[11px] leading-relaxed">
+                                <p><strong class="text-purple-100">Objective:</strong> Build a hand total closer to 21 than the dealer without going over (busting).</p>
+                                <p><strong class="text-purple-100">Core Rules:</strong> 2–10 = face value, Face cards (J/Q/K) = 10, Aces = 1 or 11. Natural Blackjack pays 3:2. Options: Hit (draw card), Stand (hold), or Double Down (double bet, take 1 card). Dealer must hit on &lt;17 and stand on 17+.</p>
+                                <a href="https://en.wikipedia.org/wiki/Blackjack" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline font-bold mt-1">
+                                    <span>Official Casino Blackjack Rules (Wikipedia)</span>
+                                    <span class="material-symbols-rounded text-xs">open_in_new</span>
+                                </a>
+                            </div>
+                        </details>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" data-game-ai="blackjack" class="py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
@@ -924,15 +1021,40 @@
                 </div>
 
                 <!-- 3. The Resistance: Avalon -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-sky-950/30 via-stone-900/60 to-black/80 border border-sky-400/50 hover:border-sky-400/80 shadow-lg flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-sky-950/30 via-stone-900/60 to-black/80 border border-sky-400/50 hover:border-sky-400/80 shadow-lg flex flex-col justify-between gap-3.5">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-sky-300">swords</span>
                             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">Live & Playable</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-stone-200">The Resistance: Avalon</h3>
+                        <div>
+                            <h3 class="font-cathedral text-base font-bold text-stone-200">The Resistance: Avalon</h3>
+                            <div class="text-[11px] font-semibold text-sky-300/90 flex items-center gap-1.5 mt-0.5">
+                                <span class="text-stone-400">Real-Life Game:</span>
+                                <span class="font-bold text-sky-200">The Resistance: Avalon (Don Eskridge)</span>
+                            </div>
+                        </div>
                         <p class="text-xs text-stone-400 leading-relaxed">Holy Knights of Arthur vs Minions of Mordred. Secret voting, hidden roles (Merlin, Assassin, Percival), and quest deception.</p>
                         <div class="text-[10px] text-sky-300/80 font-mono">Prefix: AVALON- • 5-10 Players • Hot-Swap AI</div>
+
+                        <!-- How to Play & Real-Life Rules Accordion -->
+                        <details class="group rounded-xl bg-black/50 border border-white/10 p-2 text-xs transition">
+                            <summary class="font-semibold text-sky-200 cursor-pointer flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-symbols-rounded text-sm text-sky-300">menu_book</span>
+                                    <span>How to Play &amp; Real-Life Rules</span>
+                                </span>
+                                <span class="material-symbols-rounded text-sm text-stone-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-stone-300 text-[11px] leading-relaxed">
+                                <p><strong class="text-sky-100">Objective:</strong> Good Knights aim to pass 3 of 5 quests; Evil Minions aim to fail 3 quests or assassinate Merlin.</p>
+                                <p><strong class="text-sky-100">Core Rules:</strong> Leader proposes quest team; entire council votes Approve/Reject. If approved, team members secretly submit Success or Fail. 5 failed votes in a row hands victory to Evil. If Good passes 3 quests, the Assassin attempts to execute Merlin.</p>
+                                <a href="https://en.wikipedia.org/wiki/The_Resistance_(game)" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline font-bold mt-1">
+                                    <span>Official Avalon Deduction Rules (Wikipedia)</span>
+                                    <span class="material-symbols-rounded text-xs">open_in_new</span>
+                                </a>
+                            </div>
+                        </details>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" data-game-ai="avalon" class="py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
@@ -947,15 +1069,40 @@
                 </div>
 
                 <!-- 4. Cardinal Uno -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-red-950/30 via-stone-900/60 to-black/80 border border-red-400/50 hover:border-red-400/80 shadow-lg flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-red-950/30 via-stone-900/60 to-black/80 border border-red-400/50 hover:border-red-400/80 shadow-lg flex flex-col justify-between gap-3.5">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-red-400">style</span>
                             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">Live & Playable</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-stone-200">Cardinal Uno</h3>
+                        <div>
+                            <h3 class="font-cathedral text-base font-bold text-stone-200">Cardinal Uno</h3>
+                            <div class="text-[11px] font-semibold text-red-300/90 flex items-center gap-1.5 mt-0.5">
+                                <span class="text-stone-400">Real-Life Game:</span>
+                                <span class="font-bold text-red-200">UNO (Mattel)</span>
+                            </div>
+                        </div>
                         <p class="text-xs text-stone-400 leading-relaxed">Cathedral stained glass color matching. Reverse the liturgical order, skip heretics, and enforce Wild Draw Four penalties.</p>
                         <div class="text-[10px] text-red-300/80 font-mono">Prefix: UNO- • 2-10 Players • Hot-Swap AI</div>
+
+                        <!-- How to Play & Real-Life Rules Accordion -->
+                        <details class="group rounded-xl bg-black/50 border border-white/10 p-2 text-xs transition">
+                            <summary class="font-semibold text-red-200 cursor-pointer flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-symbols-rounded text-sm text-red-300">menu_book</span>
+                                    <span>How to Play &amp; Real-Life Rules</span>
+                                </span>
+                                <span class="material-symbols-rounded text-sm text-stone-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-stone-300 text-[11px] leading-relaxed">
+                                <p><strong class="text-red-100">Objective:</strong> Be the first player to shed all cards from your hand.</p>
+                                <p><strong class="text-red-100">Core Rules:</strong> Match discard pile by Color, Number, or Action. Action cards: Skip, Reverse (⇄), Draw Two (+2), Wild, and Wild Draw Four (+4). If you cannot play, draw from deck. Press "CALL UNO!" when holding your final card!</p>
+                                <a href="https://en.wikipedia.org/wiki/Uno_(card_game)" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline font-bold mt-1">
+                                    <span>Official Mattel UNO Card Game Rules (Wikipedia)</span>
+                                    <span class="material-symbols-rounded text-xs">open_in_new</span>
+                                </a>
+                            </div>
+                        </details>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" data-game-ai="uno" class="py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
@@ -970,15 +1117,40 @@
                 </div>
 
                 <!-- 5. Ten Rites (Phase 10) -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-emerald-950/30 via-stone-900/60 to-black/80 border border-emerald-400/50 hover:border-emerald-400/80 shadow-lg flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-emerald-950/30 via-stone-900/60 to-black/80 border border-emerald-400/50 hover:border-emerald-400/80 shadow-lg flex flex-col justify-between gap-3.5">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-emerald-400">auto_stories</span>
                             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Live & Playable</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-emerald-100">Ten Rites (Phase 10)</h3>
+                        <div>
+                            <h3 class="font-cathedral text-base font-bold text-emerald-100">Ten Rites (Phase 10)</h3>
+                            <div class="text-[11px] font-semibold text-emerald-300/90 flex items-center gap-1.5 mt-0.5">
+                                <span class="text-stone-400">Real-Life Game:</span>
+                                <span class="font-bold text-emerald-200">Phase 10 (Mattel / Ken Johnson)</span>
+                            </div>
+                        </div>
                         <p class="text-xs text-stone-300 leading-relaxed">Complete ten consecutive liturgical phases (sets, runs, colors) before your opponents. Draw, meld, and hit on consecrated sets.</p>
                         <div class="text-[10px] text-emerald-300/80 font-mono">Prefix: P10- • 2-6 Players • AI Opponent & Live 1v1</div>
+
+                        <!-- How to Play & Real-Life Rules Accordion -->
+                        <details class="group rounded-xl bg-black/50 border border-white/10 p-2 text-xs transition">
+                            <summary class="font-semibold text-emerald-200 cursor-pointer flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-symbols-rounded text-sm text-emerald-300">menu_book</span>
+                                    <span>How to Play &amp; Real-Life Rules</span>
+                                </span>
+                                <span class="material-symbols-rounded text-sm text-stone-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-stone-300 text-[11px] leading-relaxed">
+                                <p><strong class="text-emerald-100">Objective:</strong> Complete all 10 contract phases in order with the fewest cumulative penalty points.</p>
+                                <p><strong class="text-emerald-100">Core Rules:</strong> Draw 1 card, optionally Lay Down completed phase meld, optionally Hit remaining cards onto laid sets, and Discard 1 card to end turn. Phase 1 begins with 2 sets of 3. Wild (★) cards substitute for any number/color.</p>
+                                <a href="https://en.wikipedia.org/wiki/Phase_10" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline font-bold mt-1">
+                                    <span>Official Phase 10 Rules &amp; Melds (Wikipedia)</span>
+                                    <span class="material-symbols-rounded text-xs">open_in_new</span>
+                                </a>
+                            </div>
+                        </details>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" data-game-ai="phase10" class="py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
@@ -993,15 +1165,40 @@
                 </div>
 
                 <!-- 6. Cathedral Poker (Multi-Variant) -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-amber-950/30 via-stone-900/60 to-black/80 border border-amber-400/50 hover:border-amber-400/80 shadow-lg flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-amber-950/30 via-stone-900/60 to-black/80 border border-amber-400/50 hover:border-amber-400/80 shadow-lg flex flex-col justify-between gap-3.5">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-amber-300">token</span>
                             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">Live & Playable</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-amber-100">Cathedral Poker</h3>
+                        <div>
+                            <h3 class="font-cathedral text-base font-bold text-amber-100">Cathedral Poker</h3>
+                            <div class="text-[11px] font-semibold text-amber-300/90 flex items-center gap-1.5 mt-0.5">
+                                <span class="text-stone-400">Real-Life Game:</span>
+                                <span class="font-bold text-amber-200">Texas Hold'em / Omaha / Stud Poker</span>
+                            </div>
+                        </div>
                         <p class="text-xs text-stone-300 leading-relaxed">Texas Hold'em, Omaha, Seven-Card Stud & Five-Card Draw with sanctuary blinds, deep hand evaluations, and AI bot bluffing.</p>
                         <div class="text-[10px] text-amber-300/80 font-mono">Prefix: POKER- • 2-9 Players • 4 Variants Ready</div>
+
+                        <!-- How to Play & Real-Life Rules Accordion -->
+                        <details class="group rounded-xl bg-black/50 border border-white/10 p-2 text-xs transition">
+                            <summary class="font-semibold text-amber-200 cursor-pointer flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-symbols-rounded text-sm text-amber-300">menu_book</span>
+                                    <span>How to Play &amp; Real-Life Rules</span>
+                                </span>
+                                <span class="material-symbols-rounded text-sm text-stone-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-stone-300 text-[11px] leading-relaxed">
+                                <p><strong class="text-amber-100">Objective:</strong> Win chips by making the best 5-card hand or forcing opponents to fold.</p>
+                                <p><strong class="text-amber-100">Core Rules:</strong> Standard hand hierarchy (High Card &lt; Pair &lt; Two Pair &lt; Three of a Kind &lt; Straight &lt; Flush &lt; Full House &lt; Quads &lt; Straight Flush &lt; Royal Flush). Betting rounds: Pre-Flop, Flop (3 cards), Turn (1 card), River (1 card), Showdown. Check, Call, Raise, or Fold.</p>
+                                <a href="https://en.wikipedia.org/wiki/Texas_hold_%27em" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline font-bold mt-1">
+                                    <span>Official Texas Hold'em Poker Rules (Wikipedia)</span>
+                                    <span class="material-symbols-rounded text-xs">open_in_new</span>
+                                </a>
+                            </div>
+                        </details>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" data-game-ai="poker" class="py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
@@ -1016,15 +1213,40 @@
                 </div>
 
                 <!-- 7. Sacred Skip-Bo -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-blue-950/30 via-stone-900/60 to-black/80 border border-blue-400/50 hover:border-blue-400/80 shadow-lg flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-blue-950/30 via-stone-900/60 to-black/80 border border-blue-400/50 hover:border-blue-400/80 shadow-lg flex flex-col justify-between gap-3.5">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-blue-300">counter_1</span>
                             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">Live & Playable</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-blue-100">Sacred Skip-Bo</h3>
+                        <div>
+                            <h3 class="font-cathedral text-base font-bold text-blue-100">Sacred Skip-Bo</h3>
+                            <div class="text-[11px] font-semibold text-blue-300/90 flex items-center gap-1.5 mt-0.5">
+                                <span class="text-stone-400">Real-Life Game:</span>
+                                <span class="font-bold text-blue-200">Skip-Bo / Spite and Malice</span>
+                            </div>
+                        </div>
                         <p class="text-xs text-stone-300 leading-relaxed">Sequential sanctuary building from 1 to 12. Deplete your 15-card stockpile onto 4 shared ascending center piles before the AI Abbot.</p>
                         <div class="text-[10px] text-blue-300/80 font-mono">Prefix: SKIP- • 2-4 Players • AI Opponent & Live 1v1</div>
+
+                        <!-- How to Play & Real-Life Rules Accordion -->
+                        <details class="group rounded-xl bg-black/50 border border-white/10 p-2 text-xs transition">
+                            <summary class="font-semibold text-blue-200 cursor-pointer flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-symbols-rounded text-sm text-blue-300">menu_book</span>
+                                    <span>How to Play &amp; Real-Life Rules</span>
+                                </span>
+                                <span class="material-symbols-rounded text-sm text-stone-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-stone-300 text-[11px] leading-relaxed">
+                                <p><strong class="text-blue-100">Objective:</strong> Be the first player to empty your 15-card personal Stockpile.</p>
+                                <p><strong class="text-blue-100">Core Rules:</strong> Build 4 center shared piles in numerical sequence from 1 to 12. You may play cards from your Stockpile top, 5-card Hand, or 4 Discard piles. Skip-Bo (★) cards are Wild. End each turn by discarding 1 card to your discard stacks.</p>
+                                <a href="https://en.wikipedia.org/wiki/Skip-Bo" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline font-bold mt-1">
+                                    <span>Official Skip-Bo Sequence Rules (Wikipedia)</span>
+                                    <span class="material-symbols-rounded text-xs">open_in_new</span>
+                                </a>
+                            </div>
+                        </details>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" data-game-ai="skipbo" class="py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
@@ -1039,15 +1261,40 @@
                 </div>
 
                 <!-- 8. Sacred Geometry SET -->
-                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-fuchsia-950/30 via-stone-900/60 to-black/80 border border-fuchsia-400/50 hover:border-fuchsia-400/80 shadow-lg flex flex-col justify-between gap-4">
+                <div class="game-hub-card relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-fuchsia-950/30 via-stone-900/60 to-black/80 border border-fuchsia-400/50 hover:border-fuchsia-400/80 shadow-lg flex flex-col justify-between gap-3.5">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="material-symbols-rounded text-2xl text-fuchsia-300">category</span>
                             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30">Live & Playable</span>
                         </div>
-                        <h3 class="font-cathedral text-base font-bold text-fuchsia-100">Sacred Geometry SET</h3>
+                        <div>
+                            <h3 class="font-cathedral text-base font-bold text-fuchsia-100">Sacred Geometry SET</h3>
+                            <div class="text-[11px] font-semibold text-fuchsia-300/90 flex items-center gap-1.5 mt-0.5">
+                                <span class="text-stone-400">Real-Life Game:</span>
+                                <span class="font-bold text-fuchsia-200">SET (Marsha Falco / PlayMonster)</span>
+                            </div>
+                        </div>
                         <p class="text-xs text-stone-300 leading-relaxed">81-card GF(3)⁴ finite geometry game. Claim 3-card SETs where Number, Shape, Shading, and Color are each all identical or all distinct.</p>
                         <div class="text-[10px] text-fuchsia-300/80 font-mono">Prefix: SET- • 1-20 Players • Hot-Swap AI & Live</div>
+
+                        <!-- How to Play & Real-Life Rules Accordion -->
+                        <details class="group rounded-xl bg-black/50 border border-white/10 p-2 text-xs transition">
+                            <summary class="font-semibold text-fuchsia-200 cursor-pointer flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-symbols-rounded text-sm text-fuchsia-300">menu_book</span>
+                                    <span>How to Play &amp; Real-Life Rules</span>
+                                </span>
+                                <span class="material-symbols-rounded text-sm text-stone-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-stone-300 text-[11px] leading-relaxed">
+                                <p><strong class="text-fuchsia-100">Objective:</strong> Fast visual identification of 3-card SETs from the 12 visible cards.</p>
+                                <p><strong class="text-fuchsia-100">Core Rules:</strong> Each card has 4 attributes (Number: 1/2/3, Shape: Diamond/Oval/Squiggle, Color: Red/Green/Purple, Shading: Solid/Striped/Open). A SET consists of 3 cards where each attribute is individually either ALL THE SAME or ALL DIFFERENT across all 3 cards.</p>
+                                <a href="https://en.wikipedia.org/wiki/Set_(card_game)" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline font-bold mt-1">
+                                    <span>Official SET Game Mathematical Rules (Wikipedia)</span>
+                                    <span class="material-symbols-rounded text-xs">open_in_new</span>
+                                </a>
+                            </div>
+                        </details>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" data-game-ai="set" class="py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
@@ -1134,6 +1381,9 @@
                         <option value="ruthless">Ruthless</option>
                     </select>
                 </div>
+                <button type="button" id="btn-bjk-rules" class="p-1.5 sm:p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
+                    <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
                 <button type="button" id="btn-bjk-fullscreen" class="p-1.5 sm:p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -1286,8 +1536,11 @@
                 </div>
             </div>
 
-            <!-- Right: Fullscreen Toggle -->
+            <!-- Right: Rules & Fullscreen Toggle -->
             <div class="flex items-center gap-2">
+                <button type="button" id="btn-poker-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
+                    <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
                 <button type="button" id="btn-poker-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -1447,6 +1700,9 @@
                     <span class="material-symbols-rounded text-sm text-sky-400">smart_toy</span>
                     <span class="hidden sm:inline">Auto AI Turn</span>
                 </button>
+                <button type="button" id="btn-skipbo-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
+                    <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
                 <button type="button" id="btn-skipbo-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -1589,6 +1845,9 @@
                 <button type="button" id="phase10-btn-bot-step" class="px-3 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 border border-white/10 text-stone-200 font-bold text-xs flex items-center gap-1.5 shadow-sm transition">
                     <span class="material-symbols-rounded text-sm text-emerald-400">smart_toy</span>
                     <span class="hidden sm:inline">Auto AI Turn</span>
+                </button>
+                <button type="button" id="btn-phase10-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
+                    <span class="material-symbols-rounded text-lg">menu_book</span>
                 </button>
                 <button type="button" id="btn-phase10-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
@@ -1738,8 +1997,11 @@
                 </div>
             </div>
 
-            <!-- Right: Fullscreen -->
+            <!-- Right: Rules & Fullscreen -->
             <div class="flex items-center gap-2">
+                <button type="button" id="btn-uno-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
+                    <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
                 <button type="button" id="btn-uno-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -1874,8 +2136,11 @@
                 </div>
             </div>
 
-            <!-- Right: Fullscreen -->
+            <!-- Right: Rules & Fullscreen -->
             <div class="flex items-center gap-2">
+                <button type="button" id="btn-avalon-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
+                    <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
                 <button type="button" id="btn-avalon-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -2018,8 +2283,11 @@
                 </div>
             </div>
 
-            <!-- Right: Fullscreen -->
+            <!-- Right: Rules & Fullscreen -->
             <div class="flex items-center gap-2">
+                <button type="button" id="btn-set-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
+                    <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
                 <button type="button" id="btn-set-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>

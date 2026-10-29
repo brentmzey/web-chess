@@ -4,6 +4,7 @@ import {
   getGameModeConfig,
   UNICODE_PIECES
 } from '../constants/board';
+import { ARCADE_GAME_RULES } from '../constants/gameRules';
 import {
   DeviceTierEnum,
   GameModeEnum,
@@ -121,6 +122,15 @@ export interface UIControllerElements {
   readonly unoModal: Option<HTMLElement>;
   readonly avalonModal: Option<HTMLElement>;
   readonly setModal: Option<HTMLElement>;
+  readonly arcadeRulesModal: Option<HTMLElement>;
+  readonly btnCloseArcadeRules: Option<HTMLButtonElement>;
+  readonly btnDismissArcadeRules: Option<HTMLButtonElement>;
+  readonly rulesModalTitle: Option<HTMLElement>;
+  readonly rulesModalRealLife: Option<HTMLElement>;
+  readonly rulesModalObjective: Option<HTMLElement>;
+  readonly rulesModalRulesList: Option<HTMLElement>;
+  readonly rulesModalExternalLink: Option<HTMLAnchorElement>;
+  readonly rulesModalExternalLabel: Option<HTMLElement>;
 }
 
 /**
@@ -206,6 +216,15 @@ export function buildUIControllerElements(overrides?: Readonly<Partial<UIControl
     unoModal: domById('uno-modal'),
     avalonModal: domById('avalon-modal'),
     setModal: domById('set-modal'),
+    arcadeRulesModal: domById('arcade-rules-modal'),
+    btnCloseArcadeRules: domById<HTMLButtonElement>('btn-close-arcade-rules'),
+    btnDismissArcadeRules: domById<HTMLButtonElement>('btn-dismiss-arcade-rules'),
+    rulesModalTitle: domById('rules-modal-title'),
+    rulesModalRealLife: domById('rules-modal-real-life'),
+    rulesModalObjective: domById('rules-modal-objective'),
+    rulesModalRulesList: domById('rules-modal-rules-list'),
+    rulesModalExternalLink: domById<HTMLAnchorElement>('rules-modal-external-link'),
+    rulesModalExternalLabel: domById('rules-modal-external-label'),
     pregameModeLockNotice: domById('pregame-mode-lock-notice')
   };
 
@@ -853,6 +872,44 @@ export class UIController {
 
   public isSetVisible(): boolean {
     return this.el.setModal
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
+  public showArcadeRules(gameKey: string): void {
+    const rule = ARCADE_GAME_RULES[gameKey];
+    if (!rule) return;
+    this.el.rulesModalTitle.map(el => {
+      el.textContent = rule.title;
+    });
+    this.el.rulesModalRealLife.map(el => {
+      el.textContent = `Real-Life Game: ${rule.realLifeName}`;
+    });
+    this.el.rulesModalObjective.map(el => {
+      el.textContent = rule.objective;
+    });
+    this.el.rulesModalRulesList.map(el => {
+      el.innerHTML = rule.keyRules.map(r => `<li>${r}</li>`).join('');
+    });
+    this.el.rulesModalExternalLink.map(link => {
+      link.href = rule.officialUrl;
+    });
+    this.el.rulesModalExternalLabel.map(lbl => {
+      lbl.textContent = rule.urlLabel;
+    });
+    this.el.arcadeRulesModal.map(modal => {
+      modal.classList.remove('hidden');
+    });
+  }
+
+  public hideArcadeRules(): void {
+    this.el.arcadeRulesModal.map(modal => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  public isArcadeRulesVisible(): boolean {
+    return this.el.arcadeRulesModal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
   }

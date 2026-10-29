@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.30] - 2026-10-28
+### Added
+- **Sanctuary Arcade Real-Life Game Annotations, In-Game Rulebooks & Universal Rules Dialog Across All 8 Games (`src/constants/gameRules.ts`, `src/ui/uiController.ts`, `index.html`, `src/main.ts`, `tests/arcadeHubIntegration.test.ts`)**:
+  - **Real-Life Game Annotations & Native Accordions in Arcade Hub (`index.html`)**: Annotated each of the 8 arcade game cards with their authoritative real-life game names (**Classical Chess [FIDE]**, **Blackjack [Twenty-One]**, **The Resistance: Avalon**, **UNO [Mattel]**, **Phase 10**, **Texas Hold'em / Omaha / Stud Poker**, **Skip-Bo / Spite and Malice**, and **SET [Marsha Falco / PlayMonster]**) and integrated native expandable `<details>` / `<summary>` accordions with Objective, Core Rules, and direct links to official Wikipedia rulebooks.
+  - **Universal In-Game Rules Modal & Guide Triggers (`#arcade-rules-modal`, `src/constants/gameRules.ts`, `src/ui/uiController.ts`, `src/main.ts`)**: Added a modal dialog with full game rules, objectives, numbered core mechanics, and external official Wikipedia links. Wired up in-game book buttons across all theater headers (`#btn-chess-rules`, `#btn-bjk-rules`, `#btn-poker-rules`, `#btn-skipbo-rules`, `#btn-phase10-rules`, `#btn-uno-rules`, `#btn-avalon-rules`, `#btn-set-rules`) and modal dismissal handlers (`#btn-close-arcade-rules`, `#btn-dismiss-arcade-rules`).
+  - **Centralized Immutable Game Rules Repository (`src/constants/gameRules.ts`)**: Exported `ARCADE_GAME_RULES` (`Readonly<Record<string, GameRuleInfo>>`) containing structured rule metadata for all 8 Sanctuary Arcade games.
+  - **Comprehensive Unit & Integration Test Coverage (`tests/arcadeHubIntegration.test.ts`)**: Added validation verifying rulebook data integrity, modal visibility controls in `UIController`, and presence of real-life name annotations, accordions, and rules triggers across the HTML DOM.
+
 ## [1.2.0-rc.29] - 2026-10-28
 ### Added
 - **Mobile Un-Smushing, Additive Card Count Equations, Rich Game Displays & Hardware Battery Optimization Across All 8 Arcade Games (`src/games/blackjack/blackjackEngine.ts`, `src/styles/main.css`, `index.html`, `src/main.ts`, `src/graphics/pieces.ts`, `src/graphics/board.ts`, `src/audio/CathedralSoundEngine.ts`)**:

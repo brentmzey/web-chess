@@ -2038,6 +2038,39 @@ function main(): void {
     btn.addEventListener('click', () => ui.hideSet())
   );
 
+  // Universal Arcade Rules Modal Controls & Theater Guide Triggers
+  fromNullable(document.getElementById('btn-close-arcade-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.hideArcadeRules())
+  );
+  fromNullable(document.getElementById('btn-dismiss-arcade-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.hideArcadeRules())
+  );
+
+  fromNullable(document.getElementById('btn-chess-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.showArcadeRules('chess'))
+  );
+  fromNullable(document.getElementById('btn-bjk-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.showArcadeRules('blackjack'))
+  );
+  fromNullable(document.getElementById('btn-poker-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.showArcadeRules('poker'))
+  );
+  fromNullable(document.getElementById('btn-skipbo-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.showArcadeRules('skipbo'))
+  );
+  fromNullable(document.getElementById('btn-phase10-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.showArcadeRules('phase10'))
+  );
+  fromNullable(document.getElementById('btn-uno-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.showArcadeRules('uno'))
+  );
+  fromNullable(document.getElementById('btn-avalon-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.showArcadeRules('avalon'))
+  );
+  fromNullable(document.getElementById('btn-set-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.showArcadeRules('set'))
+  );
+
   // Fullscreen Table Toggles
   const setupFullscreenToggle = (buttonId: string,
                                  modalId: string) => {
