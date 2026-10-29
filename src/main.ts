@@ -4308,7 +4308,9 @@ function main(): void {
 
   // Arcade Hub Dual Buttons (Play vs AI & Play Live)
   document.querySelectorAll('[data-game-ai]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
       const targetGame = btn.getAttribute('data-game-ai') as ArcadeGameType | null;
       if (targetGame === 'chess') {
         ui.hideArcadeHub();
@@ -4360,7 +4362,9 @@ function main(): void {
   });
 
   document.querySelectorAll('[data-game-live]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
       const targetGame = btn.getAttribute('data-game-live') as ArcadeGameType | null;
       if (targetGame === 'chess') {
         ui.hideArcadeHub();

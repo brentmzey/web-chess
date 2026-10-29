@@ -479,4 +479,53 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
     expect(html).toContain('https://en.wikipedia.org/wiki/The_Resistance_(game)');
     expect(html).toContain('https://en.wikipedia.org/wiki/Set_(card_game)');
   });
+
+  it('manages theater modal open/close lifecycle and display classes across all arcade games', () => {
+    const modals: Record<string, MockElement> = {
+      'arcade-hub-modal': new MockElement(),
+      'blackjack-modal': new MockElement(),
+      'poker-modal': new MockElement(),
+      'skipbo-modal': new MockElement(),
+      'phase10-modal': new MockElement(),
+      'uno-modal': new MockElement(),
+      'avalon-modal': new MockElement(),
+      'set-modal': new MockElement()
+    };
+    Object.values(modals).forEach(m => m.classList.add('hidden'));
+
+    const originalDoc = (globalThis as any).document;
+    (globalThis as any).document = {
+      getElementById: (id: string) => modals[id] || null
+    };
+
+    try {
+      const ui = new UIController();
+
+      // Verify each arcade game can be shown and hidden cleanly with flex displayClass
+      const games = [
+        { name: 'Blackjack', show: () => ui.showBlackjack(), hide: () => ui.hideBlackjack(), isVis: () => ui.isBlackjackVisible(), el: modals['blackjack-modal']! },
+        { name: 'Poker', show: () => ui.showPoker(), hide: () => ui.hidePoker(), isVis: () => ui.isPokerVisible(), el: modals['poker-modal']! },
+        { name: 'Skip-Bo', show: () => ui.showSkipBo(), hide: () => ui.hideSkipBo(), isVis: () => ui.isSkipBoVisible(), el: modals['skipbo-modal']! },
+        { name: 'Phase 10', show: () => ui.showPhase10(), hide: () => ui.hidePhase10(), isVis: () => ui.isPhase10Visible(), el: modals['phase10-modal']! },
+        { name: 'Uno', show: () => ui.showUno(), hide: () => ui.hideUno(), isVis: () => ui.isUnoVisible(), el: modals['uno-modal']! },
+        { name: 'Avalon', show: () => ui.showAvalon(), hide: () => ui.hideAvalon(), isVis: () => ui.isAvalonVisible(), el: modals['avalon-modal']! },
+        { name: 'Set', show: () => ui.showSet(), hide: () => ui.hideSet(), isVis: () => ui.isSetVisible(), el: modals['set-modal']! }
+      ];
+
+      for (const g of games) {
+        expect(g.isVis()).toBe(false);
+        g.show();
+        expect(g.isVis()).toBe(true);
+        expect(g.el.classList.contains('hidden')).toBe(false);
+        expect(g.el.classList.contains('flex')).toBe(true);
+
+        g.hide();
+        expect(g.isVis()).toBe(false);
+        expect(g.el.classList.contains('hidden')).toBe(true);
+        expect(g.el.classList.contains('flex')).toBe(false);
+      }
+    } finally {
+      (globalThis as any).document = originalDoc;
+    }
+  });
 });

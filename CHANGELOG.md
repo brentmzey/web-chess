@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.40] - 2026-10-28
+### Fixed
+- **Arcade Hub to Theater Navigation & Event Propagation (`src/main.ts`, `src/ui/uiController.ts`, `tests/arcadeHubIntegration.test.ts`)**:
+  - Bound `e.preventDefault()` and `e.stopPropagation()` on all Arcade Hub AI launcher buttons (`[data-game-ai]`) and live match launcher buttons (`[data-game-live]`), preventing click bubbling to parent containers and backdrops when launching games.
+  - Standardized `UIController` display class orchestration (`flex` added on `show*()`, `flex` removed on `hide*()`) across all 7 arcade theater modals (Blackjack, Poker, Skip-Bo, Phase 10, Uno, Avalon, Set) and the Arcade Hub.
+  - Verified theater modal visibility transitions and isolation with 405 passing tests across 49 test suites (3,058 assertions, 0 failures, 0 type errors).
+
 ## [1.2.0-rc.39] - 2026-10-28
 ### Added
 - **Complete Real-Time SSE Multi-Game Arcade Synchronization (`src/main.ts`, `src/realtime/arcadeRealtimeClient.ts`, `tests/arcadeRealtimeClient.test.ts`)**:

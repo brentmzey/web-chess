@@ -736,12 +736,14 @@ export class UIController {
   public showArcadeHub(): void {
     this.el.arcadeHubModal.map(modal => {
       modal.classList.remove('hidden');
+      modal.classList.add('flex');
     });
   }
 
   public hideArcadeHub(): void {
     this.el.arcadeHubModal.map(modal => {
       modal.classList.add('hidden');
+      modal.classList.remove('flex');
     });
   }
 
@@ -776,12 +778,14 @@ export class UIController {
   public showBlackjack(): void {
     this.el.blackjackModal.map(modal => {
       modal.classList.remove('hidden');
+      modal.classList.add('flex');
     });
   }
 
   public hideBlackjack(): void {
     this.el.blackjackModal.map(modal => {
       modal.classList.add('hidden');
+      modal.classList.remove('flex');
     });
   }
 
@@ -794,12 +798,14 @@ export class UIController {
   public showPoker(): void {
     this.el.pokerModal.map(modal => {
       modal.classList.remove('hidden');
+      modal.classList.add('flex');
     });
   }
 
   public hidePoker(): void {
     this.el.pokerModal.map(modal => {
       modal.classList.add('hidden');
+      modal.classList.remove('flex');
     });
   }
 
@@ -812,12 +818,14 @@ export class UIController {
   public showSkipBo(): void {
     this.el.skipboModal.map(modal => {
       modal.classList.remove('hidden');
+      modal.classList.add('flex');
     });
   }
 
   public hideSkipBo(): void {
     this.el.skipboModal.map(modal => {
       modal.classList.add('hidden');
+      modal.classList.remove('flex');
     });
   }
 
@@ -830,12 +838,14 @@ export class UIController {
   public showPhase10(): void {
     this.el.phase10Modal.map(modal => {
       modal.classList.remove('hidden');
+      modal.classList.add('flex');
     });
   }
 
   public hidePhase10(): void {
     this.el.phase10Modal.map(modal => {
       modal.classList.add('hidden');
+      modal.classList.remove('flex');
     });
   }
 
@@ -848,12 +858,14 @@ export class UIController {
   public showUno(): void {
     this.el.unoModal.map(modal => {
       modal.classList.remove('hidden');
+      modal.classList.add('flex');
     });
   }
 
   public hideUno(): void {
     this.el.unoModal.map(modal => {
       modal.classList.add('hidden');
+      modal.classList.remove('flex');
     });
   }
 
@@ -866,12 +878,14 @@ export class UIController {
   public showAvalon(): void {
     this.el.avalonModal.map(modal => {
       modal.classList.remove('hidden');
+      modal.classList.add('flex');
     });
   }
 
   public hideAvalon(): void {
     this.el.avalonModal.map(modal => {
       modal.classList.add('hidden');
+      modal.classList.remove('flex');
     });
   }
 
@@ -884,12 +898,14 @@ export class UIController {
   public showSet(): void {
     this.el.setModal.map(modal => {
       modal.classList.remove('hidden');
+      modal.classList.add('flex');
     });
   }
 
   public hideSet(): void {
     this.el.setModal.map(modal => {
       modal.classList.add('hidden');
+      modal.classList.remove('flex');
     });
   }
 
