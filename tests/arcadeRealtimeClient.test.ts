@@ -83,6 +83,9 @@ describe('ArcadeRealtimeClient - Universal Client-Side Real-Time Adapter', () =>
 
       const res = await client.sendAction('play_card', { cardId: 'c1' });
       expect(res.isSuccess()).toBe(true);
+
+      const dispatchRes = await client.dispatchAction('play_card', { cardId: 'c1' });
+      expect(dispatchRes.isSuccess()).toBe(true);
     } finally {
       globalThis.fetch = originalFetch;
     }

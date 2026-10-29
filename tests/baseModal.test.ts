@@ -78,6 +78,19 @@ class MockDOMElement {
     return false;
   }
 
+  public matches(selector: string): boolean {
+    const selectors = selector.split(',').map(s => s.trim());
+    return selectors.some(sel => {
+      if (sel === '.md3-glass' && this.classList.contains('md3-glass')) return true;
+      if (sel === '.arcade-theater-shell' && this.classList.contains('arcade-theater-shell')) return true;
+      if (sel.includes('[data-modal-close]') && this.hasAttribute('data-modal-close')) return true;
+      if (sel.includes('[data-modal-card]') && this.hasAttribute('data-modal-card')) return true;
+      if (sel.startsWith('#') && this.attrs.id === sel.slice(1)) return true;
+      if (sel.startsWith('.') && this.classList.contains(sel.slice(1))) return true;
+      return false;
+    });
+  }
+
   public querySelector(selector: string): MockDOMElement | null {
     const list = this.querySelectorAll(selector);
     return list.length > 0 ? list[0] : null;
@@ -408,6 +421,24 @@ describe('BaseModal & ModalManager Inheritable Hierarchy', () => {
     expect(hub.modalId).toBe('arcade-hub-modal');
     expect(theater.modalId).toBe('blackjack-modal');
     expect(panel.modalId).toBe('contrast-panel');
+  });
+
+  it('respects closeOnOutsideClick=false and matches root element selector directly', () => {
+    const theaterRoot = new MockDOMElement();
+    theaterRoot.attrs.id = 'theater-modal';
+    theaterRoot.classList.add('arcade-theater-shell');
+    domRegistry['theater-modal'] = theaterRoot;
+
+    const theaterModal = new ArcadeTheaterModal('theater-modal', ['#btn-close-theater']);
+    theaterModal.show();
+    expect(theaterModal.isOpen()).toBe(true);
+
+    const outsideTarget = new MockDOMElement();
+    expect(theaterModal.isOutsideHitBox(outsideTarget as any)).toBe(false);
+
+    // Clicking outside hit box does NOT close theater modal when closeOnOutsideClick is false
+    theaterRoot.dispatchEvent({ type: 'click', target: outsideTarget });
+    expect(theaterModal.isOpen()).toBe(true);
   });
 
   it('manages modal registry via ModalManager', () => {

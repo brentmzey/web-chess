@@ -197,4 +197,9 @@ export class ArcadeRealtimeClient {
       err => (err instanceof Error ? err.message : String(err))
     );
   }
+
+  public async dispatchAction(actionType: string,
+                              payload: Record<string, unknown> = {}): Promise<Result<{ event: unknown }, string>> {
+    return this.sendAction(actionType, payload);
+  }
 }

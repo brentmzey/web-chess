@@ -36,6 +36,9 @@ export class BaseModal {
     this.cardEl = this.modalEl.flatMap(el => {
       const defaultSelector = '.md3-glass, .arcade-theater-shell, [data-modal-card]';
       const selector = this.options.cardSelector ?? defaultSelector;
+      if (typeof el.matches === 'function' && el.matches(selector)) {
+        return some(el);
+      }
       return fromNullable(el.querySelector(selector) as HTMLElement | null).fold(
         () => fromNullable(el.firstElementChild as HTMLElement | null),
         card => some(card)
@@ -93,6 +96,9 @@ export class BaseModal {
    * internal card / interactive hit box region.
    */
   public isOutsideHitBox(target: Node): boolean {
+    if (this.options.closeOnOutsideClick === false) {
+      return false;
+    }
     return this.cardEl.fold(
       () => this.modalEl.fold(() => false, el => el === target),
       card => !card.contains(target)
@@ -276,7 +282,8 @@ export class ArcadeTheaterModal extends BaseModal {
                      closeButtonIds: readonly string[]) {
     super(gameModalId, {
       closeButtonSelectors: closeButtonIds,
-      displayClass: 'flex'
+      displayClass: 'flex',
+      closeOnOutsideClick: false
     });
   }
 }

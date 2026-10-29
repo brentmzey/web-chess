@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.39] - 2026-10-28
+### Added
+- **Complete Real-Time SSE Multi-Game Arcade Synchronization (`src/main.ts`, `src/realtime/arcadeRealtimeClient.ts`, `tests/arcadeRealtimeClient.test.ts`)**:
+  - Wired live multi-player Server-Sent Events (SSE) synchronization and room action dispatching across all 8 Sanctuary Arcade games (Sanctuary Chess, Gothic Blackjack, Cathedral Poker, Sacred Skip-Bo, Ten Rites Phase 10, Cardinal Uno, The Resistance: Avalon, and Sacred Geometry SET).
+  - Added `dispatchAction` method on `ArcadeRealtimeClient` with full functional monadic return types (`Result<{ event: unknown }, string>`).
+  - Added automated live seat vacating and SSE stream disconnection (`disconnectActiveArcade()`) when dismissing or switching any arcade theater modal to prevent connection leaks.
+### Fixed
+- **Arcade Theater Outside-Click Containment & Hit Box Detection (`src/ui/baseModal.ts`, `tests/baseModal.test.ts`)**:
+  - Configured `ArcadeTheaterModal` with `closeOnOutsideClick: false` ensuring full-screen interactive game tables (Blackjack deal/hit, Poker bets, Skip-Bo building, Phase 10 melds) stay in their dedicated theater view and never accidentally dismiss to chess when clicking table controls.
+  - Resolved `BaseModal` card element resolution when the root modal container itself matches the shell selector (`el.matches(selector)`), returning `some(el)`.
+  - Achieved **100.00% Line Coverage** on `src/ui/baseModal.ts` and `src/realtime/arcadeRealtimeClient.ts` with 404 tests passing across 49 test suites (3,008 assertions, 0 failures, 0 type errors).
+
 ## [1.2.0-rc.38] - 2026-10-28
 ### Added
 - **Ambient Pointer Motion & Monadic Display Activity Coordinator (`src/utils/wakeLock.ts`, `tests/wakeLock.test.ts`, `index.html`)**:

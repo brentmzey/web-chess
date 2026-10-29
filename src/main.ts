@@ -2012,45 +2012,62 @@ function main(): void {
     ui.hideArcadeHub();
   });
 
+  // Active Arcade Real-Time Client for live multiplayer synchronization across arcade theaters
+  let activeArcadeClient: ArcadeRealtimeClient | null = null;
+  const disconnectActiveArcade = (): void => {
+    fromNullable(activeArcadeClient).map(client => {
+      void client.leaveSeat();
+      client.disconnect();
+      activeArcadeClient = null;
+    });
+  };
+
   modalManager.register(
     new ArcadeTheaterModal('blackjack-modal', ['#btn-close-blackjack', '#btn-close-blackjack-x'])
   ).onClose(() => {
+    disconnectActiveArcade();
     ui.hideBlackjack();
   });
 
   modalManager.register(
     new ArcadeTheaterModal('poker-modal', ['#btn-close-poker', '#btn-close-poker-x'])
   ).onClose(() => {
+    disconnectActiveArcade();
     ui.hidePoker();
   });
 
   modalManager.register(
     new ArcadeTheaterModal('skipbo-modal', ['#btn-close-skipbo', '#btn-close-skipbo-x'])
   ).onClose(() => {
+    disconnectActiveArcade();
     ui.hideSkipBo();
   });
 
   modalManager.register(
     new ArcadeTheaterModal('phase10-modal', ['#btn-close-phase10', '#btn-close-phase10-x'])
   ).onClose(() => {
+    disconnectActiveArcade();
     ui.hidePhase10();
   });
 
   modalManager.register(
     new ArcadeTheaterModal('uno-modal', ['#btn-close-uno', '#btn-close-uno-x'])
   ).onClose(() => {
+    disconnectActiveArcade();
     ui.hideUno();
   });
 
   modalManager.register(
     new ArcadeTheaterModal('avalon-modal', ['#btn-close-avalon', '#btn-close-avalon-x'])
   ).onClose(() => {
+    disconnectActiveArcade();
     ui.hideAvalon();
   });
 
   modalManager.register(
     new ArcadeTheaterModal('set-modal', ['#btn-close-set', '#btn-close-set-x'])
   ).onClose(() => {
+    disconnectActiveArcade();
     ui.hideSet();
   });
 
@@ -2321,10 +2338,14 @@ function main(): void {
     });
   };
 
+  let bjkIsLive = false;
   fromNullable(document.getElementById('bjk-btn-deal')).map(btn =>
     btn.addEventListener('click', () => {
       bjkEngine.startRound();
       soundFX.playSelect();
+      if (bjkIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('bjk_deal', {});
+      }
       renderBlackjackTable();
     })
   );
@@ -2333,6 +2354,9 @@ function main(): void {
     btn.addEventListener('click', () => {
       bjkEngine.hit();
       soundFX.playSelect();
+      if (bjkIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('bjk_hit', {});
+      }
       renderBlackjackTable();
     })
   );
@@ -2341,6 +2365,9 @@ function main(): void {
     btn.addEventListener('click', () => {
       bjkEngine.stand();
       soundFX.playCathedralOrganAndBell();
+      if (bjkIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('bjk_stand', {});
+      }
       renderBlackjackTable();
     })
   );
@@ -2349,6 +2376,9 @@ function main(): void {
     btn.addEventListener('click', () => {
       bjkEngine.doubleDown();
       soundFX.playSelect();
+      if (bjkIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('bjk_double', {});
+      }
       renderBlackjackTable();
     })
   );
@@ -2358,6 +2388,9 @@ function main(): void {
       const amt = parseInt(btn.getAttribute('data-bet') || '25', 10);
       bjkEngine.placeBet(amt);
       soundFX.playSelect();
+      if (bjkIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('bjk_bet', { amount: amt });
+      }
       renderBlackjackTable();
     });
   });
@@ -2420,19 +2453,11 @@ function main(): void {
     });
   };
 
-  // Active Arcade Real-Time Client for live multiplayer synchronization
-  let activeArcadeClient: ArcadeRealtimeClient | null = null;
-
-  const setupArcadeRealtimeSession = (
-    game: ArcadeGameEnum,
-    sessionCode: string,
-    playerName: string = 'Cathedral Player',
-    onAction?: (actionType: string, payload: unknown) => void
-  ): ArcadeRealtimeClient => {
-    if (activeArcadeClient) {
-      activeArcadeClient.disconnect();
-      activeArcadeClient = null;
-    }
+  const setupArcadeRealtimeSession = (game: ArcadeGameEnum,
+                                      sessionCode: string,
+                                      playerName: string = 'Cathedral Player',
+                                      onAction?: (actionType: string, payload: unknown) => void): ArcadeRealtimeClient => {
+    disconnectActiveArcade();
 
     const client = new ArcadeRealtimeClient({
       sessionCode,
@@ -2469,6 +2494,7 @@ function main(): void {
   // --- Gothic Blackjack Mode Switcher ---
   let bjkLiveCode = generateArcadeCode(GameCodePrefixEnum.Blackjack);
   const setBlackjackMode = (isLive: boolean) => {
+    bjkIsLive = isLive;
     fromNullable(document.getElementById('bjk-live-session-info')).map(el => {
       if (isLive) el.classList.remove('hidden');
       else el.classList.add('hidden');
@@ -2486,6 +2512,28 @@ function main(): void {
         ? 'px-2.5 py-1 rounded-xl bg-purple-600 text-white font-bold text-[11px]'
         : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-purple-300 font-bold text-[11px]';
     });
+
+    if (isLive) {
+      setupArcadeRealtimeSession(ArcadeGameEnum.Blackjack,
+                                 bjkLiveCode,
+                                 'Blackjack Pilgrim',
+                                 (action, payload: any) => {
+        if (action === 'bjk_deal') {
+          bjkEngine.startRound();
+        } else if (action === 'bjk_hit') {
+          bjkEngine.hit();
+        } else if (action === 'bjk_stand') {
+          bjkEngine.stand();
+        } else if (action === 'bjk_double') {
+          bjkEngine.doubleDown();
+        } else if (action === 'bjk_bet' && typeof payload?.amount === 'number') {
+          bjkEngine.placeBet(payload.amount);
+        }
+        renderBlackjackTable();
+      });
+    } else {
+      disconnectActiveArcade();
+    }
   };
   fromNullable(document.getElementById('bjk-tab-ai')).map(b => b.addEventListener('click', () => setBlackjackMode(false)));
   fromNullable(document.getElementById('bjk-tab-live')).map(b => b.addEventListener('click', () => setBlackjackMode(true)));
@@ -2636,7 +2684,9 @@ function main(): void {
     });
   };
 
+  let pokerIsLive = false;
   const setPokerMode = (isLive: boolean) => {
+    pokerIsLive = isLive;
     fromNullable(document.getElementById('poker-live-session-info')).map(el => {
       if (isLive) el.classList.remove('hidden');
       else el.classList.add('hidden');
@@ -2654,6 +2704,28 @@ function main(): void {
         ? 'px-2.5 py-1 rounded-xl bg-amber-500 text-stone-950 font-bold text-[11px]'
         : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-amber-300 font-bold text-[11px]';
     });
+
+    if (isLive) {
+      setupArcadeRealtimeSession(ArcadeGameEnum.Poker,
+                                 pokerLiveCode,
+                                 'Poker Pilgrim',
+                                 (action, payload: any) => {
+        if (action === 'poker_deal') {
+          pokerEngine.startHand();
+        } else if (action === 'poker_action' && typeof payload?.action === 'string') {
+          pokerEngine.playerAction(payload.seatNumber || 1, payload.action as PokerActionEnum, payload.amount);
+        } else if (action === 'poker_next_street') {
+          const stage = pokerEngine.state.stage;
+          if (stage === PokerStageEnum.PreFlop) pokerEngine.dealFlop();
+          else if (stage === PokerStageEnum.Flop) pokerEngine.dealTurn();
+          else if (stage === PokerStageEnum.Turn) pokerEngine.dealRiver();
+          else if (stage === PokerStageEnum.River) pokerEngine.resolveShowdown();
+        }
+        renderPokerTable();
+      });
+    } else {
+      disconnectActiveArcade();
+    }
   };
 
   fromNullable(document.getElementById('poker-tab-ai')).map(b => b.addEventListener('click', () => setPokerMode(false)));
@@ -2704,6 +2776,9 @@ function main(): void {
     b.addEventListener('click', () => {
       pokerEngine.startHand();
       soundFX.playSelect();
+      if (pokerIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('poker_deal', {});
+      }
       renderPokerTable();
     })
   );
@@ -2712,6 +2787,9 @@ function main(): void {
     b.addEventListener('click', () => {
       pokerEngine.playerAction(1, PokerActionEnum.Check);
       soundFX.playSelect();
+      if (pokerIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('poker_action', { seatNumber: 1, action: PokerActionEnum.Check });
+      }
       renderPokerTable();
     })
   );
@@ -2720,14 +2798,21 @@ function main(): void {
     b.addEventListener('click', () => {
       pokerEngine.playerAction(1, PokerActionEnum.Call);
       soundFX.playSelect();
+      if (pokerIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('poker_action', { seatNumber: 1, action: PokerActionEnum.Call });
+      }
       renderPokerTable();
     })
   );
 
   fromNullable(document.getElementById('poker-btn-raise')).map(b =>
     b.addEventListener('click', () => {
-      pokerEngine.playerAction(1, PokerActionEnum.Raise, pokerEngine.state.currentBet + 20);
+      const raiseAmt = pokerEngine.state.currentBet + 20;
+      pokerEngine.playerAction(1, PokerActionEnum.Raise, raiseAmt);
       soundFX.playCathedralOrganAndBell();
+      if (pokerIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('poker_action', { seatNumber: 1, action: PokerActionEnum.Raise, amount: raiseAmt });
+      }
       renderPokerTable();
     })
   );
@@ -2736,6 +2821,9 @@ function main(): void {
     b.addEventListener('click', () => {
       pokerEngine.playerAction(1, PokerActionEnum.Fold);
       soundFX.playSelect();
+      if (pokerIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('poker_action', { seatNumber: 1, action: PokerActionEnum.Fold });
+      }
       renderPokerTable();
     })
   );
@@ -2753,6 +2841,9 @@ function main(): void {
         pokerEngine.resolveShowdown();
       }
       soundFX.playSelect();
+      if (pokerIsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('poker_next_street', {});
+      }
       renderPokerTable();
     })
   );
@@ -2924,6 +3015,12 @@ function main(): void {
           if (selectedSkipBoSource === SkipBoSourcePileEnum.Hand) {
             skipboEngine.discardAndEndTurn(selectedSkipBoIndex, discIdx);
             soundFX.playCathedralOrganAndBell();
+            if (skipboIsLive && activeArcadeClient) {
+              void activeArcadeClient.dispatchAction('skipbo_discard', {
+                handIndex: selectedSkipBoIndex,
+                targetIndex: discIdx
+              });
+            }
             renderSkipBoTable();
           } else {
             selectedSkipBoSource = SkipBoSourcePileEnum.Discard;
@@ -2935,7 +3032,9 @@ function main(): void {
     });
   };
 
+  let skipboIsLive = false;
   const setSkipBoMode = (isLive: boolean) => {
+    skipboIsLive = isLive;
     fromNullable(document.getElementById('skipbo-live-session-info')).map(el => {
       if (isLive) el.classList.remove('hidden');
       else el.classList.add('hidden');
@@ -2953,6 +3052,22 @@ function main(): void {
         ? 'px-2.5 py-1 rounded-xl bg-blue-600 text-white font-bold text-[11px]'
         : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-blue-300 font-bold text-[11px]';
     });
+
+    if (isLive) {
+      setupArcadeRealtimeSession(ArcadeGameEnum.SkipBo,
+                                 skipboLiveCode,
+                                 'Skip-Bo Pilgrim',
+                                 (action, payload: any) => {
+        if (action === 'skipbo_play' && payload) {
+          skipboEngine.playToBuilding(payload.source, payload.sourceIndex, payload.buildingIndex);
+        } else if (action === 'skipbo_discard' && payload) {
+          skipboEngine.discardAndEndTurn(payload.handIndex, payload.targetIndex);
+        }
+        renderSkipBoTable();
+      });
+    } else {
+      disconnectActiveArcade();
+    }
   };
 
   fromNullable(document.getElementById('skipbo-tab-ai')).map(b => b.addEventListener('click', () => setSkipBoMode(false)));
@@ -2970,6 +3085,13 @@ function main(): void {
         if (res.isSuccess()) {
           soundFX.playSelect();
           played = true;
+          if (skipboIsLive && activeArcadeClient) {
+            void activeArcadeClient.dispatchAction('skipbo_play', {
+              source: selectedSkipBoSource,
+              sourceIndex: selectedSkipBoIndex,
+              buildingIndex: p
+            });
+          }
           break;
         }
       }
@@ -3200,7 +3322,9 @@ function main(): void {
     });
   };
 
+  let phase10IsLive = false;
   const setPhase10Mode = (isLive: boolean) => {
+    phase10IsLive = isLive;
     fromNullable(document.getElementById('phase10-live-session-info')).map(el => {
       if (isLive) el.classList.remove('hidden');
       else el.classList.add('hidden');
@@ -3218,6 +3342,26 @@ function main(): void {
         ? 'px-2.5 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px]'
         : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-300 font-bold text-[11px]';
     });
+
+    if (isLive) {
+      setupArcadeRealtimeSession(ArcadeGameEnum.Phase10,
+                                 phase10LiveCode,
+                                 'Phase 10 Pilgrim',
+                                 (action, payload: any) => {
+        if (action === 'p10_draw' && payload) {
+          phase10Engine.drawCard(Boolean(payload.fromDiscard));
+        } else if (action === 'p10_lay' && payload) {
+          phase10Engine.layDownPhase(payload.g1 || [], payload.g2 || []);
+        } else if (action === 'p10_hit' && payload) {
+          phase10Engine.hitCard(payload.cardIndex, payload.targetPlayerId || 'p1', payload.groupIndex || 0);
+        } else if (action === 'p10_discard' && payload) {
+          phase10Engine.discardAndEndTurn(payload.cardIndex);
+        }
+        renderPhase10Table();
+      });
+    } else {
+      disconnectActiveArcade();
+    }
   };
 
   fromNullable(document.getElementById('phase10-tab-ai')).map(b => b.addEventListener('click', () => setPhase10Mode(false)));
@@ -3230,6 +3374,9 @@ function main(): void {
     b.addEventListener('click', () => {
       phase10Engine.drawCard(false);
       soundFX.playSelect();
+      if (phase10IsLive && activeArcadeClient) {
+        void activeArcadeClient.dispatchAction('p10_draw', { fromDiscard: false });
+      }
       renderPhase10Table();
     })
   );
@@ -3239,6 +3386,9 @@ function main(): void {
       if (!phase10Engine.state.hasDrawnThisTurn) {
         phase10Engine.drawCard(true);
         soundFX.playSelect();
+        if (phase10IsLive && activeArcadeClient) {
+          void activeArcadeClient.dispatchAction('p10_draw', { fromDiscard: true });
+        }
         renderPhase10Table();
       }
     })
@@ -3253,6 +3403,9 @@ function main(): void {
       if (res.isSuccess()) {
         selectedPhase10Indices = [];
         soundFX.playCathedralOrganAndBell();
+        if (phase10IsLive && activeArcadeClient) {
+          void activeArcadeClient.dispatchAction('p10_lay', { g1, g2 });
+        }
       }
       renderPhase10Table();
     })
@@ -3261,9 +3414,17 @@ function main(): void {
   fromNullable(document.getElementById('phase10-btn-hit-card')).map(b =>
     b.addEventListener('click', () => {
       if (selectedPhase10Indices.length === 1) {
-        phase10Engine.hitCard(selectedPhase10Indices[0]!, 'p1', 0);
+        const hitIdx = selectedPhase10Indices[0]!;
+        phase10Engine.hitCard(hitIdx, 'p1', 0);
         selectedPhase10Indices = [];
         soundFX.playSelect();
+        if (phase10IsLive && activeArcadeClient) {
+          void activeArcadeClient.dispatchAction('p10_hit', {
+            cardIndex: hitIdx,
+            targetPlayerId: 'p1',
+            groupIndex: 0
+          });
+        }
         renderPhase10Table();
       }
     })
@@ -3272,9 +3433,13 @@ function main(): void {
   fromNullable(document.getElementById('phase10-btn-discard')).map(b =>
     b.addEventListener('click', () => {
       if (selectedPhase10Indices.length === 1) {
-        phase10Engine.discardAndEndTurn(selectedPhase10Indices[0]!);
+        const discIdx = selectedPhase10Indices[0]!;
+        phase10Engine.discardAndEndTurn(discIdx);
         selectedPhase10Indices = [];
         soundFX.playCathedralOrganAndBell();
+        if (phase10IsLive && activeArcadeClient) {
+          void activeArcadeClient.dispatchAction('p10_discard', { cardIndex: discIdx });
+        }
         renderPhase10Table();
       }
     })
@@ -3503,7 +3668,10 @@ function main(): void {
         : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-red-300 font-bold text-[11px]';
     });
     if (isLive) {
-      setupArcadeRealtimeSession(ArcadeGameEnum.Uno, unoLiveCode, 'Pilgrim Player', (action, payload: any) => {
+      setupArcadeRealtimeSession(ArcadeGameEnum.Uno,
+                                 unoLiveCode,
+                                 'Pilgrim Player',
+                                 (action, payload: any) => {
         if (action === 'uno_play' && typeof payload?.handIndex === 'number') {
           unoEngine.playCard(payload.handIndex, payload.wildColor);
           renderUnoTable();
@@ -3512,10 +3680,8 @@ function main(): void {
           renderUnoTable();
         }
       });
-    } else if (activeArcadeClient) {
-      void activeArcadeClient.leaveSeat();
-      activeArcadeClient.disconnect();
-      activeArcadeClient = null;
+    } else {
+      disconnectActiveArcade();
     }
   };
 
@@ -3738,7 +3904,10 @@ function main(): void {
         : 'px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-sky-300 font-bold text-[11px]';
     });
     if (isLive) {
-      setupArcadeRealtimeSession(ArcadeGameEnum.Avalon, avalonLiveCode, 'Arthurian Knight', (action, payload: any) => {
+      setupArcadeRealtimeSession(ArcadeGameEnum.Avalon,
+                                 avalonLiveCode,
+                                 'Arthurian Knight',
+                                 (action, payload: any) => {
         if (action === 'avalon_propose' && Array.isArray(payload?.team)) {
           avalonEngine.proposeTeam(payload.team);
           renderAvalonTable();
@@ -3750,10 +3919,8 @@ function main(): void {
           renderAvalonTable();
         }
       });
-    } else if (activeArcadeClient) {
-      void activeArcadeClient.leaveSeat();
-      activeArcadeClient.disconnect();
-      activeArcadeClient = null;
+    } else {
+      disconnectActiveArcade();
     }
   };
 
@@ -4022,9 +4189,12 @@ function main(): void {
       });
     });
     if (isLive) {
-      setupArcadeRealtimeSession(ArcadeGameEnum.Set, setLiveCode, 'Sanctuary Geometer', () =>
-        renderSetTable()
-      );
+      setupArcadeRealtimeSession(ArcadeGameEnum.Set,
+                                 setLiveCode,
+                                 'Sanctuary Geometer',
+                                 () => renderSetTable());
+    } else {
+      disconnectActiveArcade();
     }
   };
 
