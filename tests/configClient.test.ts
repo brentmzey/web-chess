@@ -193,6 +193,11 @@ describe('ConfigClient - Client-Side Database-Driven Dynamic UI Synchronization'
                 txt_badge_text: 'Live',
                 txt_badge_color: 'emerald',
                 txt_theme_color: 'emerald'
+              },
+              {
+                id: 'pb_invalid',
+                txt_game_key: '',
+                txt_title: 'Invalid'
               }
             ]
           })

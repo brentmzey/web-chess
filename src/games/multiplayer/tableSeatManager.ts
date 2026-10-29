@@ -28,16 +28,17 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
   private maxSeats: number;
   private minSeats: number;
   private defaultBotModel: string;
+  private defaultExtraDataProvider?: (seatNumber: number) => TPlayerData;
   private eventHistory: HotSwapEvent[] = [];
 
-  constructor(
-    maxSeats: number,
-    minSeats: number = 2,
-    defaultBotModel: string = AIModelEnum.MicroNeural
-  ) {
+  constructor(maxSeats: number,
+              minSeats: number = 2,
+              defaultBotModel: string = AIModelEnum.MicroNeural,
+              defaultExtraDataProvider?: (seatNumber: number) => TPlayerData) {
     this.maxSeats = maxSeats;
     this.minSeats = minSeats;
     this.defaultBotModel = defaultBotModel;
+    this.defaultExtraDataProvider = defaultExtraDataProvider;
 
     // Initialize all empty seat slots
     for (let i = 1; i <= maxSeats; i++) {
@@ -48,7 +49,7 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
         playerId: '',
         playerName: '',
         botModel: none(),
-        extraData: {} as TPlayerData
+        extraData: defaultExtraDataProvider ? defaultExtraDataProvider(i) : ({} as TPlayerData)
       });
     }
   }
@@ -116,6 +117,9 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
         seat.playerId = `bot-seat-${i}`;
         seat.playerName = botName;
         seat.botModel = some(botModel);
+        if (this.defaultExtraDataProvider && Object.keys(seat.extraData as object || {}).length === 0) {
+          seat.extraData = this.defaultExtraDataProvider(i);
+        }
 
         const ev: HotSwapEvent = {
           seatNumber: i,
@@ -161,6 +165,9 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
     seat.playerId = humanPlayerId;
     seat.playerName = humanPlayerName;
     seat.botModel = none();
+    if (this.defaultExtraDataProvider && Object.keys(seat.extraData as object || {}).length === 0) {
+      seat.extraData = this.defaultExtraDataProvider(seatNumber);
+    }
     if (initialExtraData) {
       seat.extraData = { ...seat.extraData, ...initialExtraData };
     }

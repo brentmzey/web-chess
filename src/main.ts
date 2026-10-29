@@ -71,6 +71,10 @@ import {
   type PokerPlayerData
 } from './games/poker/pokerEngine';
 import {
+  safeParsePokerPlayerData,
+  defaultPokerPlayerData
+} from './validation/gameSchemas';
+import {
   SkipBoEngine
 } from './games/skipbo/skipboEngine';
 import {
@@ -2448,6 +2452,7 @@ function main(): void {
   // =========================================================================
   let pokerVariant = PokerVariantEnum.TexasHoldem;
   let pokerEngine = new CathedralPokerEngine(pokerVariant, 6, 10, 20);
+  pokerEngine.seatManager.claimSeat(1, 'p1', 'You (Pilgrim)');
   pokerEngine.populateBotOpponents();
   let pokerLiveCode = generateArcadeCode(GameCodePrefixEnum.Poker);
 
@@ -2515,8 +2520,8 @@ function main(): void {
 
     const seat1Opt = pokerEngine.seatManager.getSeat(1);
     const p1Data: PokerPlayerData = seat1Opt.match({
-      Some: seat => seat.extraData,
-      None: (): PokerPlayerData => ({ holeCards: [], currentBet: 0, chipBank: 1000, folded: false, isAllIn: false })
+      Some: seat => safeParsePokerPlayerData(seat.extraData),
+      None: (): PokerPlayerData => defaultPokerPlayerData()
     });
 
     fromNullable(document.getElementById('poker-pot-val')).map(el => {

@@ -279,18 +279,30 @@ export function evaluatePokerHand(
   return evaluate5CardPokerHand(cards);
 }
 
+export function createDefaultPokerPlayerData(): PokerPlayerData {
+  return {
+    holeCards: [],
+    currentBet: 0,
+    chipBank: 1000,
+    folded: false,
+    isAllIn: false,
+    handRank: undefined
+  };
+}
+
 export class CathedralPokerEngine {
   public state: PokerGameState;
   public seatManager: TableSeatManager<PokerPlayerData>;
   private shoe: PlayingCard[] = [];
 
-  constructor(
-    variant: PokerVariantEnum = PokerVariantEnum.TexasHoldem,
-    maxSeats: number = 10,
-    smallBlind: number = 10,
-    bigBlind: number = 20
-  ) {
-    this.seatManager = new TableSeatManager<PokerPlayerData>(maxSeats, 2, AIModelEnum.MicroNeural);
+  constructor(variant: PokerVariantEnum = PokerVariantEnum.TexasHoldem,
+              maxSeats: number = 10,
+              smallBlind: number = 10,
+              bigBlind: number = 20) {
+    this.seatManager = new TableSeatManager<PokerPlayerData>(maxSeats,
+                                                            2,
+                                                            AIModelEnum.MicroNeural,
+                                                            () => createDefaultPokerPlayerData());
 
     this.state = {
       variant,

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.32] - 2026-10-28
+### Fixed
+- **Arcade Games Opening Exception & Missing Player State Fix (`src/main.ts`, `src/games/poker/pokerEngine.ts`, `src/games/multiplayer/tableSeatManager.ts`)**:
+  - Resolved `Uncaught TypeError: Cannot read properties of undefined (reading 'length')` in `main.ts` where un-dealt or newly joined poker seats had undefined `holeCards`.
+  - Added `defaultExtraDataProvider` support to `TableSeatManager` ensuring newly initialized seats and bot-filled slots always instantiate with valid player extra data.
+  - Initialized `CathedralPokerEngine` seats with `createDefaultPokerPlayerData` (`holeCards: []`, `chipBank: 1000`, `currentBet: 0`, `folded: false`, `isAllIn: false`) and claimed seat 1 for the human pilgrim upon table creation.
+  - Fixed PocketBase schema boolean field constraints in `src/server/pocketbase/multiGameSchema.json` (`bln_is_active`, `bln_is_maintenance`) to `required: false` (PocketBase boolean convention), enabling successful live seeding of all 8 arcade game configs to `tbl_cfg_arcade_games` on PocketHost.
+
+### Added
+- **Zod Runtime Schema Validation & Strong Typing (`src/validation/gameSchemas.ts`, `tests/gameSchemas.test.ts`)**:
+  - Added strict Zod schemas with fallback recovery: `PlayingCardSchema`, `PokerPlayerDataSchema`, `ArcadeGameConfigSchema`, `SystemControlSchema`, and `EvaluatedHandSchema`.
+  - Implemented `safeParsePokerPlayerData` for resilient player data sanitization before UI rendering.
+  - Implemented `validateArcadeGameConfig` and `validateSystemControl` in `ConfigClient` to validate remote configuration payloads from PocketBase `/api/collections/tbl_cfg_*`.
+  - Added comprehensive test suite `tests/gameSchemas.test.ts` (373 total tests passing, 2,784 assertions, 100% coverage on schemas).
+
 ## [1.2.0-rc.31] - 2026-10-28
 ### Added
 - **Database-Driven UI/UX Text, Real-Life Rules & System Controls Architecture (`tbl_cfg_arcade_games`, `tbl_cfg_system_controls`, `tbl_audit_config_history`, `tbl_archived_cfg_snapshots`, `src/types/config.ts`, `src/server/services/configService.ts`, `src/realtime/configClient.ts`, `src/server/pocketbase/migrator.ts`, `src/server/pocketbase/pruner.ts`)**:

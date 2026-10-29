@@ -9,6 +9,10 @@ import {
   tryCatchAsync
 } from '../utils/fp';
 import { logger } from '../utils/logger';
+import {
+  validateArcadeGameConfig,
+  validateSystemControl
+} from '../validation/gameSchemas';
 
 interface PocketBaseListResponse<T> {
   readonly items: readonly T[];
@@ -168,70 +172,30 @@ export class ConfigClient {
         if (gamesRes.ok) {
           const gamesData = (await gamesRes.json()) as PocketBaseListResponse<any>;
           for (const item of gamesData.items) {
-            let keyRules: readonly string[] = [];
-            if (Array.isArray(item.json_key_rules)) {
-              keyRules = item.json_key_rules;
-            } else if (typeof item.json_key_rules === 'string') {
-              try {
-                keyRules = JSON.parse(item.json_key_rules);
-              } catch {
-                keyRules = [];
+            validateArcadeGameConfig(item).fold(
+              err => {
+                logger.warn(`Skipping invalid arcade game config: ${err}`);
+              },
+              rec => {
+                this.gamesMap.set(rec.txt_game_key, rec);
+                gamesUpdated++;
               }
-            }
-
-            const rec: ArcadeGameConfigRecord = {
-              id: item.id,
-              txt_game_key: item.txt_game_key,
-              txt_title: item.txt_title,
-              txt_real_life_name: item.txt_real_life_name,
-              txt_prefix: item.txt_prefix,
-              txt_category: item.txt_category,
-              txt_summary: item.txt_summary,
-              txt_objective: item.txt_objective,
-              json_key_rules: keyRules,
-              txt_official_url: item.txt_official_url,
-              txt_url_label: item.txt_url_label,
-              int_min_players: Number(item.int_min_players),
-              int_max_players: Number(item.int_max_players),
-              int_sort_order: Number(item.int_sort_order),
-              bln_is_active: item.bln_is_active === true || item.bln_is_active === 1,
-              bln_is_maintenance: item.bln_is_maintenance === true || item.bln_is_maintenance === 1,
-              txt_badge_text: item.txt_badge_text,
-              txt_badge_color: item.txt_badge_color,
-              txt_theme_color: item.txt_theme_color,
-              json_layout_config: typeof item.json_layout_config === 'object' ? item.json_layout_config : undefined,
-              int_version: Number(item.int_version || 1),
-              txt_updated_by: item.txt_updated_by,
-              created_at: 0,
-              updated_at: 0
-            };
-            this.gamesMap.set(rec.txt_game_key, rec);
-            gamesUpdated++;
+            );
           }
         }
 
         if (ctrlRes.ok) {
           const ctrlData = (await ctrlRes.json()) as PocketBaseListResponse<any>;
           for (const item of ctrlData.items) {
-            const rec: SystemControlRecord = {
-              id: item.id,
-              txt_config_key: item.txt_config_key,
-              txt_category: item.txt_category,
-              txt_label: item.txt_label,
-              txt_description: item.txt_description,
-              txt_val_type: item.txt_val_type,
-              txt_val_string: item.txt_val_string,
-              dec_val_number: item.dec_val_number !== undefined && item.dec_val_number !== null ? Number(item.dec_val_number) : undefined,
-              bln_val_boolean: item.bln_val_boolean !== undefined && item.bln_val_boolean !== null ? Boolean(item.bln_val_boolean) : undefined,
-              json_val_payload: item.json_val_payload,
-              bln_is_active: item.bln_is_active === true || item.bln_is_active === 1,
-              int_version: Number(item.int_version || 1),
-              txt_updated_by: item.txt_updated_by,
-              created_at: 0,
-              updated_at: 0
-            };
-            this.controlsMap.set(rec.txt_config_key, rec);
-            controlsUpdated++;
+            validateSystemControl(item).fold(
+              err => {
+                logger.warn(`Skipping invalid system control: ${err}`);
+              },
+              rec => {
+                this.controlsMap.set(rec.txt_config_key, rec);
+                controlsUpdated++;
+              }
+            );
           }
         }
 

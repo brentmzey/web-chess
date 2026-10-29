@@ -389,5 +389,18 @@ describe('Cathedral Poker Engine - Hand Evaluator, Variants & Multi-Seat Table',
     expect(pokerAdd.addPlayer('HumanPoker', false).isSuccess()).toBe(true);
     expect(pokerAdd.addPlayer('BotPoker', true).isSuccess()).toBe(true);
     expect(pokerAdd.addPlayer('OverflowBot', true).isFailure()).toBe(true);
+
+    // Initial empty and bot seats have valid extraData without throwing undefined errors
+    const freshlyOpened = new PokerEngine(PokerVariantEnum.TexasHoldem, 6, 10, 20);
+    freshlyOpened.populateBotOpponents();
+    for (let s = 1; s <= 6; s++) {
+      const seat = freshlyOpened.seatManager.getSeat(s).getOrThrow();
+      expect(Array.isArray(seat.extraData.holeCards)).toBe(true);
+      expect(seat.extraData.holeCards.length).toBe(0);
+      expect(seat.extraData.chipBank).toBe(1000);
+      expect(seat.extraData.currentBet).toBe(0);
+      expect(seat.extraData.folded).toBe(false);
+      expect(seat.extraData.isAllIn).toBe(false);
+    }
   });
 });

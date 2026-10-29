@@ -137,5 +137,18 @@ describe('TableSeatManager - Dynamic Multi-Seat Allocation & Bot Hot-Swapping', 
 
     // Non-existent seat data update returns Err
     expect(manager2.updateSeatData(999, p => p).isFailure()).toBe(true);
+
+    // defaultExtraDataProvider automatically provides defaults when initialized, bot-filled, or claimed
+    const managerWithDefaults = new TableSeatManager<{ items: string[] }>(
+      3,
+      2,
+      'micro-neural',
+      () => ({ items: [] })
+    );
+    expect(managerWithDefaults.getSeat(1).getOrThrow().extraData.items).toEqual([]);
+    managerWithDefaults.fillEmptySeatsWithBots();
+    expect(managerWithDefaults.getSeat(2).getOrThrow().extraData.items).toEqual([]);
+    managerWithDefaults.claimSeat(3, 'p3', 'Pilgrim 3');
+    expect(managerWithDefaults.getSeat(3).getOrThrow().extraData.items).toEqual([]);
   });
 });
