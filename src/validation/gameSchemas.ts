@@ -31,6 +31,8 @@ export const PokerPlayerDataSchema = z.object({
   chipBank: z.number().catch(1000),
   folded: z.boolean().catch(false),
   isAllIn: z.boolean().catch(false),
+  totalHandBet: z.number().catch(0),
+  hasActedThisStreet: z.boolean().catch(false),
   handRank: EvaluatedHandSchema.optional()
 });
 
@@ -40,6 +42,8 @@ export const defaultPokerPlayerData = (): PokerPlayerData => ({
   chipBank: 1000,
   folded: false,
   isAllIn: false,
+  totalHandBet: 0,
+  hasActedThisStreet: false,
   handRank: undefined
 });
 

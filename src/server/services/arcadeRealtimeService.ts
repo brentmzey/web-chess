@@ -29,6 +29,7 @@ export interface ArcadeSessionState {
   sessionCode: string;
   game: ArcadeGameEnum;
   maxSeats: number;
+  hostParticipantId: string;
   seatManager: TableSeatManager<Record<string, unknown>>;
   events: ArcadeRealtimeEvent[];
   eventCounter: number;
@@ -57,7 +58,7 @@ export class ArcadeRealtimeService {
 
         // Creator claims seat 1
         const creatorId = 'host_' + randomUUID().slice(0, 8);
-        seatManager.claimSeat(1, creatorId, creatorName);
+        seatManager.claimSeat(1, creatorId, creatorName, undefined, true);
 
         const now = currentEpochMs();
         const session: ArcadeSessionState = {
@@ -65,6 +66,7 @@ export class ArcadeRealtimeService {
           sessionCode,
           game,
           maxSeats,
+          hostParticipantId: creatorId,
           seatManager,
           events: [],
           eventCounter: 0,
@@ -142,6 +144,49 @@ export class ArcadeRealtimeService {
     });
 
     return success(`Participant '${participantId}' vacated. Bot restored to seat ${userSeat.seatNumber}.`);
+  }
+
+  public kickPlayer(sessionCode: string,
+                    hostParticipantId: string,
+                    targetParticipantId: string,
+                    reason: string = 'Removed by table host'): Result<{ kickedParticipantId: string; seatNumber: number }, string> {
+    const sessionOpt = this.getSession(sessionCode);
+    if (!sessionOpt.isSome()) return failure('Session not found.');
+
+    const session = sessionOpt.getOrThrow();
+
+    // Verify host permission
+    if (session.hostParticipantId && session.hostParticipantId !== hostParticipantId) {
+      return failure('Only the match host can kick players.');
+    }
+
+    if (hostParticipantId === targetParticipantId) {
+      return failure('Host cannot kick themselves.');
+    }
+
+    const occupied = session.seatManager.getOccupiedSeats();
+    const userSeat = occupied.find(s => s.playerId === targetParticipantId);
+    if (!userSeat) {
+      return failure(`Participant '${targetParticipantId}' not found at table.`);
+    }
+
+    const targetSeatNumber = userSeat.seatNumber;
+    session.seatManager.vacateSeat(targetSeatNumber, `${session.game.toUpperCase()}_Bot`);
+
+    this.broadcast(sessionCode, 'player_kicked', hostParticipantId, {
+      targetParticipantId,
+      seatNumber: targetSeatNumber,
+      reason,
+      totalHumans: session.seatManager.getHumanCount(),
+      totalBots: session.seatManager.getBotCount()
+    });
+
+    logger.info(
+      `[ARCADE_REALTIME] Host '${hostParticipantId}' kicked participant '${targetParticipantId}' ` +
+        `from seat ${targetSeatNumber} in session ${sessionCode}`
+    );
+
+    return success({ kickedParticipantId: targetParticipantId, seatNumber: targetSeatNumber });
   }
 
   public dispatchAction(sessionCode: string,

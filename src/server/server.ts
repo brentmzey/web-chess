@@ -350,7 +350,26 @@ export class SanctuaryRealtimeServer {
         });
       }
 
-      // 11. POST /api/arcade/sessions/action -> Dispatch real-time game action
+      // 11. POST /api/arcade/sessions/kick -> Host kicks a participant
+      if (method === 'POST' && pathname === '/api/arcade/sessions/kick') {
+        const body = (await req.json().catch(fallbackEmpty)) as Record<string, unknown>;
+        const sessionCode = body.sessionCode as string;
+        const hostParticipantId = (body.hostParticipantId || body.participantId) as string;
+        const targetParticipantId = body.targetParticipantId as string;
+        const reason = (body.reason as string) || 'Removed by match host';
+
+        if (!sessionCode || !hostParticipantId || !targetParticipantId) {
+          return badRequest('Missing sessionCode, hostParticipantId, or targetParticipantId');
+        }
+
+        const res = this.arcadeService.kickPlayer(sessionCode, hostParticipantId, targetParticipantId, reason);
+        return res.match({
+          Ok: data => json({ success: true, kickedParticipantId: data.kickedParticipantId, seatNumber: data.seatNumber }, 200),
+          Err: badRequest
+        });
+      }
+
+      // 12. POST /api/arcade/sessions/action -> Dispatch real-time game action
       if (method === 'POST' && pathname === '/api/arcade/sessions/action') {
         const body = (await req.json().catch(fallbackEmpty)) as Record<string, unknown>;
         const sessionCode = body.sessionCode as string;

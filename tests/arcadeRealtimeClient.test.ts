@@ -114,6 +114,33 @@ describe('ArcadeRealtimeClient - Universal Client-Side Real-Time Adapter', () =>
 
       const actRes = await client.sendAction('bet', {});
       expect(actRes.isFailure()).toBe(true);
+
+      const kickRes = await client.kickPlayer('bad_p1', 'Spamming');
+      expect(kickRes.isFailure()).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('kicks a player when invoked by match host', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = mock(async () => {
+      return new Response(JSON.stringify({ success: true, kickedParticipantId: 'bad_usr', seatNumber: 2 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }) as any;
+
+    try {
+      const client = new ArcadeRealtimeClient({
+        sessionCode: 'POKER-HOST',
+        participantId: 'host_usr'
+      });
+
+      const res = await client.kickPlayer('bad_usr', 'Inappropriate behavior');
+      expect(res.isSuccess()).toBe(true);
+      expect(res.getOrThrow().kickedParticipantId).toBe('bad_usr');
+      expect(res.getOrThrow().seatNumber).toBe(2);
     } finally {
       globalThis.fetch = originalFetch;
     }

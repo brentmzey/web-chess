@@ -23,6 +23,10 @@ export class ArcadeRealtimeClient {
     return this.config.baseUrl || '';
   }
 
+  public getParticipantId(): string {
+    return this.config.participantId;
+  }
+
   public getIsConnected(): boolean {
     return this.isConnected;
   }
@@ -163,6 +167,33 @@ export class ArcadeRealtimeClient {
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.error || `Failed to leave seat: HTTP ${res.status}`);
+        }
+
+        return await res.json();
+      },
+      err => (err instanceof Error ? err.message : String(err))
+    );
+  }
+
+  public async kickPlayer(targetParticipantId: string,
+                          reason?: string): Promise<Result<{ success: boolean; kickedParticipantId: string; seatNumber: number }, string>> {
+    return tryCatchAsync(
+      async () => {
+        const base = this.getBaseUrl();
+        const res = await fetch(`${base}/api/arcade/sessions/kick`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionCode: this.config.sessionCode,
+            hostParticipantId: this.config.participantId,
+            targetParticipantId,
+            reason: reason || 'Removed by match host'
+          })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to kick player: HTTP ${res.status}`);
         }
 
         return await res.json();

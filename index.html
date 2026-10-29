@@ -925,6 +925,59 @@
     </div>
 
     <!-- ===================================================================== -->
+    <!-- SANCTUARY ARCADE LIVE MATCH JOIN & REAL-NAME PROMPT MODAL            -->
+    <!-- ===================================================================== -->
+    <div id="arcade-join-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md hidden pointer-events-auto">
+        <div class="md3-glass rounded-3xl p-5 sm:p-7 shadow-2xl border border-amber-400/40 w-full max-w-md space-y-4 animate-in fade-in duration-200">
+            <div class="flex items-center justify-between border-b border-amber-500/20 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-rounded text-2xl text-amber-300" id="arcade-join-game-icon">token</span>
+                    <div>
+                        <h2 class="font-cathedral text-base font-bold text-amber-100 tracking-wider" id="arcade-join-game-title">Cathedral Poker</h2>
+                        <p class="text-[11px] text-stone-400">Live Sanctuary Multiplayer Match</p>
+                    </div>
+                </div>
+                <button type="button" id="btn-close-arcade-join" class="p-1 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Join Dialog">
+                    <span class="material-symbols-rounded text-lg">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex items-center justify-between bg-black/50 border border-white/10 rounded-2xl p-3">
+                    <span class="text-xs text-stone-400">Match Code:</span>
+                    <span id="arcade-join-code-badge" class="font-mono font-bold text-amber-300 tracking-wider text-sm sm:text-base">POKER-TEST</span>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label for="arcade-join-player-name-input" class="block text-xs font-semibold text-stone-200">
+                        Enter your player name:
+                    </label>
+                    <input type="text"
+                           id="arcade-join-player-name-input"
+                           maxlength="20"
+                           placeholder="e.g. Guinevere, Percival, HighRoller"
+                           class="w-full bg-black/60 border border-amber-500/40 focus:border-amber-400 rounded-2xl px-3.5 py-2.5 text-stone-100 placeholder-stone-500 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 shadow-inner">
+                    <p class="text-[10px] text-stone-400">
+                        Must be a real, appropriate name (2–20 chars). Slurs and offensive names are strictly disallowed.
+                    </p>
+                </div>
+
+                <div id="arcade-join-error-banner" class="hidden px-3 py-2 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs"></div>
+            </div>
+
+            <div class="pt-2 flex items-center justify-end gap-2.5">
+                <button type="button" id="btn-arcade-cancel-join" class="px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-stone-200 text-xs font-semibold transition">
+                    Cancel
+                </button>
+                <button type="button" id="btn-arcade-confirm-join" class="px-5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 text-xs font-bold shadow-md hover:shadow-amber-500/25 transition flex items-center gap-1.5">
+                    <span class="material-symbols-rounded text-base">login</span>
+                    <span>Take Your Seat</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
     <!-- SANCTUARY ARCADE FRONT SCREEN / MULTI-GAME SELECTOR MODAL             -->
     <!-- ===================================================================== -->
     <div id="arcade-hub-modal" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-black/85 backdrop-blur-md hidden pointer-events-auto">
@@ -1356,10 +1409,26 @@
         <!-- Top Sanctuary Navigation Bar -->
         <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-emerald-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
-            <div class="flex items-center gap-2 sm:gap-4">
-                <button type="button" id="btn-close-blackjack" class="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
-                    <span class="material-symbols-rounded text-base">arrow_back</span>
-                    <span class="hidden sm:inline">Sanctuary</span>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button type="button" data-arcade-nav="hub" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 text-xs font-semibold tracking-wide transition shadow-sm" title="Return to Sanctuary Arcade Suite Hub">
+                    <span class="material-symbols-rounded text-base">grid_view</span>
+                    <span class="hidden sm:inline">Arcade Hub</span>
+                </button>
+                <select class="arcade-quick-switcher bg-black/60 border border-white/20 hover:border-amber-400/50 rounded-full px-2 sm:px-2.5 py-1.5 text-xs text-stone-200 focus:outline-none transition cursor-pointer" aria-label="Switch Arcade Game">
+                    <option value="" disabled selected>Switch Game...</option>
+                    <option value="hub">🎮 Arcade Suite Hub</option>
+                    <option value="chess">🏰 Wizard's Chess 3D</option>
+                    <option value="blackjack">♠️ Gothic Blackjack</option>
+                    <option value="poker">🪙 Cathedral Poker</option>
+                    <option value="skipbo">1️⃣ Sacred Skip-Bo</option>
+                    <option value="phase10">📜 Ten Rites (Phase 10)</option>
+                    <option value="uno">🎨 Cardinal Uno</option>
+                    <option value="avalon">⚔️ The Resistance: Avalon</option>
+                    <option value="set">🔺 Sacred Geometry SET</option>
+                </select>
+                <button type="button" id="btn-close-blackjack" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">church</span>
+                    <span class="hidden xl:inline">Sanctuary</span>
                 </button>
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-950/80 border border-emerald-400/50 flex items-center justify-center text-emerald-300 shadow-md">
@@ -1525,10 +1594,26 @@
         <!-- Top Sanctuary Navigation Bar -->
         <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-amber-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
-            <div class="flex items-center gap-3 sm:gap-4">
-                <button type="button" id="btn-close-poker" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
-                    <span class="material-symbols-rounded text-base">arrow_back</span>
-                    <span class="hidden sm:inline">Sanctuary</span>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button type="button" data-arcade-nav="hub" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 text-xs font-semibold tracking-wide transition shadow-sm" title="Return to Sanctuary Arcade Suite Hub">
+                    <span class="material-symbols-rounded text-base">grid_view</span>
+                    <span class="hidden sm:inline">Arcade Hub</span>
+                </button>
+                <select class="arcade-quick-switcher bg-black/60 border border-white/20 hover:border-amber-400/50 rounded-full px-2 sm:px-2.5 py-1.5 text-xs text-stone-200 focus:outline-none transition cursor-pointer" aria-label="Switch Arcade Game">
+                    <option value="" disabled selected>Switch Game...</option>
+                    <option value="hub">🎮 Arcade Suite Hub</option>
+                    <option value="chess">🏰 Wizard's Chess 3D</option>
+                    <option value="blackjack">♠️ Gothic Blackjack</option>
+                    <option value="poker">🪙 Cathedral Poker</option>
+                    <option value="skipbo">1️⃣ Sacred Skip-Bo</option>
+                    <option value="phase10">📜 Ten Rites (Phase 10)</option>
+                    <option value="uno">🎨 Cardinal Uno</option>
+                    <option value="avalon">⚔️ The Resistance: Avalon</option>
+                    <option value="set">🔺 Sacred Geometry SET</option>
+                </select>
+                <button type="button" id="btn-close-poker" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">church</span>
+                    <span class="hidden xl:inline">Sanctuary</span>
                 </button>
                 <div class="flex items-center gap-2.5">
                     <div class="w-9 h-9 rounded-xl bg-amber-950/80 border border-amber-400/50 flex items-center justify-center text-amber-300 shadow-md">
@@ -1699,10 +1784,26 @@
         <!-- Top Sanctuary Navigation Bar -->
         <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-sky-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
-            <div class="flex items-center gap-3 sm:gap-4">
-                <button type="button" id="btn-close-skipbo" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
-                    <span class="material-symbols-rounded text-base">arrow_back</span>
-                    <span class="hidden sm:inline">Sanctuary</span>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button type="button" data-arcade-nav="hub" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 text-xs font-semibold tracking-wide transition shadow-sm" title="Return to Sanctuary Arcade Suite Hub">
+                    <span class="material-symbols-rounded text-base">grid_view</span>
+                    <span class="hidden sm:inline">Arcade Hub</span>
+                </button>
+                <select class="arcade-quick-switcher bg-black/60 border border-white/20 hover:border-amber-400/50 rounded-full px-2 sm:px-2.5 py-1.5 text-xs text-stone-200 focus:outline-none transition cursor-pointer" aria-label="Switch Arcade Game">
+                    <option value="" disabled selected>Switch Game...</option>
+                    <option value="hub">🎮 Arcade Suite Hub</option>
+                    <option value="chess">🏰 Wizard's Chess 3D</option>
+                    <option value="blackjack">♠️ Gothic Blackjack</option>
+                    <option value="poker">🪙 Cathedral Poker</option>
+                    <option value="skipbo">1️⃣ Sacred Skip-Bo</option>
+                    <option value="phase10">📜 Ten Rites (Phase 10)</option>
+                    <option value="uno">🎨 Cardinal Uno</option>
+                    <option value="avalon">⚔️ The Resistance: Avalon</option>
+                    <option value="set">🔺 Sacred Geometry SET</option>
+                </select>
+                <button type="button" id="btn-close-skipbo" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">church</span>
+                    <span class="hidden xl:inline">Sanctuary</span>
                 </button>
                 <div class="flex items-center gap-2.5">
                     <div class="w-9 h-9 rounded-xl bg-sky-950/80 border border-sky-400/50 flex items-center justify-center text-sky-300 shadow-md">
@@ -1852,10 +1953,26 @@
         <!-- Top Sanctuary Navigation Bar -->
         <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-emerald-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
-            <div class="flex items-center gap-3 sm:gap-4">
-                <button type="button" id="btn-close-phase10" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
-                    <span class="material-symbols-rounded text-base">arrow_back</span>
-                    <span class="hidden sm:inline">Sanctuary</span>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button type="button" data-arcade-nav="hub" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 text-xs font-semibold tracking-wide transition shadow-sm" title="Return to Sanctuary Arcade Suite Hub">
+                    <span class="material-symbols-rounded text-base">grid_view</span>
+                    <span class="hidden sm:inline">Arcade Hub</span>
+                </button>
+                <select class="arcade-quick-switcher bg-black/60 border border-white/20 hover:border-amber-400/50 rounded-full px-2 sm:px-2.5 py-1.5 text-xs text-stone-200 focus:outline-none transition cursor-pointer" aria-label="Switch Arcade Game">
+                    <option value="" disabled selected>Switch Game...</option>
+                    <option value="hub">🎮 Arcade Suite Hub</option>
+                    <option value="chess">🏰 Wizard's Chess 3D</option>
+                    <option value="blackjack">♠️ Gothic Blackjack</option>
+                    <option value="poker">🪙 Cathedral Poker</option>
+                    <option value="skipbo">1️⃣ Sacred Skip-Bo</option>
+                    <option value="phase10">📜 Ten Rites (Phase 10)</option>
+                    <option value="uno">🎨 Cardinal Uno</option>
+                    <option value="avalon">⚔️ The Resistance: Avalon</option>
+                    <option value="set">🔺 Sacred Geometry SET</option>
+                </select>
+                <button type="button" id="btn-close-phase10" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">church</span>
+                    <span class="hidden xl:inline">Sanctuary</span>
                 </button>
                 <div class="flex items-center gap-2.5">
                     <div class="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-400/50 flex items-center justify-center text-emerald-300 shadow-md">
@@ -2015,10 +2132,26 @@
         <!-- Top Sanctuary Navigation Bar -->
         <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-red-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
-            <div class="flex items-center gap-3 sm:gap-4">
-                <button type="button" id="btn-close-uno" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
-                    <span class="material-symbols-rounded text-base">arrow_back</span>
-                    <span class="hidden sm:inline">Sanctuary</span>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button type="button" data-arcade-nav="hub" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 text-xs font-semibold tracking-wide transition shadow-sm" title="Return to Sanctuary Arcade Suite Hub">
+                    <span class="material-symbols-rounded text-base">grid_view</span>
+                    <span class="hidden sm:inline">Arcade Hub</span>
+                </button>
+                <select class="arcade-quick-switcher bg-black/60 border border-white/20 hover:border-amber-400/50 rounded-full px-2 sm:px-2.5 py-1.5 text-xs text-stone-200 focus:outline-none transition cursor-pointer" aria-label="Switch Arcade Game">
+                    <option value="" disabled selected>Switch Game...</option>
+                    <option value="hub">🎮 Arcade Suite Hub</option>
+                    <option value="chess">🏰 Wizard's Chess 3D</option>
+                    <option value="blackjack">♠️ Gothic Blackjack</option>
+                    <option value="poker">🪙 Cathedral Poker</option>
+                    <option value="skipbo">1️⃣ Sacred Skip-Bo</option>
+                    <option value="phase10">📜 Ten Rites (Phase 10)</option>
+                    <option value="uno">🎨 Cardinal Uno</option>
+                    <option value="avalon">⚔️ The Resistance: Avalon</option>
+                    <option value="set">🔺 Sacred Geometry SET</option>
+                </select>
+                <button type="button" id="btn-close-uno" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">church</span>
+                    <span class="hidden xl:inline">Sanctuary</span>
                 </button>
                 <div class="flex items-center gap-2.5">
                     <div class="w-9 h-9 rounded-xl bg-red-950/80 border border-red-400/50 flex items-center justify-center text-red-300 shadow-md">
@@ -2161,10 +2294,26 @@
         <!-- Top Sanctuary Navigation Bar -->
         <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-sky-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
-            <div class="flex items-center gap-3 sm:gap-4">
-                <button type="button" id="btn-close-avalon" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
-                    <span class="material-symbols-rounded text-base">arrow_back</span>
-                    <span class="hidden sm:inline">Sanctuary</span>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button type="button" data-arcade-nav="hub" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 text-xs font-semibold tracking-wide transition shadow-sm" title="Return to Sanctuary Arcade Suite Hub">
+                    <span class="material-symbols-rounded text-base">grid_view</span>
+                    <span class="hidden sm:inline">Arcade Hub</span>
+                </button>
+                <select class="arcade-quick-switcher bg-black/60 border border-white/20 hover:border-amber-400/50 rounded-full px-2 sm:px-2.5 py-1.5 text-xs text-stone-200 focus:outline-none transition cursor-pointer" aria-label="Switch Arcade Game">
+                    <option value="" disabled selected>Switch Game...</option>
+                    <option value="hub">🎮 Arcade Suite Hub</option>
+                    <option value="chess">🏰 Wizard's Chess 3D</option>
+                    <option value="blackjack">♠️ Gothic Blackjack</option>
+                    <option value="poker">🪙 Cathedral Poker</option>
+                    <option value="skipbo">1️⃣ Sacred Skip-Bo</option>
+                    <option value="phase10">📜 Ten Rites (Phase 10)</option>
+                    <option value="uno">🎨 Cardinal Uno</option>
+                    <option value="avalon">⚔️ The Resistance: Avalon</option>
+                    <option value="set">🔺 Sacred Geometry SET</option>
+                </select>
+                <button type="button" id="btn-close-avalon" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">church</span>
+                    <span class="hidden xl:inline">Sanctuary</span>
                 </button>
                 <div class="flex items-center gap-2.5">
                     <div class="w-9 h-9 rounded-xl bg-sky-950/80 border border-sky-400/50 flex items-center justify-center text-sky-300 shadow-md">
@@ -2314,10 +2463,26 @@
         <!-- Top Sanctuary Navigation Bar -->
         <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-fuchsia-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
             <!-- Left: Return to Sanctuary & Game Branding -->
-            <div class="flex items-center gap-3 sm:gap-4">
-                <button type="button" id="btn-close-set" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 text-xs font-semibold tracking-wide transition" aria-label="Return to Sanctuary">
-                    <span class="material-symbols-rounded text-base">arrow_back</span>
-                    <span class="hidden sm:inline">Sanctuary</span>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button type="button" data-arcade-nav="hub" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 text-xs font-semibold tracking-wide transition shadow-sm" title="Return to Sanctuary Arcade Suite Hub">
+                    <span class="material-symbols-rounded text-base">grid_view</span>
+                    <span class="hidden sm:inline">Arcade Hub</span>
+                </button>
+                <select class="arcade-quick-switcher bg-black/60 border border-white/20 hover:border-amber-400/50 rounded-full px-2 sm:px-2.5 py-1.5 text-xs text-stone-200 focus:outline-none transition cursor-pointer" aria-label="Switch Arcade Game">
+                    <option value="" disabled selected>Switch Game...</option>
+                    <option value="hub">🎮 Arcade Suite Hub</option>
+                    <option value="chess">🏰 Wizard's Chess 3D</option>
+                    <option value="blackjack">♠️ Gothic Blackjack</option>
+                    <option value="poker">🪙 Cathedral Poker</option>
+                    <option value="skipbo">1️⃣ Sacred Skip-Bo</option>
+                    <option value="phase10">📜 Ten Rites (Phase 10)</option>
+                    <option value="uno">🎨 Cardinal Uno</option>
+                    <option value="avalon">⚔️ The Resistance: Avalon</option>
+                    <option value="set">🔺 Sacred Geometry SET</option>
+                </select>
+                <button type="button" id="btn-close-set" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">church</span>
+                    <span class="hidden xl:inline">Sanctuary</span>
                 </button>
                 <div class="flex items-center gap-2.5">
                     <div class="w-9 h-9 rounded-xl bg-fuchsia-950/80 border border-fuchsia-400/50 flex items-center justify-center text-fuchsia-300 shadow-md">

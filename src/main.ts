@@ -121,8 +121,17 @@ import {
   resolveRoute,
   type ArcadeGameType
 } from './routing/sessionRouter';
-import { domById, fromNullable, match, matchBool } from './utils/fp';
+import {
+  domById,
+  fromNullable,
+  match,
+  matchBool,
+  none,
+  some,
+  type Option
+} from './utils/fp';
 import { logExecutionContext, logger } from './utils/logger';
+import { validatePlayerName } from './utils/playerValidation';
 import { isDevMode } from './utils/env';
 import { ScreenWakeLockManager } from './utils/wakeLock';
 
@@ -2087,6 +2096,38 @@ function main(): void {
     btn.addEventListener('click', () => ui.hideArcadeHub())
   );
 
+  // Seamless Arcade Navigation: Hub & Sanctuary Links across all games
+  document.querySelectorAll('[data-arcade-nav="hub"]').forEach(btn => {
+    btn.addEventListener('click', (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      ui.hideAllArcadeModals();
+      ui.showArcadeHub();
+      soundFX.playSelect();
+    });
+  });
+
+  document.querySelectorAll('[data-arcade-nav="chess"]').forEach(btn => {
+    btn.addEventListener('click', (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      ui.hideAllArcadeModals();
+      soundFX.playSelect();
+      syncBoardPiecesWithChessState();
+      updateHighlights();
+    });
+  });
+
+  document.querySelectorAll<HTMLSelectElement>('.arcade-quick-switcher').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const target = sel.value;
+      if (target) {
+        switchToArcadeGame(target as any);
+        sel.value = '';
+      }
+    });
+  });
+
   fromNullable(document.getElementById('btn-close-blackjack')).map(btn =>
     btn.addEventListener('click', () => ui.hideBlackjack())
   );
@@ -2436,6 +2477,156 @@ function main(): void {
     })
   );
 
+  // Arcade Multi-Game State & Real-Name Verification
+  let isLocalPlayerHost = false;
+  let verifiedPlayerName: Option<string> = none();
+  let pendingJoinSessionCode: Option<string> = none();
+  let pendingJoinGame: Option<ArcadeGameType> = none();
+
+  const switchToArcadeGame = (targetGame: ArcadeGameType | 'hub'): void => {
+    ui.hideAllArcadeModals();
+    soundFX.playSelect();
+    if (targetGame === 'hub') {
+      ui.showArcadeHub();
+    } else if (targetGame === 'chess') {
+      syncBoardPiecesWithChessState();
+      updateHighlights();
+    } else if (targetGame === 'blackjack') {
+      renderBlackjackTable();
+      ui.showBlackjack();
+    } else if (targetGame === 'poker') {
+      renderPokerTable();
+      ui.showPoker();
+    } else if (targetGame === 'skipbo') {
+      renderSkipBoTable();
+      ui.showSkipBo();
+    } else if (targetGame === 'phase10') {
+      renderPhase10Table();
+      ui.showPhase10();
+    } else if (targetGame === 'uno') {
+      renderUnoTable();
+      ui.showUno();
+    } else if (targetGame === 'avalon') {
+      renderAvalonTable();
+      ui.showAvalon();
+    } else if (targetGame === 'set') {
+      renderSetTable();
+      ui.showSet();
+    }
+  };
+
+  const promptJoinLiveSession = (gameType: ArcadeGameType,
+                                 sessionCode: string): void => {
+    pendingJoinGame = some(gameType);
+    pendingJoinSessionCode = some(sessionCode);
+    const meta = ARCADE_GAMES[gameType];
+    const initialName = verifiedPlayerName.getOrElse('');
+    ui.showArcadeJoinModal(
+      meta ? meta.title : 'Sanctuary Arcade',
+      meta ? meta.icon : 'token',
+      sessionCode,
+      initialName
+    );
+  };
+
+  const joinVerifiedArcadeGame = (game: ArcadeGameType,
+                                  code: string,
+                                  playerName: string): void => {
+    ui.hideAllArcadeModals();
+    soundFX.playSelect();
+
+    if (game === 'chess') {
+      ui.showLiveSessionModal();
+      ui.switchLiveSessionTab('join');
+      domById<HTMLInputElement>('live-join-code').map(joinCodeInput => {
+        joinCodeInput.value = code;
+      });
+    } else if (game === 'blackjack') {
+      bjkLiveCode = code;
+      bjkMultiEngine.seatManager.claimSeat(1, 'p1', playerName);
+      setBlackjackMode(true);
+      renderBlackjackTable();
+      ui.showBlackjack();
+    } else if (game === 'poker') {
+      pokerLiveCode = code;
+      pokerEngine.seatManager.claimSeat(1, 'p1', playerName);
+      setPokerMode(true);
+      renderPokerTable();
+      ui.showPoker();
+    } else if (game === 'skipbo') {
+      skipboLiveCode = code;
+      skipboEngine.claimSeatForHuman(0, playerName);
+      setSkipBoMode(true);
+      renderSkipBoTable();
+      ui.showSkipBo();
+    } else if (game === 'phase10') {
+      phase10LiveCode = code;
+      phase10Engine.claimSeatForHuman(0, playerName);
+      setPhase10Mode(true);
+      renderPhase10Table();
+      ui.showPhase10();
+    } else if (game === 'uno') {
+      unoLiveCode = code;
+      unoEngine.claimSeatForHuman(0, playerName);
+      setUnoMode(true);
+      renderUnoTable();
+      ui.showUno();
+    } else if (game === 'avalon') {
+      avalonLiveCode = code;
+      avalonEngine.claimSeatForHuman(0, playerName);
+      setAvalonMode(true);
+      renderAvalonTable();
+      ui.showAvalon();
+    } else if (game === 'set') {
+      setLiveCode = code;
+      setSetMode(true);
+      renderSetTable();
+      ui.showSet();
+    }
+  };
+
+  domById('btn-arcade-cancel-join').map(btn =>
+    btn.addEventListener('click', () => {
+      ui.hideArcadeJoinModal();
+      pendingJoinSessionCode = none();
+      pendingJoinGame = none();
+      ui.showArcadeHub();
+    })
+  );
+
+  domById('btn-close-arcade-join').map(btn =>
+    btn.addEventListener('click', () => {
+      ui.hideArcadeJoinModal();
+      pendingJoinSessionCode = none();
+      pendingJoinGame = none();
+    })
+  );
+
+  domById('btn-arcade-confirm-join').map(btn =>
+    btn.addEventListener('click', () => {
+      const rawName = domById<HTMLInputElement>('arcade-join-player-name-input')
+        .map(i => i.value)
+        .getOrElse('');
+      const validationRes = validatePlayerName(rawName);
+
+      validationRes.match({
+        Ok: (cleanName: string) => {
+          verifiedPlayerName = some(cleanName);
+          ui.setArcadeJoinError(none());
+          ui.hideArcadeJoinModal();
+
+          const game = pendingJoinGame.getOrElse('poker');
+          const code = pendingJoinSessionCode.getOrElse('');
+          joinVerifiedArcadeGame(game, code, cleanName);
+        },
+        Err: (errMsg: string) => {
+          ui.setArcadeJoinError(some(errMsg));
+          soundFX.playSelect();
+        }
+      });
+    })
+  );
+
   // Common Arcade Live Session Sharing Helper
   const generateArcadeCode = (prefix: string) =>
     `${prefix}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
@@ -2501,6 +2692,18 @@ function main(): void {
         client.connect();
       })
       .catch(() => {});
+
+    client.on('player_kicked', (evt: any) => {
+      if (evt?.targetParticipantId === client.getParticipantId()) {
+        disconnectActiveArcade();
+        ui.hideAllArcadeModals();
+        ui.showArcadeHub();
+        ui.setHubQuickJoinFeedback('You have been removed from the table by the match host.', true);
+        soundFX.playSelect();
+      } else {
+        ui.showTemporaryBanner('A player was removed from the table by the match host.', 2500);
+      }
+    });
 
     if (onAction) {
       client.on('action_dispatched', (evt: any) => {
@@ -2613,25 +2816,55 @@ function main(): void {
       track.innerHTML = occupied
         .map(seat => {
           const isTurn = s.activeSeatTurn.getOrElse(-1) === seat.seatNumber;
-          const isDealer = seat.seatNumber === 1;
+          const isDealer = s.dealerSeat === seat.seatNumber;
+          const canKick = isLocalPlayerHost && !seat.isBot && seat.seatNumber !== 1;
           return `
             <div data-poker-seat="${seat.seatNumber}" class="px-3.5 py-2 rounded-2xl bg-black/65 border-2 ${
               isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : seat.extraData.folded ? 'border-white/10 opacity-50' : 'border-amber-500/40'
             } flex items-center gap-2 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
-              ${isDealer ? '<span class="px-1.5 py-0.5 rounded-full bg-amber-400 text-stone-950 font-extrabold text-[10px]">D</span>' : ''}
+              ${isDealer ? '<span class="px-1.5 py-0.5 rounded-full bg-amber-400 text-stone-950 font-extrabold text-[10px]" title="Dealer Button">D</span>' : ''}
               <span class="font-bold text-stone-100">S${seat.seatNumber}: ${seat.playerName}</span>
               <span class="text-emerald-300 font-mono font-bold">$${seat.extraData.chipBank}</span>
               <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
                 seat.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
               }">${seat.isBot ? 'AI' : 'Human'}</span>
+              ${
+                canKick
+                  ? `<button type="button" data-kick-participant="${seat.playerId}" data-kick-name="${seat.playerName}" class="ml-1 px-1.5 py-0.5 rounded-md bg-red-950/90 hover:bg-red-900 text-red-300 border border-red-500/40 text-[10px] font-bold transition" title="Kick Player from Table">Kick</button>`
+                  : ''
+              }
             </div>
           `;
         })
         .join('');
+
+      track.querySelectorAll('[data-kick-participant]').forEach(btn => {
+        btn.addEventListener('click', (e: Event) => {
+          e.stopPropagation();
+          const targetId = btn.getAttribute('data-kick-participant') || '';
+          const targetName = btn.getAttribute('data-kick-name') || 'Player';
+          if (confirm(`Are you sure you want to kick ${targetName} from the table?`)) {
+            if (activeArcadeClient) {
+              void activeArcadeClient.kickPlayer(targetId).then(res => {
+                res.match({
+                  Ok: () => {
+                    ui.showTemporaryBanner(`${targetName} was kicked from the table.`, 2500);
+                  },
+                  Err: err => {
+                    ui.showTemporaryBanner(`Could not kick player: ${err}`, 3000);
+                  }
+                });
+              });
+            }
+          }
+        });
+      });
+
       track.querySelectorAll('[data-poker-seat]').forEach(el => {
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e: Event) => {
+          if ((e.target as HTMLElement)?.closest('[data-kick-participant]')) return;
           const seatNum = parseInt(el.getAttribute('data-poker-seat') || '1', 10);
-          pokerEngine.seatManager.claimSeat(seatNum, `human_p${seatNum}`, `Player ${seatNum}`);
+          pokerEngine.seatManager.claimSeat(seatNum, `human_p${seatNum}`, verifiedPlayerName.getOrElse(`Player ${seatNum}`));
           soundFX.playSelect();
           renderPokerTable();
         });
@@ -2644,6 +2877,8 @@ function main(): void {
       None: (): PokerPlayerData => defaultPokerPlayerData()
     });
 
+    const isMyTurn = s.activeSeatTurn.getOrElse(-1) === 1;
+
     fromNullable(document.getElementById('poker-pot-val')).map(el => {
       el.textContent = `$${s.pot}`;
     });
@@ -2654,8 +2889,17 @@ function main(): void {
     fromNullable(document.getElementById('poker-stage-badge')).map(el => {
       el.textContent = s.stage;
     });
+
+    const bannerText = s.stage === PokerStageEnum.Settled
+      ? (s.historyText[s.historyText.length - 1] || 'Hand settled.')
+      : isMyTurn
+        ? '★ Your turn to act!'
+        : s.activeSeatTurn.match({
+            Some: seatNum => `Waiting for Seat ${seatNum}...`,
+            None: () => s.historyText[s.historyText.length - 1] || 'Awaiting action.'
+          });
     fromNullable(document.getElementById('poker-status-banner')).map(el => {
-      el.textContent = s.historyText[s.historyText.length - 1] || 'Select action.';
+      el.textContent = bannerText;
     });
 
     fromNullable(document.getElementById('poker-community-cards')).map(c => {
@@ -2686,7 +2930,7 @@ function main(): void {
       });
     }
 
-    const canAct = s.stage !== PokerStageEnum.Lobby && s.stage !== PokerStageEnum.Settled && !p1Data.folded;
+    const canAct = s.stage !== PokerStageEnum.Lobby && s.stage !== PokerStageEnum.Settled && !p1Data.folded && (isMyTurn || !pokerEngine.state.activeSeatTurn.isSome());
     fromNullable(document.getElementById('poker-btn-deal') as HTMLButtonElement | null).map(b => {
       b.disabled = s.stage !== PokerStageEnum.Lobby && s.stage !== PokerStageEnum.Settled;
     });
@@ -2807,6 +3051,7 @@ function main(): void {
   fromNullable(document.getElementById('poker-btn-deal')).map(b =>
     b.addEventListener('click', () => {
       pokerEngine.startHand();
+      pokerEngine.executeBotTurns();
       soundFX.playSelect();
       if (pokerIsLive && activeArcadeClient) {
         void activeArcadeClient.dispatchAction('poker_deal', {});
@@ -2818,6 +3063,7 @@ function main(): void {
   fromNullable(document.getElementById('poker-btn-check')).map(b =>
     b.addEventListener('click', () => {
       pokerEngine.playerAction(1, PokerActionEnum.Check);
+      pokerEngine.executeBotTurns();
       soundFX.playSelect();
       if (pokerIsLive && activeArcadeClient) {
         void activeArcadeClient.dispatchAction('poker_action', { seatNumber: 1, action: PokerActionEnum.Check });
@@ -2829,6 +3075,7 @@ function main(): void {
   fromNullable(document.getElementById('poker-btn-call')).map(b =>
     b.addEventListener('click', () => {
       pokerEngine.playerAction(1, PokerActionEnum.Call);
+      pokerEngine.executeBotTurns();
       soundFX.playSelect();
       if (pokerIsLive && activeArcadeClient) {
         void activeArcadeClient.dispatchAction('poker_action', { seatNumber: 1, action: PokerActionEnum.Call });
@@ -2841,6 +3088,7 @@ function main(): void {
     b.addEventListener('click', () => {
       const raiseAmt = pokerEngine.state.currentBet + 20;
       pokerEngine.playerAction(1, PokerActionEnum.Raise, raiseAmt);
+      pokerEngine.executeBotTurns();
       soundFX.playCathedralOrganAndBell();
       if (pokerIsLive && activeArcadeClient) {
         void activeArcadeClient.dispatchAction('poker_action', { seatNumber: 1, action: PokerActionEnum.Raise, amount: raiseAmt });
@@ -2852,6 +3100,7 @@ function main(): void {
   fromNullable(document.getElementById('poker-btn-fold')).map(b =>
     b.addEventListener('click', () => {
       pokerEngine.playerAction(1, PokerActionEnum.Fold);
+      pokerEngine.executeBotTurns();
       soundFX.playSelect();
       if (pokerIsLive && activeArcadeClient) {
         void activeArcadeClient.dispatchAction('poker_action', { seatNumber: 1, action: PokerActionEnum.Fold });
@@ -4432,6 +4681,7 @@ function main(): void {
     btn.addEventListener('click', (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
+      isLocalPlayerHost = true;
       const targetGame = btn.getAttribute('data-game-live') as ArcadeGameType | null;
       if (targetGame === 'chess') {
         ui.hideArcadeHub();
@@ -4489,6 +4739,7 @@ function main(): void {
     const parsedOpt = extractSessionCodeOrUrl(rawVal);
     parsedOpt.match({
       Some: ({ game, code }) => {
+        isLocalPlayerHost = false;
         if (game === 'chess') {
           ui.hideArcadeHub();
           ui.showLiveSessionModal();
@@ -4496,54 +4747,9 @@ function main(): void {
           domById<HTMLInputElement>('live-join-code').map(joinCodeInput => {
             joinCodeInput.value = code;
           });
-        } else if (game === 'blackjack') {
-          ui.hideArcadeHub();
-          bjkLiveCode = code;
-          setBlackjackMode(true);
-          renderBlackjackTable();
-          ui.showBlackjack();
-        } else if (game === 'poker') {
-          ui.hideArcadeHub();
-          pokerLiveCode = code;
-          setPokerMode(true);
-          renderPokerTable();
-          ui.showPoker();
-        } else if (game === 'skipbo') {
-          ui.hideArcadeHub();
-          skipboLiveCode = code;
-          setSkipBoMode(true);
-          renderSkipBoTable();
-          ui.showSkipBo();
-        } else if (game === 'phase10') {
-          ui.hideArcadeHub();
-          phase10LiveCode = code;
-          setPhase10Mode(true);
-          renderPhase10Table();
-          ui.showPhase10();
-        } else if (game === 'uno') {
-          ui.hideArcadeHub();
-          unoLiveCode = code;
-          setUnoMode(true);
-          renderUnoTable();
-          ui.showUno();
-        } else if (game === 'avalon') {
-          ui.hideArcadeHub();
-          avalonLiveCode = code;
-          setAvalonMode(true);
-          renderAvalonTable();
-          ui.showAvalon();
-        } else if (game === 'set') {
-          ui.hideArcadeHub();
-          setLiveCode = code;
-          setSetMode(true);
-          renderSetTable();
-          ui.showSet();
         } else {
-          const gameMeta = ARCADE_GAMES[game];
-          ui.setHubQuickJoinFeedback(
-            `Connecting to ${gameMeta.title} room ${code}...`,
-            false
-          );
+          ui.hideArcadeHub();
+          promptJoinLiveSession(game, code);
         }
       },
       None: () => {
@@ -4875,49 +5081,15 @@ function main(): void {
             joinCodeInput.value = sessionCode.toUpperCase();
           });
         }
-      } else if (route.game === 'blackjack') {
-        bjkLiveCode = sessionCode;
-        setBlackjackMode(true);
-        renderBlackjackTable();
-        ui.showBlackjack();
-      } else if (route.game === 'poker') {
-        pokerLiveCode = sessionCode;
-        setPokerMode(true);
-        renderPokerTable();
-        ui.showPoker();
-      } else if (route.game === 'skipbo') {
-        skipboLiveCode = sessionCode;
-        setSkipBoMode(true);
-        renderSkipBoTable();
-        ui.showSkipBo();
-      } else if (route.game === 'phase10') {
-        phase10LiveCode = sessionCode;
-        setPhase10Mode(true);
-        renderPhase10Table();
-        ui.showPhase10();
-      } else if (route.game === 'uno') {
-        unoLiveCode = sessionCode;
-        setUnoMode(true);
-        renderUnoTable();
-        ui.showUno();
-      } else if (route.game === 'avalon') {
-        avalonLiveCode = sessionCode;
-        setAvalonMode(true);
-        renderAvalonTable();
-        ui.showAvalon();
-      } else if (route.game === 'set') {
-        setLiveCode = sessionCode;
-        setSetMode(true);
-        renderSetTable();
-        ui.showSet();
       } else {
-        ui.showArcadeHub();
-        const gameMeta = ARCADE_GAMES[route.game];
-        ui.setHubQuickJoinFeedback(
-          `Invited to ${gameMeta.title} match: ${sessionCode}`,
-          false
-        );
+        isLocalPlayerHost = false;
+        promptJoinLiveSession(route.game, sessionCode);
       }
+      const title = route.game in ARCADE_GAMES ? ARCADE_GAMES[route.game as ArcadeGameType].title : 'Match';
+      ui.setHubQuickJoinFeedback(
+        `Invited to ${title} match: ${sessionCode}`,
+        false
+      );
     });
 
     syncBoardPiecesWithChessState();

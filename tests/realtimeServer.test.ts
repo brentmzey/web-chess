@@ -270,6 +270,32 @@ describe('SanctuaryRealtimeServer HTTP & SSE Endpoints', () => {
     const leaveResp = await server.handleRequest(leaveReq);
     expect(leaveResp.status).toBe(200);
 
+    // 5b. Join another participant and test Host Kick endpoint
+    const joinReq3 = new Request('http://localhost:3888/api/arcade/sessions/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionCode: 'POKER-HTTP-1', participantId: 'usr_p3', displayName: 'Unwanted Guest' })
+    });
+    await server.handleRequest(joinReq3);
+
+    // Host kicks usr_p3
+    const sessionObj = server.arcadeService.getSession('POKER-HTTP-1').getOrThrow();
+    const kickReq = new Request('http://localhost:3888/api/arcade/sessions/kick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionCode: 'POKER-HTTP-1',
+        hostParticipantId: sessionObj.hostParticipantId,
+        targetParticipantId: 'usr_p3',
+        reason: 'Violation of rules'
+      })
+    });
+    const kickResp = await server.handleRequest(kickReq);
+    expect(kickResp.status).toBe(200);
+    const kickData = (await kickResp.json()) as any;
+    expect(kickData.success).toBe(true);
+    expect(kickData.kickedParticipantId).toBe('usr_p3');
+
     // 6. Connect SSE stream
     const sseReq = new Request('http://localhost:3888/api/arcade/sessions/POKER-HTTP-1/events?participantId=usr_sse_1');
     const sseResp = await server.handleRequest(sseReq);

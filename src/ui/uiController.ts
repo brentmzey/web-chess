@@ -23,6 +23,7 @@ import {
   ImmutableBuilder,
   match,
   matchBool,
+  none,
   some,
   zipOptions,
   zip3Options,
@@ -127,6 +128,15 @@ export interface UIControllerElements {
   readonly unoModal: Option<HTMLElement>;
   readonly avalonModal: Option<HTMLElement>;
   readonly setModal: Option<HTMLElement>;
+  readonly arcadeJoinModal: Option<HTMLElement>;
+  readonly arcadeJoinGameTitle: Option<HTMLElement>;
+  readonly arcadeJoinGameIcon: Option<HTMLElement>;
+  readonly arcadeJoinCodeBadge: Option<HTMLElement>;
+  readonly arcadeJoinPlayerNameInput: Option<HTMLInputElement>;
+  readonly arcadeJoinErrorBanner: Option<HTMLElement>;
+  readonly btnArcadeConfirmJoin: Option<HTMLButtonElement>;
+  readonly btnArcadeCancelJoin: Option<HTMLButtonElement>;
+  readonly btnCloseArcadeJoin: Option<HTMLButtonElement>;
   readonly arcadeRulesModal: Option<HTMLElement>;
   readonly btnCloseArcadeRules: Option<HTMLButtonElement>;
   readonly btnDismissArcadeRules: Option<HTMLButtonElement>;
@@ -231,6 +241,15 @@ export function buildUIControllerElements(overrides?: Readonly<Partial<UIControl
     unoModal: domById('uno-modal'),
     avalonModal: domById('avalon-modal'),
     setModal: domById('set-modal'),
+    arcadeJoinModal: domById('arcade-join-modal'),
+    arcadeJoinGameTitle: domById('arcade-join-game-title'),
+    arcadeJoinGameIcon: domById('arcade-join-game-icon'),
+    arcadeJoinCodeBadge: domById('arcade-join-code-badge'),
+    arcadeJoinPlayerNameInput: domById<HTMLInputElement>('arcade-join-player-name-input'),
+    arcadeJoinErrorBanner: domById('arcade-join-error-banner'),
+    btnArcadeConfirmJoin: domById<HTMLButtonElement>('btn-arcade-confirm-join'),
+    btnArcadeCancelJoin: domById<HTMLButtonElement>('btn-arcade-cancel-join'),
+    btnCloseArcadeJoin: domById<HTMLButtonElement>('btn-close-arcade-join'),
     arcadeRulesModal: domById('arcade-rules-modal'),
     btnCloseArcadeRules: domById<HTMLButtonElement>('btn-close-arcade-rules'),
     btnDismissArcadeRules: domById<HTMLButtonElement>('btn-dismiss-arcade-rules'),
@@ -913,6 +932,72 @@ export class UIController {
     return this.el.setModal
       .map(modal => !modal.classList.contains('hidden'))
       .getOrElse(false);
+  }
+
+  public showArcadeJoinModal(gameTitle: string,
+                             gameIcon: string,
+                             sessionCode: string,
+                             initialName?: string): void {
+    this.el.arcadeJoinGameTitle.map(el => {
+      el.textContent = gameTitle;
+    });
+    this.el.arcadeJoinGameIcon.map(el => {
+      el.textContent = gameIcon;
+    });
+    this.el.arcadeJoinCodeBadge.map(el => {
+      el.textContent = sessionCode.toUpperCase();
+    });
+    this.el.arcadeJoinPlayerNameInput.map(input => {
+      input.value = initialName || '';
+    });
+    this.setArcadeJoinError(none());
+    this.el.arcadeJoinModal.map(modal => {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
+    this.el.arcadeJoinPlayerNameInput.map(input => {
+      setTimeout(() => input.focus(), 50);
+    });
+  }
+
+  public hideArcadeJoinModal(): void {
+    this.el.arcadeJoinModal.map(modal => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
+  }
+
+  public isArcadeJoinModalVisible(): boolean {
+    return this.el.arcadeJoinModal
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
+  public setArcadeJoinError(errorMessage: Option<string>): void {
+    this.el.arcadeJoinErrorBanner.map(banner => {
+      errorMessage.match({
+        Some: msg => {
+          banner.textContent = msg;
+          banner.classList.remove('hidden');
+        },
+        None: () => {
+          banner.textContent = '';
+          banner.classList.add('hidden');
+        }
+      });
+    });
+  }
+
+  public hideAllArcadeModals(): void {
+    this.hideArcadeHub();
+    this.hideArcadeJoinModal();
+    this.hideBlackjack();
+    this.hidePoker();
+    this.hideSkipBo();
+    this.hidePhase10();
+    this.hideUno();
+    this.hideAvalon();
+    this.hideSet();
   }
 
   public showArcadeRules(gameKey: string,

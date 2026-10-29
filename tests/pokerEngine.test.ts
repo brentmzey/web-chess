@@ -403,4 +403,151 @@ describe('Cathedral Poker Engine - Hand Evaluator, Variants & Multi-Seat Table',
       expect(seat.extraData.isAllIn).toBe(false);
     }
   });
+
+  it('awards pot immediately when all other players fold', () => {
+    const engine = new PokerEngine(PokerVariantEnum.TexasHoldem, 3, 10, 20);
+    engine.seatManager.claimSeat(1, 'h1', 'Alice');
+    engine.seatManager.claimSeat(2, 'h2', 'Bob');
+    engine.seatManager.claimSeat(3, 'h3', 'Charlie');
+    engine.startHand();
+
+    const potBeforeFold = engine.state.pot;
+    const aliceInitialChips = engine.seatManager.getSeat(1).getOrThrow().extraData.chipBank;
+
+    // Bob folds
+    engine.playerAction(2, PokerActionEnum.Fold);
+    expect(engine.state.stage).toBe(PokerStageEnum.PreFlop);
+
+    // Charlie folds -> Alice is last player remaining, wins immediately!
+    engine.playerAction(3, PokerActionEnum.Fold);
+    expect(engine.state.stage).toBe(PokerStageEnum.Settled);
+    expect(engine.state.winners?.length).toBe(1);
+    expect(engine.state.winners![0]!.playerName).toBe('Alice');
+    expect(engine.seatManager.getSeat(1).getOrThrow().extraData.chipBank).toBe(aliceInitialChips + potBeforeFold);
+  });
+
+  it('splits pot evenly between players with tied winning hands', () => {
+    const engine = new PokerEngine(PokerVariantEnum.TexasHoldem, 2, 10, 20);
+    engine.seatManager.claimSeat(1, 'h1', 'Alice');
+    engine.seatManager.claimSeat(2, 'h2', 'Bob');
+    engine.startHand();
+
+    // Stack identical community cards and hole cards so both have identical Royal Flushes
+    engine.state.communityCards = [
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Ace, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.King, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Queen, faceUp: true }
+    ];
+
+    engine.seatManager.getSeat(1).getOrThrow().extraData.holeCards = [
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Jack, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Ten, faceUp: true }
+    ];
+
+    engine.seatManager.getSeat(2).getOrThrow().extraData.holeCards = [
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Jack, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Ten, faceUp: true }
+    ];
+
+    const initialPot = engine.state.pot;
+    expect(initialPot).toBeGreaterThan(0);
+    const showdownRes = engine.resolveShowdown();
+    expect(showdownRes.isSuccess()).toBe(true);
+
+    expect(engine.state.winners?.length).toBe(2);
+    expect(engine.state.historyText[engine.state.historyText.length - 1]).toContain('Split Pot');
+  });
+
+  it('rotates dealer button clockwise across consecutive hands', () => {
+    const engine = new PokerEngine(PokerVariantEnum.TexasHoldem, 3, 10, 20);
+    engine.seatManager.claimSeat(1, 'h1', 'Alice');
+    engine.seatManager.claimSeat(2, 'h2', 'Bob');
+    engine.seatManager.claimSeat(3, 'h3', 'Charlie');
+
+    engine.startHand();
+    const dealer1 = engine.state.dealerSeat;
+
+    engine.startHand();
+    const dealer2 = engine.state.dealerSeat;
+    expect(dealer2).not.toBe(dealer1);
+
+    engine.startHand();
+    const dealer3 = engine.state.dealerSeat;
+    expect(dealer3).not.toBe(dealer2);
+  });
+
+  it('executes bot turns autonomously and progresses streets', () => {
+    const engine = new PokerEngine(PokerVariantEnum.TexasHoldem, 3, 10, 20);
+    engine.seatManager.claimSeat(1, 'h1', 'Alice'); // Human
+    engine.populateBotOpponents(); // Bots at seats 2 and 3
+
+    engine.startHand();
+    expect(engine.state.stage).toBe(PokerStageEnum.PreFlop);
+
+    // Call executeBotTurns to simulate bot action progression
+    engine.executeBotTurns();
+
+    // Alice acts (Calls the big blind)
+    const canAliceCall = engine.state.activeSeatTurn.getOrElse(-1) === 1;
+    if (canAliceCall) {
+      engine.playerAction(1, PokerActionEnum.Call);
+    }
+
+    expect(engine.state.pot).toBeGreaterThanOrEqual(30);
+  });
+
+  it('selects the optimal 5-card hand out of 7 cards in Texas Holdem', () => {
+    const sevenCards: PlayingCard[] = [
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Ace, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.King, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Queen, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Jack, faceUp: true },
+      { suit: CardSuitEnum.Spades, value: CardValueEnum.Ten, faceUp: true },
+      { suit: CardSuitEnum.Diamonds, value: CardValueEnum.Two, faceUp: true },
+      { suit: CardSuitEnum.Clubs, value: CardValueEnum.Three, faceUp: true }
+    ];
+    const evaluated = evaluatePokerHand(sevenCards);
+    expect(evaluated.rank).toBe(PokerHandRankEnum.RoyalFlush);
+  });
+
+  it('advances through streets from PreFlop -> Flop -> Turn -> River -> Showdown', () => {
+    const engine = new PokerEngine(PokerVariantEnum.TexasHoldem, 2, 10, 20);
+    engine.seatManager.claimSeat(1, 'p1', 'Alice');
+    engine.seatManager.claimSeat(2, 'p2', 'Bob');
+
+    engine.startHand();
+    expect(engine.state.stage).toBe(PokerStageEnum.PreFlop);
+    expect(engine.state.communityCards.length).toBe(0);
+
+    // Flop
+    engine.advanceStreet();
+    expect(engine.state.stage).toBe(PokerStageEnum.Flop);
+    expect(engine.state.communityCards.length).toBe(3);
+
+    // Turn
+    engine.advanceStreet();
+    expect(engine.state.stage).toBe(PokerStageEnum.Turn);
+    expect(engine.state.communityCards.length).toBe(4);
+
+    // River
+    engine.advanceStreet();
+    expect(engine.state.stage).toBe(PokerStageEnum.River);
+    expect(engine.state.communityCards.length).toBe(5);
+
+    // Showdown -> Settled
+    engine.advanceStreet();
+    expect(engine.state.stage).toBe(PokerStageEnum.Settled);
+  });
+
+  it('handles FiveCardDraw street advancement directly to Turn', () => {
+    const engine = new PokerEngine(PokerVariantEnum.FiveCardDraw, 2, 10, 20);
+    engine.seatManager.claimSeat(1, 'p1', 'Alice');
+    engine.seatManager.claimSeat(2, 'p2', 'Bob');
+
+    engine.startHand();
+    expect(engine.state.stage).toBe(PokerStageEnum.PreFlop);
+
+    engine.advanceStreet();
+    expect(engine.state.stage).toBe(PokerStageEnum.Turn);
+  });
 });

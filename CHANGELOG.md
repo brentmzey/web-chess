@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.42] - 2026-10-28
+### Added
+- **Cathedral Poker Engine Overhaul & Texas Hold'em Lifecycle (`src/games/poker/pokerEngine.ts`, `tests/pokerEngine.test.ts`)**:
+  - Implemented complete betting street progression (`PreFlop` -> `Flop` -> `Turn` -> `River` -> `Showdown` -> `Settled`) with automatic dealer button clockwise rotation.
+  - Added small and big blind automated deductions, minimum raise enforcement, pot tracking, and split-pot distribution for tied hand evaluations.
+  - Added 7-card hand evaluation algorithm selecting the optimal 5-card subset for Texas Hold'em showdowns.
+  - Implemented autonomous AI bot decision-making cycle (`executeBotTurns`) with hand evaluation heuristic and pot odds estimation.
+- **Match Host Player Kick Authority (`src/server/server.ts`, `src/server/services/arcadeRealtimeService.ts`, `src/realtime/arcadeRealtimeClient.ts`, `src/games/multiplayer/tableSeatManager.ts`)**:
+  - Added table host tracking (`isHost` property on `TableSeat`) assigned to match creator or seat 1.
+  - Implemented `POST /api/arcade/sessions/kick` endpoint and `kickPlayer` method on `ArcadeRealtimeService` and `ArcadeRealtimeClient`.
+  - Added SSE broadcast of `player_kicked` events, automatic bot re-filling for vacated seats, and dedicated UI host kick buttons on opponent seats.
+- **Safe Player Name Verification & Session Moderation (`src/utils/playerValidation.ts`, `tests/playerValidation.test.ts`, `index.html`)**:
+  - Added strict player name validation enforcing 2–20 character limits, allowed Unicode sets, and normalized leetspeak profanity and slur filtering.
+  - Created `#arcade-join-modal` with real-time feedback, game badges, and room code confirmation for seamless join-by-link flows.
+- **Seamless Arcade Theater Switching & Hub Quick Navigation (`src/ui/uiController.ts`, `src/main.ts`, `index.html`, `src/styles/main.css`)**:
+  - Eliminated jarring hard cuts to the 3D chess sanctuary when exiting or transitioning between arcade games.
+  - Added "Arcade Hub" navigation buttons and `.arcade-quick-switcher` dropdown menus to all 7 arcade theater headers, enabling instant zero-cut transitions between games.
+  - Expanded automated test suite to **424 passing tests across 50 test files** (3,237 assertions, 0 failures, 0 type errors).
+
 ## [1.2.0-rc.41] - 2026-10-28
 ### Added
 - **Preferred Full Live Match Invite Link & Match Code Copying Across All Arcade Games (`index.html`, `src/main.ts`, `tests/arcadeHubIntegration.test.ts`)**:

@@ -7,6 +7,7 @@ export interface TableSeat<TPlayerData = Record<string, unknown>> {
   seatNumber: number;
   isOccupied: boolean;
   isBot: boolean;
+  isHost?: boolean;
   playerId: string;
   playerName: string;
   botModel: Option<string>;
@@ -143,12 +144,11 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
    * If the seat was occupied by a bot, the bot is hot-swapped out seamlessly.
    * If the seat is already occupied by another human, returns a Failure.
    */
-  public claimSeat(
-    seatNumber: number,
-    humanPlayerId: string,
-    humanPlayerName: string,
-    initialExtraData?: Partial<TPlayerData>
-  ): Result<TableSeat<TPlayerData>, string> {
+  public claimSeat(seatNumber: number,
+                   humanPlayerId: string,
+                   humanPlayerName: string,
+                   initialExtraData?: Partial<TPlayerData>,
+                   isHost?: boolean): Result<TableSeat<TPlayerData>, string> {
     if (seatNumber < 1 || seatNumber > this.maxSeats) {
       return failure(`Invalid seat number ${seatNumber}. Must be between 1 and ${this.maxSeats}.`);
     }
@@ -162,6 +162,7 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
     const wasBot = seat.isBot;
     seat.isOccupied = true;
     seat.isBot = false;
+    seat.isHost = isHost ?? (seatNumber === 1);
     seat.playerId = humanPlayerId;
     seat.playerName = humanPlayerName;
     seat.botModel = none();
@@ -213,6 +214,7 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
     const botName = `${botNamePrefix} #${seatNumber}`;
     seat.isOccupied = true;
     seat.isBot = true;
+    seat.isHost = false;
     seat.playerId = `bot-seat-${seatNumber}`;
     seat.playerName = botName;
     seat.botModel = some(fallbackBotModel);

@@ -174,4 +174,43 @@ describe('ArcadeRealtimeService - Multi-Game Real-Time Seating & Bot Hot-Swappin
     // Unsubscribe
     service.unsubscribe('POK-SSE', 'sub_1');
   });
+
+  it('allows the session host to kick unwanted participants and restores bots', () => {
+    const service = new ArcadeRealtimeService();
+    const created = service.createSession(ArcadeGameEnum.Poker, 'POKER-KICK-TEST', 6, 'TableHost').getOrThrow();
+    const hostId = created.hostParticipantId;
+
+    // A rogue user joins
+    service.joinSession('POKER-KICK-TEST', 'rogue_user_99', 'Troll');
+    const session = service.getSession('POKER-KICK-TEST').getOrThrow();
+    expect(session.seatManager.getHumanCount()).toBe(2);
+
+    // Non-host attempts to kick -> failure
+    const nonHostKick = service.kickPlayer('POKER-KICK-TEST', 'rogue_user_99', hostId);
+    expect(nonHostKick.isFailure()).toBe(true);
+    expect(nonHostKick.match({ Ok: () => '', Err: e => e })).toContain('Only the match host');
+
+    // Host attempts to kick self -> failure
+    const selfKick = service.kickPlayer('POKER-KICK-TEST', hostId, hostId);
+    expect(selfKick.isFailure()).toBe(true);
+    expect(selfKick.match({ Ok: () => '', Err: e => e })).toContain('Host cannot kick themselves');
+
+    // Host kicks non-existent player -> failure
+    const missingKick = service.kickPlayer('POKER-KICK-TEST', hostId, 'ghost_user');
+    expect(missingKick.isFailure()).toBe(true);
+
+    // Host successfully kicks rogue user
+    const kickRes = service.kickPlayer('POKER-KICK-TEST', hostId, 'rogue_user_99', 'Disruptive play');
+    expect(kickRes.isSuccess()).toBe(true);
+    expect(kickRes.getOrThrow().kickedParticipantId).toBe('rogue_user_99');
+
+    // User is vacated, bot is restored
+    expect(session.seatManager.getHumanCount()).toBe(1);
+    expect(session.seatManager.getBotCount()).toBe(5);
+
+    // Verified event was logged
+    const lastEvent = session.events[session.events.length - 1]!;
+    expect(lastEvent.eventType).toBe('player_kicked');
+    expect((lastEvent.data as any).targetParticipantId).toBe('rogue_user_99');
+  });
 });

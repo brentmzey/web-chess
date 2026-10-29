@@ -606,6 +606,83 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
         expect(g.el.classList.contains('hidden')).toBe(true);
         expect(g.el.classList.contains('flex')).toBe(false);
       }
+
+      // Hide all arcade modals helper
+      games.forEach(g => g.show());
+      ui.hideAllArcadeModals();
+      games.forEach(g => {
+        expect(g.isVis()).toBe(false);
+      });
+    } finally {
+      (globalThis as any).document = originalDoc;
+    }
+  });
+
+  it('verifies presence of seamless game navigation headers and join modal in index.html', () => {
+    const htmlPath = resolve(__dirname, '../index.html');
+    const html = readFileSync(htmlPath, 'utf8');
+
+    // Verify Arcade Join Modal elements
+    expect(html).toContain('id="arcade-join-modal"');
+    expect(html).toContain('id="arcade-join-player-name-input"');
+    expect(html).toContain('id="btn-arcade-confirm-join"');
+    expect(html).toContain('id="btn-arcade-cancel-join"');
+    expect(html).toContain('id="arcade-join-error-banner"');
+
+    // Verify data-arcade-nav="hub" and quick game switcher across headers
+    expect(html).toContain('data-arcade-nav="hub"');
+    expect(html).toContain('class="arcade-quick-switcher');
+    expect(html).toContain('data-arcade-nav="chess"');
+  });
+
+  it('manages Arcade Join Modal lifecycle and error messaging in UIController', () => {
+    const joinModal = new MockElement();
+    joinModal.classList.add('hidden');
+    const titleEl = new MockElement();
+    const iconEl = new MockElement();
+    const codeEl = new MockElement();
+    const inputEl = new MockElement() as any;
+    inputEl.value = '';
+    inputEl.focus = () => {};
+    const errorBanner = new MockElement();
+    errorBanner.classList.add('hidden');
+
+    const domMap: Record<string, any> = {
+      'arcade-join-modal': joinModal,
+      'arcade-join-game-title': titleEl,
+      'arcade-join-game-icon': iconEl,
+      'arcade-join-code-badge': codeEl,
+      'arcade-join-player-name-input': inputEl,
+      'arcade-join-error-banner': errorBanner
+    };
+
+    const originalDoc = (globalThis as any).document;
+    (globalThis as any).document = {
+      getElementById: (id: string) => domMap[id] || null
+    };
+
+    try {
+      const ui = new UIController();
+      expect(ui.isArcadeJoinModalVisible()).toBe(false);
+
+      ui.showArcadeJoinModal('Cathedral Poker', 'token', 'POKER-ROYAL', 'Arthur');
+      expect(ui.isArcadeJoinModalVisible()).toBe(true);
+      expect(titleEl.textContent).toBe('Cathedral Poker');
+      expect(iconEl.textContent).toBe('token');
+      expect(codeEl.textContent).toBe('POKER-ROYAL');
+      expect(inputEl.value).toBe('Arthur');
+
+      // Set validation error message
+      const { some, none } = require('../src/utils/fp');
+      ui.setArcadeJoinError(some('Player name is offensive'));
+      expect(errorBanner.textContent).toBe('Player name is offensive');
+      expect(errorBanner.classList.contains('hidden')).toBe(false);
+
+      ui.setArcadeJoinError(none());
+      expect(errorBanner.classList.contains('hidden')).toBe(true);
+
+      ui.hideArcadeJoinModal();
+      expect(ui.isArcadeJoinModalVisible()).toBe(false);
     } finally {
       (globalThis as any).document = originalDoc;
     }
