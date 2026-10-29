@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.38] - 2026-10-28
+### Added
+- **Ambient Pointer Motion & Monadic Display Activity Coordinator (`src/utils/wakeLock.ts`, `tests/wakeLock.test.ts`, `index.html`)**:
+  - Implemented ambient pointer coordinate progression within `ScreenWakeLockManager` using pure functional monadic combinators (`Option<T>`, `fromNullable`, `map`, `flatMap`, `fold`).
+  - Added `#screen-wake-pointer` floating vector element rendering smoothly with CSS transform transitions across the viewport during active awake sessions.
+  - Synthesized periodic input coordinate dispatches via `WindowWithMotion` interval scheduling with automatic pausing on tab backgrounding and restoration upon tab focus.
+  - Expanded unit test coverage in `tests/wakeLock.test.ts` maintaining **100.00% Line Coverage** with 16 passing tests across all lifecycle states.
+
 ## [1.2.0-rc.37] - 2026-10-28
 ### Added
 - **"Keep Screen Awake" Display Wake Lock Feature (`src/utils/wakeLock.ts`, `tests/wakeLock.test.ts`, `src/ui/uiController.ts`, `index.html`)**:

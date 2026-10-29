@@ -1,6 +1,6 @@
 {
   "name": "wizard-chess-3d",
-  "version": "1.2.0-rc.37",
+  "version": "1.2.0-rc.38",
   "description": "High Gothic Basilica 3D Wizard's Chess with procedural Web Audio, Three.js and AI engine",
   "type": "module",
   "scripts": {
