@@ -201,7 +201,7 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
     // Verify viewport-fit=cover for notched mobile screens
     expect(html).toContain('viewport-fit=cover');
 
-    // Verify all 7 arcade modals have .arcade-theater-shell
+    // Verify all 8 arcade modals have .arcade-theater-shell
     for (const modalId of [
       'id="blackjack-modal"',
       'id="poker-modal"',
@@ -209,7 +209,8 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
       'id="phase10-modal"',
       'id="uno-modal"',
       'id="avalon-modal"',
-      'id="set-modal"'
+      'id="set-modal"',
+      'id="solitaire-modal"'
     ]) {
       expect(html).toContain(modalId);
     }
@@ -257,7 +258,7 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
       expect(css).toContain(cssRule);
     }
 
-    // Verify all 7 felt tables contain arcade-felt-board and do not have min-h-0
+    // Verify all 8 felt tables contain arcade-felt-board and do not have min-h-0
     for (const feltClass of [
       'felt-blackjack',
       'felt-poker',
@@ -265,7 +266,8 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
       'felt-phase10',
       'felt-uno',
       'felt-avalon',
-      'felt-set'
+      'felt-set',
+      'felt-solitaire'
     ]) {
       expect(html).toContain(feltClass);
       expect(html).toContain(`arcade-felt-board`);
@@ -352,8 +354,8 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
     expect(suspendCalled).toBe(true);
   });
 
-  it('validates comprehensive real-life game rules repository for all 8 arcade games', () => {
-    const requiredKeys = ['chess', 'blackjack', 'poker', 'skipbo', 'phase10', 'uno', 'avalon', 'set'];
+  it('validates comprehensive real-life game rules repository for all 9 arcade games', () => {
+    const requiredKeys = ['chess', 'blackjack', 'poker', 'skipbo', 'phase10', 'uno', 'avalon', 'set', 'solitaire'];
     expect(Object.keys(ARCADE_GAME_RULES).sort()).toEqual(requiredKeys.sort());
 
     for (const key of requiredKeys) {
@@ -495,6 +497,8 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
       'id="btn-avalon-copy-code"',
       'id="btn-set-copy-link"',
       'id="btn-set-copy-code"',
+      'id="btn-solitaire-copy-link"',
+      'id="btn-solitaire-copy-code"',
       'id="btn-persistent-copy-link"',
       'id="btn-persistent-copy-code"'
     ];
@@ -542,6 +546,7 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
         { game: 'Uno', code: 'UNO-TEST' },
         { game: 'Avalon', code: 'AVALON-TEST' },
         { game: 'SET', code: 'SET-TEST' },
+        { game: 'Solitaire', code: 'SOL-TEST' },
         { game: 'Chess', code: 'SANCT-TEST' }
       ];
 
@@ -571,7 +576,8 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
       'phase10-modal': new MockElement(),
       'uno-modal': new MockElement(),
       'avalon-modal': new MockElement(),
-      'set-modal': new MockElement()
+      'set-modal': new MockElement(),
+      'solitaire-modal': new MockElement()
     };
     Object.values(modals).forEach(m => m.classList.add('hidden'));
 
@@ -591,7 +597,8 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
         { name: 'Phase 10', show: () => ui.showPhase10(), hide: () => ui.hidePhase10(), isVis: () => ui.isPhase10Visible(), el: modals['phase10-modal']! },
         { name: 'Uno', show: () => ui.showUno(), hide: () => ui.hideUno(), isVis: () => ui.isUnoVisible(), el: modals['uno-modal']! },
         { name: 'Avalon', show: () => ui.showAvalon(), hide: () => ui.hideAvalon(), isVis: () => ui.isAvalonVisible(), el: modals['avalon-modal']! },
-        { name: 'Set', show: () => ui.showSet(), hide: () => ui.hideSet(), isVis: () => ui.isSetVisible(), el: modals['set-modal']! }
+        { name: 'Set', show: () => ui.showSet(), hide: () => ui.hideSet(), isVis: () => ui.isSetVisible(), el: modals['set-modal']! },
+        { name: 'Solitaire', show: () => ui.showSolitaire(), hide: () => ui.hideSolitaire(), isVis: () => ui.isSolitaireVisible(), el: modals['solitaire-modal']! }
       ];
 
       for (const g of games) {

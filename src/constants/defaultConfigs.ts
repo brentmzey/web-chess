@@ -178,6 +178,27 @@ export const DEFAULT_ARCADE_GAME_CONFIGS: readonly ArcadeGameConfigInput[] = Obj
     txt_badge_color: BadgeColorEnum.Fuchsia,
     txt_theme_color: 'purple',
     json_layout_config: { icon: 'category', feltClass: 'felt-set' }
+  },
+  {
+    txt_game_key: ArcadeGameEnum.Solitaire,
+    txt_title: ARCADE_GAME_RULES.solitaire.title,
+    txt_real_life_name: ARCADE_GAME_RULES.solitaire.realLifeName,
+    txt_prefix: GameCodePrefixEnum.Solitaire,
+    txt_category: ConfigCategoryEnum.ClassicPatience,
+    txt_summary: ARCADE_GAME_RULES.solitaire.summary,
+    txt_objective: ARCADE_GAME_RULES.solitaire.objective,
+    json_key_rules: ARCADE_GAME_RULES.solitaire.keyRules,
+    txt_official_url: ARCADE_GAME_RULES.solitaire.officialUrl,
+    txt_url_label: ARCADE_GAME_RULES.solitaire.urlLabel,
+    int_min_players: 1,
+    int_max_players: 1,
+    int_sort_order: 9,
+    bln_is_active: true,
+    bln_is_maintenance: false,
+    txt_badge_text: 'Live & Playable',
+    txt_badge_color: BadgeColorEnum.Emerald,
+    txt_theme_color: 'amber',
+    json_layout_config: { icon: 'style', feltClass: 'felt-solitaire' }
   }
 ]);
 

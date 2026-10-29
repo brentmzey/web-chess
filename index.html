@@ -1397,6 +1397,51 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- 9. CATHEDRAL SOLITAIRE -->
+                <div class="arcade-card group relative p-5 rounded-3xl bg-emerald-950/20 hover:bg-emerald-950/35 border border-emerald-500/30 hover:border-emerald-400/60 transition-all duration-300 flex flex-col justify-between shadow-xl">
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="w-11 h-11 rounded-2xl bg-emerald-950/80 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shadow-md">
+                                <span class="material-symbols-rounded text-2xl">splitscreen</span>
+                            </div>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">Phase 9 • Live Table</span>
+                        </div>
+                        <div>
+                            <h3 class="font-cathedral text-lg font-bold text-amber-100 tracking-wider">CATHEDRAL SOLITAIRE</h3>
+                            <p class="text-xs text-stone-300 mt-1 line-clamp-2">Classic Klondike patience with 7 tableau columns, 4 foundation piles, and real-time live spectator tables.</p>
+                        </div>
+                        <div class="flex items-center gap-3 text-[11px] text-stone-400 font-mono">
+                            <span class="flex items-center gap-1"><span class="material-symbols-rounded text-xs text-emerald-300">person</span> 1 Player + Spectators</span>
+                            <span class="flex items-center gap-1"><span class="material-symbols-rounded text-xs text-amber-300">tag</span> SOL-XXXX</span>
+                        </div>
+                        <!-- Solitaire Quick Rules Expandable -->
+                        <details class="text-xs text-stone-300 bg-black/40 rounded-xl p-2.5 border border-white/5 cursor-pointer">
+                            <summary class="font-semibold text-emerald-200 flex items-center gap-1 hover:text-emerald-100">
+                                <span class="material-symbols-rounded text-sm">menu_book</span>
+                                <span>Solitaire Rites &amp; Rules</span>
+                            </summary>
+                            <div class="mt-2 text-[11px] text-stone-300 space-y-1 pl-1 border-l-2 border-emerald-400/30">
+                                <p><strong class="text-emerald-100">Objective:</strong> Move all 52 cards onto the 4 Foundation piles in ascending sequence (Ace to King) by suit.</p>
+                                <p><strong class="text-emerald-100">Core Rules:</strong> Build Tableau columns in descending rank with alternating red/black colors. Only Kings can move to empty tableau columns. Live spectator mode allows friends to watch in real time without interfering.</p>
+                                <a href="https://en.wikipedia.org/wiki/Klondike_(solitaire)" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline font-bold mt-1">
+                                    <span>Official Klondike Solitaire Rules (Wikipedia)</span>
+                                    <span class="material-symbols-rounded text-xs">open_in_new</span>
+                                </a>
+                            </div>
+                        </details>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-4">
+                        <button type="button" data-game-ai="solitaire" class="py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
+                            <span class="material-symbols-rounded text-sm">smart_toy</span>
+                            <span>PLAY SOLO</span>
+                        </button>
+                        <button type="button" data-game-live="solitaire" class="py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-cathedral font-bold text-xs tracking-wider flex items-center justify-center gap-1 shadow-md transition">
+                            <span class="material-symbols-rounded text-sm">sensors</span>
+                            <span>LIVE TABLE</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1425,6 +1470,7 @@
                     <option value="uno">🎨 Cardinal Uno</option>
                     <option value="avalon">⚔️ The Resistance: Avalon</option>
                     <option value="set">🔺 Sacred Geometry SET</option>
+                    <option value="solitaire">🃏 Cathedral Solitaire</option>
                 </select>
                 <button type="button" id="btn-close-blackjack" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
                     <span class="material-symbols-rounded text-base">church</span>
@@ -1610,6 +1656,7 @@
                     <option value="uno">🎨 Cardinal Uno</option>
                     <option value="avalon">⚔️ The Resistance: Avalon</option>
                     <option value="set">🔺 Sacred Geometry SET</option>
+                    <option value="solitaire">🃏 Cathedral Solitaire</option>
                 </select>
                 <button type="button" id="btn-close-poker" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
                     <span class="material-symbols-rounded text-base">church</span>
@@ -1800,6 +1847,7 @@
                     <option value="uno">🎨 Cardinal Uno</option>
                     <option value="avalon">⚔️ The Resistance: Avalon</option>
                     <option value="set">🔺 Sacred Geometry SET</option>
+                    <option value="solitaire">🃏 Cathedral Solitaire</option>
                 </select>
                 <button type="button" id="btn-close-skipbo" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
                     <span class="material-symbols-rounded text-base">church</span>
@@ -1969,6 +2017,7 @@
                     <option value="uno">🎨 Cardinal Uno</option>
                     <option value="avalon">⚔️ The Resistance: Avalon</option>
                     <option value="set">🔺 Sacred Geometry SET</option>
+                    <option value="solitaire">🃏 Cathedral Solitaire</option>
                 </select>
                 <button type="button" id="btn-close-phase10" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
                     <span class="material-symbols-rounded text-base">church</span>
@@ -2148,6 +2197,7 @@
                     <option value="uno">🎨 Cardinal Uno</option>
                     <option value="avalon">⚔️ The Resistance: Avalon</option>
                     <option value="set">🔺 Sacred Geometry SET</option>
+                    <option value="solitaire">🃏 Cathedral Solitaire</option>
                 </select>
                 <button type="button" id="btn-close-uno" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
                     <span class="material-symbols-rounded text-base">church</span>
@@ -2310,6 +2360,7 @@
                     <option value="uno">🎨 Cardinal Uno</option>
                     <option value="avalon">⚔️ The Resistance: Avalon</option>
                     <option value="set">🔺 Sacred Geometry SET</option>
+                    <option value="solitaire">🃏 Cathedral Solitaire</option>
                 </select>
                 <button type="button" id="btn-close-avalon" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
                     <span class="material-symbols-rounded text-base">church</span>
@@ -2479,6 +2530,7 @@
                     <option value="uno">🎨 Cardinal Uno</option>
                     <option value="avalon">⚔️ The Resistance: Avalon</option>
                     <option value="set">🔺 Sacred Geometry SET</option>
+                    <option value="solitaire">🃏 Cathedral Solitaire</option>
                 </select>
                 <button type="button" id="btn-close-set" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
                     <span class="material-symbols-rounded text-base">church</span>
@@ -2596,6 +2648,186 @@
                 <button type="button" id="set-btn-ai-move" class="py-3 sm:py-3.5 rounded-2xl bg-purple-700 hover:bg-purple-600 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
                     <span class="material-symbols-rounded text-base sm:text-lg">smart_toy</span>
                     <span>Step AI Geometer</span>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- CATHEDRAL SOLITAIRE SANCTUARY TABLE (FULL SCREEN VIEW)                -->
+    <!-- ===================================================================== -->
+    <div id="solitaire-modal" class="arcade-theater-shell fixed inset-0 z-50 flex flex-col bg-[#040c0a] text-stone-100 hidden pointer-events-auto overflow-hidden select-none">
+        <!-- Top Sanctuary Navigation Bar -->
+        <header class="w-full px-2.5 sm:px-8 py-2 sm:py-3 border-b border-emerald-500/30 bg-black/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
+            <!-- Left: Return to Sanctuary & Game Branding -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button type="button" data-arcade-nav="hub" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 text-xs font-semibold tracking-wide transition shadow-sm" title="Return to Sanctuary Arcade Suite Hub">
+                    <span class="material-symbols-rounded text-base">grid_view</span>
+                    <span class="hidden sm:inline">Arcade Hub</span>
+                </button>
+                <select class="arcade-quick-switcher bg-black/60 border border-white/20 hover:border-amber-400/50 rounded-full px-2 sm:px-2.5 py-1.5 text-xs text-stone-200 focus:outline-none transition cursor-pointer" aria-label="Switch Arcade Game">
+                    <option value="" disabled selected>Switch Game...</option>
+                    <option value="hub">🎮 Arcade Suite Hub</option>
+                    <option value="chess">🏰 Wizard's Chess 3D</option>
+                    <option value="blackjack">♠️ Gothic Blackjack</option>
+                    <option value="poker">🪙 Cathedral Poker</option>
+                    <option value="skipbo">1️⃣ Sacred Skip-Bo</option>
+                    <option value="phase10">📜 Ten Rites (Phase 10)</option>
+                    <option value="uno">🎨 Cardinal Uno</option>
+                    <option value="avalon">⚔️ The Resistance: Avalon</option>
+                    <option value="set">🔺 Sacred Geometry SET</option>
+                    <option value="solitaire">🃏 Cathedral Solitaire</option>
+                </select>
+                <button type="button" id="btn-close-solitaire" data-arcade-nav="chess" class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-stone-400 hover:text-stone-200 border border-white/10 text-xs font-medium transition" title="Exit to 3D Chess Sanctuary" aria-label="Return to Sanctuary">
+                    <span class="material-symbols-rounded text-base">church</span>
+                    <span class="hidden xl:inline">Sanctuary</span>
+                </button>
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-400/50 flex items-center justify-center text-emerald-300 shadow-md">
+                        <span class="material-symbols-rounded text-xl">splitscreen</span>
+                    </div>
+                    <div>
+                        <h2 class="font-cathedral text-sm sm:text-base font-bold text-amber-100 tracking-wider">CATHEDRAL SOLITAIRE</h2>
+                        <p class="text-[10px] text-stone-400 hidden md:block">Klondike Patience • 7 Tableau Columns • 4 Foundations</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center: Mode Toggle & Live Online Connection Bar -->
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs">
+                    <button type="button" id="solitaire-tab-ai" class="px-3 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px] transition">Play Solo</button>
+                    <button type="button" id="solitaire-tab-live" class="px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-emerald-300 font-bold text-[11px] transition">Live Spectator Table</button>
+                </div>
+                <div id="solitaire-live-session-info" class="hidden flex items-center gap-1.5 sm:gap-2 px-3 py-1 rounded-2xl bg-emerald-950/60 border border-emerald-400/40 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span id="solitaire-live-code" class="font-mono text-amber-300 font-bold tracking-wider cursor-pointer hover:underline" title="Click to copy room code only">SOL-KLON</span>
+                    <button type="button" id="btn-solitaire-copy-link" class="px-2 sm:px-2.5 py-0.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-[10px] flex items-center gap-1 transition shadow-sm" title="Copy full match invite link (Recommended)">
+                        <span class="material-symbols-rounded text-xs">link</span>
+                        <span>Copy Link</span>
+                    </button>
+                    <button type="button" id="btn-solitaire-copy-code" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-emerald-200 border border-emerald-400/30 font-bold text-[10px] flex items-center gap-1 transition" title="Copy room code only">
+                        <span class="material-symbols-rounded text-xs">content_copy</span>
+                        <span>Code</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: Rules & Close -->
+            <div class="flex items-center gap-2">
+                <button type="button" id="btn-solitaire-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
+                    <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
+                <button type="button" id="btn-close-solitaire-x" data-modal-close class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Close Cathedral Solitaire" aria-label="Close Cathedral Solitaire">
+                    <span class="material-symbols-rounded text-lg">close</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Spectator Notification Banner -->
+        <div id="solitaire-spectator-banner" class="hidden w-full bg-sky-950/80 border-b border-sky-400/40 px-4 py-2 text-center text-xs text-sky-200 flex items-center justify-center gap-2 shadow-inner">
+            <span class="material-symbols-rounded text-sm text-sky-300 animate-pulse">visibility</span>
+            <span class="font-semibold">SPECTATOR MODE:</span>
+            <span>You are watching this Cathedral Solitaire match live in real-time over SSE.</span>
+        </div>
+
+        <!-- Main Felt Arena Container -->
+        <main class="arcade-theater-main flex-1 w-full max-w-7xl mx-auto px-2 sm:px-6 py-2.5 sm:py-4 flex flex-col justify-between overflow-y-auto space-y-2.5 sm:space-y-4">
+            <!-- Scoreboard & Move Status Bar -->
+            <div class="p-2.5 sm:p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-400/40 flex items-center justify-between text-xs sm:text-sm backdrop-blur-sm shrink-0">
+                <div class="flex items-center gap-4 font-mono">
+                    <div>
+                        <span class="text-[11px] uppercase font-bold text-stone-400">Score:</span>
+                        <span id="solitaire-score" class="font-bold text-amber-300 text-sm sm:text-base ml-1">0</span>
+                    </div>
+                    <div>
+                        <span class="text-[11px] uppercase font-bold text-stone-400">Moves:</span>
+                        <span id="solitaire-moves" class="font-bold text-emerald-300 text-sm sm:text-base ml-1">0</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 font-mono">
+                    <div>
+                        <span class="text-[11px] uppercase font-bold text-stone-400">Stock:</span>
+                        <span id="solitaire-stock-count" class="font-bold text-amber-200 text-sm sm:text-base ml-1">24</span>
+                    </div>
+                    <div>
+                        <span class="text-[11px] uppercase font-bold text-stone-400">Waste:</span>
+                        <span id="solitaire-waste-count" class="font-bold text-emerald-200 text-sm sm:text-base ml-1">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grand Velvet Felt Solitaire Board -->
+            <div class="arcade-felt-board rounded-3xl p-3 sm:p-6 border-2 border-emerald-500/40 felt-solitaire shadow-2xl flex-1 flex flex-col justify-between gap-4 sm:gap-6 min-h-[460px]">
+                <!-- Top Row: Stock & Waste on Left, Foundations on Right -->
+                <div class="flex flex-wrap items-center justify-between gap-3 sm:gap-4 shrink-0">
+                    <!-- Stock & Waste Pair -->
+                    <div class="flex items-center gap-2 sm:gap-4">
+                        <div id="solitaire-stock-slot" class="solitaire-slot relative rounded-2xl border-2 border-dashed border-emerald-400/40 hover:border-amber-300 flex items-center justify-center cursor-pointer transition bg-black/40 shadow-inner" title="Click to draw card or recycle waste">
+                            <div id="solitaire-stock-pile" class="w-full h-full flex items-center justify-center">
+                                <!-- Populated dynamically with card back or empty icon -->
+                            </div>
+                        </div>
+                        <div id="solitaire-waste-slot" class="solitaire-slot relative rounded-2xl border-2 border-emerald-500/30 flex items-center justify-center bg-black/25 shadow-inner" title="Waste Pile">
+                            <div id="solitaire-waste-pile" class="w-full h-full flex items-center justify-center">
+                                <!-- Populated dynamically with top waste card -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4 Foundations (Hearts, Diamonds, Clubs, Spades) -->
+                    <div class="flex items-center gap-2 sm:gap-3">
+                        <div id="solitaire-foundation-hearts" data-foundation-suit="hearts" class="solitaire-slot relative rounded-2xl border-2 border-rose-400/30 hover:border-rose-400 flex items-center justify-center bg-black/35 cursor-pointer transition shadow-inner" title="Foundation (Hearts): Ace to King">
+                            <span class="material-symbols-rounded text-2xl text-rose-500/40 select-none">favorite</span>
+                        </div>
+                        <div id="solitaire-foundation-diamonds" data-foundation-suit="diamonds" class="solitaire-slot relative rounded-2xl border-2 border-amber-400/30 hover:border-amber-400 flex items-center justify-center bg-black/35 cursor-pointer transition shadow-inner" title="Foundation (Diamonds): Ace to King">
+                            <span class="material-symbols-rounded text-2xl text-amber-500/40 select-none">diamond</span>
+                        </div>
+                        <div id="solitaire-foundation-clubs" data-foundation-suit="clubs" class="solitaire-slot relative rounded-2xl border-2 border-emerald-400/30 hover:border-emerald-400 flex items-center justify-center bg-black/35 cursor-pointer transition shadow-inner" title="Foundation (Clubs): Ace to King">
+                            <span class="material-symbols-rounded text-2xl text-emerald-400/40 select-none">eco</span>
+                        </div>
+                        <div id="solitaire-foundation-spades" data-foundation-suit="spades" class="solitaire-slot relative rounded-2xl border-2 border-sky-400/30 hover:border-sky-400 flex items-center justify-center bg-black/35 cursor-pointer transition shadow-inner" title="Foundation (Spades): Ace to King">
+                            <span class="material-symbols-rounded text-2xl text-sky-400/40 select-none">shield</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Area: 7 Tableau Columns -->
+                <div class="grid grid-cols-7 gap-1.5 sm:gap-3 flex-1 items-start min-h-[300px]">
+                    <div id="solitaire-tableau-0" data-col-idx="0" class="solitaire-col flex flex-col items-center min-h-[220px] rounded-2xl border border-dashed border-white/10 hover:border-emerald-400/40 transition p-1 bg-black/20"></div>
+                    <div id="solitaire-tableau-1" data-col-idx="1" class="solitaire-col flex flex-col items-center min-h-[220px] rounded-2xl border border-dashed border-white/10 hover:border-emerald-400/40 transition p-1 bg-black/20"></div>
+                    <div id="solitaire-tableau-2" data-col-idx="2" class="solitaire-col flex flex-col items-center min-h-[220px] rounded-2xl border border-dashed border-white/10 hover:border-emerald-400/40 transition p-1 bg-black/20"></div>
+                    <div id="solitaire-tableau-3" data-col-idx="3" class="solitaire-col flex flex-col items-center min-h-[220px] rounded-2xl border border-dashed border-white/10 hover:border-emerald-400/40 transition p-1 bg-black/20"></div>
+                    <div id="solitaire-tableau-4" data-col-idx="4" class="solitaire-col flex flex-col items-center min-h-[220px] rounded-2xl border border-dashed border-white/10 hover:border-emerald-400/40 transition p-1 bg-black/20"></div>
+                    <div id="solitaire-tableau-5" data-col-idx="5" class="solitaire-col flex flex-col items-center min-h-[220px] rounded-2xl border border-dashed border-white/10 hover:border-emerald-400/40 transition p-1 bg-black/20"></div>
+                    <div id="solitaire-tableau-6" data-col-idx="6" class="solitaire-col flex flex-col items-center min-h-[220px] rounded-2xl border border-dashed border-white/10 hover:border-emerald-400/40 transition p-1 bg-black/20"></div>
+                </div>
+
+                <!-- Status Banner -->
+                <div class="max-w-2xl mx-auto w-full">
+                    <div id="solitaire-status-banner" class="p-2 sm:p-3 rounded-2xl bg-black/65 border border-emerald-400/40 text-center text-xs sm:text-sm font-cathedral font-bold text-emerald-200 tracking-wide shadow-lg">
+                        Consecrate the Klondike patience: Build 7 descending alternating columns; ascend Ace to King onto Foundations.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Controls Dock -->
+            <div class="arcade-action-dock grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 shrink-0">
+                <button type="button" id="solitaire-btn-draw" class="py-3 sm:py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-cathedral font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">style</span>
+                    <span>Draw Card</span>
+                </button>
+                <button type="button" id="solitaire-btn-auto-move" class="py-3 sm:py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">bolt</span>
+                    <span>Auto-Foundation</span>
+                </button>
+                <button type="button" id="solitaire-btn-undo" class="py-3 sm:py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">undo</span>
+                    <span>Undo Move</span>
+                </button>
+                <button type="button" id="solitaire-btn-new" class="py-3 sm:py-3.5 rounded-2xl bg-purple-700 hover:bg-purple-600 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95">
+                    <span class="material-symbols-rounded text-base sm:text-lg">refresh</span>
+                    <span>New Game</span>
                 </button>
             </div>
         </main>

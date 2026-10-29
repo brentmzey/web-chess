@@ -77,6 +77,11 @@ export const ARCADE_CLEANUP_COLLECTIONS = [
     sessionCol: 'tbl_set_sessions',
     snapCol: 'tbl_archived_set_snapshots',
     histCol: 'tbl_archived_set_snapshots_history'
+  },
+  {
+    sessionCol: 'tbl_sol_sessions',
+    snapCol: 'tbl_archived_sol_snapshots',
+    histCol: 'tbl_archived_sol_snapshots_history'
   }
 ] as const;
 

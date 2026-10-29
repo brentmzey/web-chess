@@ -17,12 +17,12 @@ describe('ConfigService & Hungarian Master Configuration Tables', () => {
     service = new ConfigService(db);
   });
 
-  it('seeds default canonical configurations for all 8 arcade games and system controls', () => {
+  it('seeds default canonical configurations for all 9 arcade games and system controls', () => {
     const seedResult = service.seedDefaultConfigurations();
     expect(seedResult.isSuccess()).toBe(true);
     const { gamesSeeded, controlsSeeded } = seedResult.getOrThrow();
 
-    expect(gamesSeeded).toBe(8);
+    expect(gamesSeeded).toBe(9);
     expect(controlsSeeded).toBeGreaterThanOrEqual(10);
 
     // Re-seeding without force should not re-insert
@@ -31,7 +31,7 @@ describe('ConfigService & Hungarian Master Configuration Tables', () => {
 
     // Re-seeding with force should re-insert
     const forceSeed = service.seedDefaultConfigurations(true);
-    expect(forceSeed.getOrThrow().gamesSeeded).toBe(8);
+    expect(forceSeed.getOrThrow().gamesSeeded).toBe(9);
   });
 
   it('retrieves and queries arcade games by key and active status', () => {
@@ -50,10 +50,10 @@ describe('ConfigService & Hungarian Master Configuration Tables', () => {
     expect(nonExistent.isNone()).toBe(true);
 
     const allGames = service.getAllArcadeGames(false);
-    expect(allGames.length).toBe(8);
+    expect(allGames.length).toBe(9);
 
     const activeGames = service.getAllArcadeGames(true);
-    expect(activeGames.length).toBe(8);
+    expect(activeGames.length).toBe(9);
   });
 
   it('upserts arcade game configuration, increments version, and logs audit trail', () => {

@@ -114,6 +114,27 @@ describe('ArcadeRealtimeService - Multi-Game Real-Time Seating & Bot Hot-Swappin
     expect(fullRes.isFailure()).toBe(true);
   });
 
+  it('manages Solitaire session as single player with live spectators', () => {
+    const service = new ArcadeRealtimeService();
+    const createRes = service.createSession(ArcadeGameEnum.Solitaire, 'SOL-TEST', 1, 'Solitary Pilgrim');
+    expect(createRes.isSuccess()).toBe(true);
+
+    const session = createRes.getOrThrow();
+    expect(session.game).toBe(ArcadeGameEnum.Solitaire);
+    expect(session.seatManager.getHumanCount()).toBe(1);
+    expect(session.seatManager.getBotCount()).toBe(0);
+
+    // Second participant joins -> becomes spectator!
+    const specJoin = service.joinSession('SOL-TEST', 'usr_spectator_1', 'Friendly Observer');
+    expect(specJoin.isSuccess()).toBe(true);
+    expect(specJoin.getOrThrow().seatNumber).toBe(0);
+
+    // Spectator leaves -> succeeds without disrupting player
+    const specLeave = service.leaveSession('SOL-TEST', 'usr_spectator_1');
+    expect(specLeave.isSuccess()).toBe(true);
+    expect(session.seatManager.getHumanCount()).toBe(1);
+  });
+
   it('subscribes SSE controllers, replays catch-up events, and handles stream drops', () => {
     const service = new ArcadeRealtimeService();
     service.createSession(ArcadeGameEnum.Poker, 'POK-SSE', 6, 'Host');

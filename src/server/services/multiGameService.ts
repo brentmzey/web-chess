@@ -25,6 +25,22 @@ export interface MultiGameSeatRecord {
   updated_at: number;
 }
 
+export interface MultiGameMoveRecord {
+  id: string;
+  session_id: string;
+  seat_number: number;
+  action_type: string;
+  created_at: number;
+}
+
+export interface MultiGameEventRecord {
+  id: string;
+  session_id: string;
+  event_seq: number;
+  event_type: string;
+  created_at: number;
+}
+
 export interface MultiGameSnapshotRecord {
   id: string;
   txt_session_code: string;
@@ -677,11 +693,189 @@ export class MultiGameService {
   }
 
   // ==========================================================================
-  // 8. UNIVERSAL MULTI-GAME STALE SESSION PRUNER (3+ DAYS OLD & do_not_delete = 0)
+  // 8. CATHEDRAL SOLITAIRE OBSERVABILITY & OPERATIONS (tbl_sol_*)
+  // ==========================================================================
+
+  public createSolitaireSession(sessionCode: string,
+                                doNotDelete: boolean = false): Result<MultiGameSessionRecord, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        this.db
+          .prepare(
+            `INSERT INTO tbl_sol_sessions
+             (id, session_code, status, moves_count, score, tableau_json, foundations_json, stock_remaining, waste_remaining, do_not_delete, created_at, updated_at)
+             VALUES (?, ?, 'playing', 0, 0, '[]', '{}', 24, 0, ?, ?, ?)`
+          )
+          .run(id, sessionCode, doNotDelete ? 1 : 0, now, now);
+
+        logger.info(`[SERVER_SIDE] [SOL_TRACE] Created Solitaire session ${sessionCode} (${id})`);
+
+        return {
+          id,
+          session_code: sessionCode,
+          status: 'playing',
+          do_not_delete: doNotDelete ? 1 : 0,
+          created_at: now,
+          updated_at: now
+        };
+      },
+      err => `Failed to create Solitaire session: ${String(err)}`
+    );
+  }
+
+  public registerSolitaireSeat(sessionId: string,
+                               seatNumber: number,
+                               playerId: string,
+                               playerName: string,
+                               isSpectator: boolean = false): Result<MultiGameSeatRecord, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        this.db
+          .prepare(
+            `INSERT OR REPLACE INTO tbl_sol_seats
+             (id, session_id, seat_number, player_id, player_name, is_spectator, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .run(id, sessionId, seatNumber, playerId, playerName, isSpectator ? 1 : 0, now, now);
+
+        logger.info(`[SERVER_SIDE] [SOL_TRACE] Seat ${seatNumber} registered for Solitaire ${sessionId}: ${playerName} (spectator=${isSpectator})`);
+
+        return {
+          id,
+          session_id: sessionId,
+          seat_number: seatNumber,
+          player_id: playerId,
+          player_name: playerName,
+          is_bot: 0,
+          created_at: now,
+          updated_at: now
+        };
+      },
+      err => `Failed to register Solitaire seat: ${String(err)}`
+    );
+  }
+
+  public recordSolitaireMove(sessionId: string,
+                             moveSeq: number,
+                             actionType: string,
+                             sourcePile: string,
+                             targetPile: string,
+                             cardsJson: string): Result<MultiGameMoveRecord, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        this.db
+          .prepare(
+            `INSERT INTO tbl_sol_moves
+             (id, session_id, move_seq, action_type, source_pile, target_pile, cards_json, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .run(id, sessionId, moveSeq, actionType, sourcePile, targetPile, cardsJson, now);
+
+        logger.info(`[SERVER_SIDE] [SOL_TRACE] Move #${moveSeq} (${actionType}) recorded for Solitaire ${sessionId}`);
+
+        return {
+          id,
+          session_id: sessionId,
+          seat_number: 1,
+          action_type: actionType,
+          created_at: now
+        };
+      },
+      err => `Failed to record Solitaire move: ${String(err)}`
+    );
+  }
+
+  public recordSolitaireEvent(sessionId: string,
+                              eventSeq: number,
+                              eventType: string,
+                              payloadJson: string): Result<MultiGameEventRecord, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        this.db
+          .prepare(
+            `INSERT INTO tbl_sol_events
+             (id, session_id, event_seq, event_type, payload_json, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`
+          )
+          .run(id, sessionId, eventSeq, eventType, payloadJson, now);
+
+        logger.info(`[SERVER_SIDE] [SOL_TRACE] Event #${eventSeq} (${eventType}) recorded for Solitaire ${sessionId}`);
+
+        return {
+          id,
+          session_id: sessionId,
+          event_seq: eventSeq,
+          event_type: eventType,
+          created_at: now
+        };
+      },
+      err => `Failed to record Solitaire event: ${String(err)}`
+    );
+  }
+
+  public archiveSolitaireSnapshot(sessionCode: string,
+                                  playerName: string,
+                                  score: number,
+                                  movesCount: number,
+                                  doNotDelete: boolean,
+                                  payloadJson: string): Result<string, string> {
+    return tryCatch(
+      () => {
+        const id = randomUUID();
+        const now = currentEpochMs();
+        this.db
+          .prepare(
+            `INSERT OR REPLACE INTO tbl_archived_sol_snapshots
+             (id, txt_session_code, txt_player_name, int_score, int_moves_count, bln_do_not_delete, json_snapshot_payload, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .run(id, sessionCode, playerName, score, movesCount, doNotDelete ? 1 : 0, payloadJson, now);
+
+        logger.info(`[SERVER_SIDE] [SOL_TRACE] Archived snapshot for ${sessionCode} into tbl_archived_sol_snapshots`);
+        return id;
+      },
+      err => `Failed to archive Solitaire snapshot: ${String(err)}`
+    );
+  }
+
+  public migrateSolitaireSnapshotsToHistory(): Result<number, string> {
+    return tryCatch(
+      () => {
+        const migratedCount = this.db.transaction(() => {
+          const insertStmt = this.db.prepare(
+            `INSERT INTO tbl_archived_sol_snapshots_history
+             (id, txt_session_code, txt_player_name, int_score, int_moves_count, bln_do_not_delete, json_snapshot_payload, created_at)
+             SELECT id, txt_session_code, txt_player_name, int_score, int_moves_count, bln_do_not_delete, json_snapshot_payload, created_at
+             FROM tbl_archived_sol_snapshots`
+          );
+          const deleteStmt = this.db.prepare(`DELETE FROM tbl_archived_sol_snapshots`);
+
+          const result = insertStmt.run();
+          deleteStmt.run();
+          return result.changes;
+        })();
+
+        logger.info(`[SERVER_SIDE] [SOL_TRACE] Migrated ${migratedCount} snapshots to tbl_archived_sol_snapshots_history`);
+        return migratedCount;
+      },
+      err => `Failed to migrate Solitaire snapshots to history: ${String(err)}`
+    );
+  }
+
+  // ==========================================================================
+  // 9. UNIVERSAL MULTI-GAME STALE SESSION PRUNER (3+ DAYS OLD & do_not_delete = 0)
   // ==========================================================================
 
   /**
-   * Sweeps all 7 arcade SQLite game session tables for records that are older than
+   * Sweeps all 8 arcade SQLite game session tables for records that are older than
    * `olderThanDays` (default 3 days) AND have `do_not_delete = 0`.
    * Archives a compact JSON snapshot into the corresponding `tbl_archived_<prefix>_snapshots`
    * table before cascade-deleting the active session and its child seats/moves/events.
@@ -698,7 +892,8 @@ export class MultiGameService {
           phase10: [],
           poker: [],
           skipbo: [],
-          set: []
+          set: [],
+          solitaire: []
         };
 
         const tableConfigs = [
@@ -750,6 +945,13 @@ export class MultiGameService {
             snapshotSql: `INSERT OR REPLACE INTO tbl_archived_set_snapshots
               (id, txt_session_code, txt_winner_name, int_claimed_sets, bln_do_not_delete, json_snapshot_payload, created_at)
               VALUES (?, ?, 'stale_pruned', 0, 0, ?, ?)`
+          },
+          {
+            game: 'solitaire',
+            sessionTable: 'tbl_sol_sessions',
+            snapshotSql: `INSERT OR REPLACE INTO tbl_archived_sol_snapshots
+              (id, txt_session_code, txt_player_name, int_score, int_moves_count, bln_do_not_delete, json_snapshot_payload, created_at)
+              VALUES (?, ?, 'stale_pruned', 0, 0, 0, ?, ?)`
           }
         ] as const;
 

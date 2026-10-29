@@ -128,6 +128,7 @@ export interface UIControllerElements {
   readonly unoModal: Option<HTMLElement>;
   readonly avalonModal: Option<HTMLElement>;
   readonly setModal: Option<HTMLElement>;
+  readonly solitaireModal: Option<HTMLElement>;
   readonly arcadeJoinModal: Option<HTMLElement>;
   readonly arcadeJoinGameTitle: Option<HTMLElement>;
   readonly arcadeJoinGameIcon: Option<HTMLElement>;
@@ -241,6 +242,7 @@ export function buildUIControllerElements(overrides?: Readonly<Partial<UIControl
     unoModal: domById('uno-modal'),
     avalonModal: domById('avalon-modal'),
     setModal: domById('set-modal'),
+    solitaireModal: domById('solitaire-modal'),
     arcadeJoinModal: domById('arcade-join-modal'),
     arcadeJoinGameTitle: domById('arcade-join-game-title'),
     arcadeJoinGameIcon: domById('arcade-join-game-icon'),
@@ -934,6 +936,26 @@ export class UIController {
       .getOrElse(false);
   }
 
+  public showSolitaire(): void {
+    this.el.solitaireModal.map(modal => {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
+  }
+
+  public hideSolitaire(): void {
+    this.el.solitaireModal.map(modal => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
+  }
+
+  public isSolitaireVisible(): boolean {
+    return this.el.solitaireModal
+      .map(modal => !modal.classList.contains('hidden'))
+      .getOrElse(false);
+  }
+
   public showArcadeJoinModal(gameTitle: string,
                              gameIcon: string,
                              sessionCode: string,
@@ -998,6 +1020,7 @@ export class UIController {
     this.hideUno();
     this.hideAvalon();
     this.hideSet();
+    this.hideSolitaire();
   }
 
   public showArcadeRules(gameKey: string,
@@ -1055,7 +1078,8 @@ export class UIController {
       this.isPhase10Visible() ||
       this.isUnoVisible() ||
       this.isAvalonVisible() ||
-      this.isSetVisible()
+      this.isSetVisible() ||
+      this.isSolitaireVisible()
     );
   }
 

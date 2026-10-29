@@ -11,7 +11,7 @@ describe('ConfigClient - Client-Side Database-Driven Dynamic UI Synchronization'
 
   it('initializes with canonical local defaults without needing a remote network call', () => {
     const allGames = client.getAllActiveGames();
-    expect(allGames.length).toBe(8);
+    expect(allGames.length).toBe(9);
 
     const chessConfig = client.getGameConfig(ArcadeGameEnum.Chess);
     expect(chessConfig.isSome()).toBe(true);

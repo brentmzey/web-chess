@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.43] - 2026-10-29
+### Added
+- **Cathedral Solitaire (Klondike Patience) Theater & Game Engine (`src/games/solitaire/solitaireEngine.ts`, `tests/solitaireEngine.test.ts`, `index.html`)**:
+  - Implemented pure functional Cathedral Solitaire engine following canonical Klondike 7-column tableau rules, 4 foundation suit piles, stock draw/recycle, and complete undo stack history.
+  - Added intelligent auto-move to foundations and complete auto-completion with victory detection (`stage: SolitaireStageEnum.Won`).
+  - Added dedicated full-screen High Gothic Solitaire theater (`#solitaire-modal`) featuring velvet felt styling (`felt-solitaire`), stock/waste/foundation/tableau card slots, quick game switcher, and dual live link/code share controls.
+  - Added Live SSE Spectator Mode (`SOL-` prefix) allowing subsequent joiners to spectate real-time Solitaire gameplay live over SSE.
+- **Multi-Game Hungarian SQLite & PocketBase Solitaire Schemas (`src/server/db/multiGameSchema.sql`, `src/server/pocketbase/multiGameSchema.json`, `src/server/services/multiGameService.ts`, `tests/multiGameService.test.ts`)**:
+  - Added Hungarian-prefixed dedicated database tables: `tbl_sol_sessions`, `tbl_sol_seats`, `tbl_sol_moves`, `tbl_sol_events`, `tbl_archived_sol_snapshots`, and `tbl_archived_sol_snapshots_history`.
+  - Added composite cleanup index `idx_sol_cleanup_composite` and integrated Solitaire collections into PocketBase cascade pruner for automated 3+ day stale session maintenance.
+  - Added canonical default configuration seed for Cathedral Solitaire in `src/constants/defaultConfigs.ts` and `src/server/pocketbase/migrator.ts`.
+  - Expanded comprehensive test suite to **443 passing tests across 51 test files** (3,445 assertions, 0 failures, 0 type errors, >98% line/branch coverage).
+
 ## [1.2.0-rc.42] - 2026-10-28
 ### Added
 - **Cathedral Poker Engine Overhaul & Texas Hold'em Lifecycle (`src/games/poker/pokerEngine.ts`, `tests/pokerEngine.test.ts`)**:

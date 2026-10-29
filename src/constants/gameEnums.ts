@@ -57,7 +57,8 @@ export enum ArcadeGameEnum {
   Phase10 = 'phase10',
   Poker = 'poker',
   SkipBo = 'skipbo',
-  Set = 'set'
+  Set = 'set',
+  Solitaire = 'solitaire'
 }
 
 export enum GameCodePrefixEnum {
@@ -68,7 +69,8 @@ export enum GameCodePrefixEnum {
   Phase10 = 'P10-',
   Poker = 'POKER-',
   SkipBo = 'SKIP-',
-  Set = 'SET-'
+  Set = 'SET-',
+  Solitaire = 'SOL-'
 }
 
 export enum AIModelEnum {
@@ -365,8 +367,40 @@ export const REAL_LIFE_GAME_CAPACITIES: Record<ArcadeGameEnum, GameCapacityConfi
     maxPlayers: 20,
     standardTableSeats: 4,
     description: '1 to 20 Players (Official Set Enterprises / Marsha Falco GF(3)^4 Finite Geometry Rules)'
+  },
+  [ArcadeGameEnum.Solitaire]: {
+    game: ArcadeGameEnum.Solitaire,
+    minPlayers: 1,
+    maxPlayers: 1,
+    standardTableSeats: 1,
+    description: '1 Player (Klondike Solitaire) + Unlimited Live Spectators'
   }
 };
+
+export enum SolitaireStageEnum {
+  Playing = 'playing',
+  Won = 'won'
+}
+
+export enum SolitairePileTypeEnum {
+  Stock = 'stock',
+  Waste = 'waste',
+  Foundation = 'foundation',
+  Tableau = 'tableau'
+}
+
+export enum SolitaireActionEnum {
+  Draw = 'draw',
+  MoveWasteToFoundation = 'move_waste_to_foundation',
+  MoveWasteToTableau = 'move_waste_to_tableau',
+  MoveTableauToFoundation = 'move_tableau_to_foundation',
+  MoveTableauToTableau = 'move_tableau_to_tableau',
+  MoveFoundationToTableau = 'move_foundation_to_tableau',
+  AutoMoveToFoundations = 'auto_move_to_foundations',
+  AutoComplete = 'auto_complete',
+  Undo = 'undo',
+  Restart = 'restart'
+}
 
 // ============================================================================
 // SYSTEM CONTROLS & CONFIGURATION ENUMS
@@ -396,7 +430,8 @@ export enum ConfigCategoryEnum {
   CasinoCards = 'casino-cards',
   FamilyCards = 'family-cards',
   PartyDeduction = 'party-deduction',
-  FiniteGeometry = 'finite-geometry'
+  FiniteGeometry = 'finite-geometry',
+  ClassicPatience = 'classic-patience'
 }
 
 export enum ConfigValTypeEnum {

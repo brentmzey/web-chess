@@ -53,8 +53,10 @@ export class ArcadeRealtimeService {
           : capacity.standardTableSeats;
 
         const seatManager = new TableSeatManager(maxSeats, capacity.minPlayers);
-        // Fill table with bots initially
-        seatManager.fillEmptySeatsWithBots('micro-neural', `${game.toUpperCase()}_Bot`);
+        // Fill table with bots initially for multiplayer games
+        if (game !== ArcadeGameEnum.Solitaire) {
+          seatManager.fillEmptySeatsWithBots('micro-neural', `${game.toUpperCase()}_Bot`);
+        }
 
         // Creator claims seat 1
         const creatorId = 'host_' + randomUUID().slice(0, 8);
@@ -96,6 +98,21 @@ export class ArcadeRealtimeService {
     }
 
     const session = sessionOpt.getOrThrow();
+
+    if (session.game === ArcadeGameEnum.Solitaire) {
+      const seat1 = session.seatManager.getSeat(1);
+      if (seat1.isSome() && !seat1.getOrThrow().isBot && seat1.getOrThrow().playerId !== participantId) {
+        // Solitaire: single active player table, subsequent joiners join as spectators
+        this.broadcast(sessionCode, 'spectator_joined', participantId, {
+          participantId,
+          displayName,
+          isSpectator: true,
+          totalHumans: session.seatManager.getHumanCount()
+        });
+        return success({ seatNumber: 0, session });
+      }
+    }
+
     const claimRes = session.seatManager.claimAnyAvailableSeat(participantId, displayName);
     if (!claimRes.isSuccess()) {
       return claimRes.match({
@@ -129,6 +146,12 @@ export class ArcadeRealtimeService {
     const userSeat = occupied.find((s: { playerId: string | null }) => s.playerId === participantId);
 
     if (!userSeat) {
+      if (session.game === ArcadeGameEnum.Solitaire) {
+        this.broadcast(sessionCode, 'spectator_left', participantId, {
+          participantId
+        });
+        return success(`Spectator '${participantId}' left the table.`);
+      }
       return failure(`Participant '${participantId}' not found at table.`);
     }
 

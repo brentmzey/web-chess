@@ -132,5 +132,21 @@ export const ARCADE_GAME_RULES: Readonly<Record<string, GameRuleInfo>> = Object.
     ],
     officialUrl: 'https://en.wikipedia.org/wiki/Set_(card_game)',
     urlLabel: 'Official SET Game Rules & Mathematical Theory (Wikipedia)'
+  },
+  solitaire: {
+    id: 'solitaire',
+    title: 'Cathedral Solitaire',
+    realLifeName: 'Klondike Solitaire (Patience)',
+    objective: 'Transfer all 52 cards onto the 4 Foundation piles in ascending sequence from Ace to King by suit.',
+    summary: 'The timeless single-player card game of patience and tactical cascade arrangement with live multiplayer spectator tables.',
+    keyRules: [
+      'Build 7 Tableau columns in descending value (King down to 2) with strictly alternating colors (Red on Black, Black on Red).',
+      'The 4 Foundations build upwards in suit from Ace to King (Ace -> 2 -> 3 ... King).',
+      'Draw cards from the Stock pile into the Waste pile when you need more options. When the Stock is exhausted, recycle the Waste back into the Stock.',
+      'Only Kings (or card stacks led by a King) may be placed into empty Tableau spaces.',
+      'Live multiplayer spectator mode enables friends to watch the match in real time over SSE without interfering.'
+    ],
+    officialUrl: 'https://en.wikipedia.org/wiki/Klondike_(solitaire)',
+    urlLabel: 'Official Klondike Solitaire Rules (Wikipedia)'
   }
 });

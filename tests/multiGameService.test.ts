@@ -211,7 +211,47 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
     expect(histCount.count).toBe(1);
   });
 
-  it('prunes all stale 3+ day old sessions across all 7 arcade games while strictly preserving do_not_delete = 1 and fresh games', () => {
+  it('manages Cathedral Solitaire sessions, seats, moves, events, snapshots and history partitions', () => {
+    const db = initDb();
+    const service = new MultiGameService(db);
+
+    const solRes = service.createSolitaireSession('SOL-ALPHA', false);
+    expect(solRes.isSuccess()).toBe(true);
+    const session = solRes.getOrThrow();
+    expect(session.session_code).toBe('SOL-ALPHA');
+
+    const seat1 = service.registerSolitaireSeat(session.id, 1, 'usr_p1', 'Alice', false);
+    expect(seat1.isSuccess()).toBe(true);
+    const specSeat = service.registerSolitaireSeat(session.id, 2, 'usr_spec', 'Bob (Observer)', true);
+    expect(specSeat.isSuccess()).toBe(true);
+
+    const moveRes = service.recordSolitaireMove(
+      session.id,
+      1,
+      'draw',
+      'stock',
+      'waste',
+      JSON.stringify([{ suit: 'hearts', value: 'A' }])
+    );
+    expect(moveRes.isSuccess()).toBe(true);
+
+    const eventRes = service.recordSolitaireEvent(session.id, 1, 'spectator_joined', JSON.stringify({ spectator: 'Bob' }));
+    expect(eventRes.isSuccess()).toBe(true);
+
+    const snapRes = service.archiveSolitaireSnapshot('SOL-ALPHA', 'Alice', 150, 24, true, '{}');
+    expect(snapRes.isSuccess()).toBe(true);
+
+    const migrateRes = service.migrateSolitaireSnapshotsToHistory();
+    expect(migrateRes.isSuccess()).toBe(true);
+    expect(migrateRes.getOrThrow()).toBe(1);
+
+    const histCount = db.query('SELECT COUNT(*) as count FROM tbl_archived_sol_snapshots_history').get() as {
+      count: number;
+    };
+    expect(histCount.count).toBe(1);
+  });
+
+  it('prunes all stale 3+ day old sessions across all 8 arcade games while strictly preserving do_not_delete = 1 and fresh games', () => {
     const db = initDb();
     const service = new MultiGameService(db);
     const now = Date.now();
@@ -232,6 +272,8 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
     service.createSkipBoSession('SKIP-STALE', 15, false);
     service.createSetSession('SET-STALE', false);
     service.createSetSession('SET-PINNED', true);
+    service.createSolitaireSession('SOL-STALE', false);
+    service.createSolitaireSession('SOL-PINNED', true);
 
     // Backdate the STALE and PINNED sessions to 4 days ago, and FRESH to 1 day ago
     const tables = [
@@ -241,7 +283,8 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
       'tbl_p10_sessions',
       'tbl_pok_sessions',
       'tbl_skp_sessions',
-      'tbl_set_sessions'
+      'tbl_set_sessions',
+      'tbl_sol_sessions'
     ];
     for (const tbl of tables) {
       db.prepare(`UPDATE ${tbl} SET updated_at = ? WHERE session_code LIKE '%-STALE' OR session_code LIKE '%-PINNED'`).run(fourDaysAgo);
@@ -252,8 +295,8 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
     expect(pruneRes.isSuccess()).toBe(true);
     const report = pruneRes.getOrThrow();
 
-    // Exactly 7 stale unpinned sessions (1 per game) should be pruned
-    expect(report.totalPruned).toBe(7);
+    // Exactly 8 stale unpinned sessions (1 per game) should be pruned
+    expect(report.totalPruned).toBe(8);
     expect(report.prunedByGame.blackjack).toEqual(['BJK-STALE']);
     expect(report.prunedByGame.avalon).toEqual(['AVALON-STALE']);
     expect(report.prunedByGame.uno).toEqual(['UNO-STALE']);
@@ -261,6 +304,7 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
     expect(report.prunedByGame.poker).toEqual(['POKER-STALE']);
     expect(report.prunedByGame.skipbo).toEqual(['SKIP-STALE']);
     expect(report.prunedByGame.set).toEqual(['SET-STALE']);
+    expect(report.prunedByGame.solitaire).toEqual(['SOL-STALE']);
 
     // Verify BJK-PINNED and BJK-FRESH remain in tbl_bjk_sessions
     const remainingBjk = db.query('SELECT session_code FROM tbl_bjk_sessions ORDER BY session_code').all() as Array<{ session_code: string }>;
@@ -272,5 +316,11 @@ describe('MultiGameService - Dedicated Tables, Logging/Tracing & History Partiti
 
     const archivedSet = db.query('SELECT txt_session_code FROM tbl_archived_set_snapshots').all() as Array<{ txt_session_code: string }>;
     expect(archivedSet.map(r => r.txt_session_code)).toEqual(['SET-STALE']);
+
+    const remainingSol = db.query('SELECT session_code FROM tbl_sol_sessions').all() as Array<{ session_code: string }>;
+    expect(remainingSol.map(r => r.session_code)).toEqual(['SOL-PINNED']);
+
+    const archivedSol = db.query('SELECT txt_session_code FROM tbl_archived_sol_snapshots').all() as Array<{ txt_session_code: string }>;
+    expect(archivedSol.map(r => r.txt_session_code)).toEqual(['SOL-STALE']);
   });
 });

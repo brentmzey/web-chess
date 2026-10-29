@@ -72,7 +72,8 @@ import {
   BlackjackEngine,
   formatBlackjackAdditiveCount,
   type BlackjackAIModel,
-  type BlackjackDifficulty
+  type BlackjackDifficulty,
+  type PlayingCard
 } from './games/blackjack/blackjackEngine';
 import {
   BlackjackMultiSeatEngine
@@ -104,16 +105,21 @@ import {
   SetEngine,
   type SetCard
 } from './games/set/setEngine';
+import {
+  CathedralSolitaireEngine
+} from './games/solitaire/solitaireEngine';
 import { ArcadeRealtimeClient } from './realtime/arcadeRealtimeClient';
 import {
   ArcadeGameEnum,
+  CardSuitEnum,
   SystemControlKeyEnum,
   GameCodePrefixEnum,
   PokerVariantEnum,
   PokerActionEnum,
   PokerStageEnum,
   SkipBoSourcePileEnum,
-  SkipBoCardTypeEnum
+  SkipBoCardTypeEnum,
+  SolitaireStageEnum
 } from './constants/gameEnums';
 import {
   ARCADE_GAMES,
@@ -2512,6 +2518,9 @@ function main(): void {
     } else if (targetGame === 'set') {
       renderSetTable();
       ui.showSet();
+    } else if (targetGame === 'solitaire') {
+      renderSolitaireBoard();
+      ui.showSolitaire();
     }
   };
 
@@ -2582,6 +2591,11 @@ function main(): void {
       setSetMode(true);
       renderSetTable();
       ui.showSet();
+    } else if (game === 'solitaire') {
+      solitaireLiveCode = code;
+      setSolitaireMode(true, !isLocalPlayerHost);
+      renderSolitaireBoard();
+      ui.showSolitaire();
     }
   };
 
@@ -4622,6 +4636,428 @@ function main(): void {
     })
   );
 
+  // --- Cathedral Solitaire Mode & Game State ---
+  let solitaireEngine = new CathedralSolitaireEngine();
+  let solitaireLiveCode = generateArcadeCode(GameCodePrefixEnum.Solitaire);
+  let solitaireIsLive = false;
+  let solitaireIsSpectator = false;
+  let selectedSolitaireCard: Option<{ source: 'waste' | 'tableau'; colIdx?: number; cardIdx?: number }> = none();
+
+  const setSolitaireMode = (isLive: boolean,
+                            asSpectator: boolean = false): void => {
+    solitaireIsLive = isLive;
+    solitaireIsSpectator = asSpectator;
+
+    fromNullable(document.getElementById('solitaire-live-session-info')).map(el => {
+      el.classList.toggle('hidden', !isLive);
+      el.classList.toggle('flex', isLive);
+    });
+
+    fromNullable(document.getElementById('solitaire-live-code')).map(el => {
+      el.textContent = solitaireLiveCode;
+    });
+
+    fromNullable(document.getElementById('solitaire-spectator-banner')).map(el => {
+      el.classList.toggle('hidden', !solitaireIsSpectator);
+      el.classList.toggle('flex', solitaireIsSpectator);
+    });
+
+    domById('solitaire-tab-ai').map(btn => {
+      btn.className = !isLive
+        ? 'px-3 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px] transition'
+        : 'px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-emerald-300 font-bold text-[11px] transition';
+    });
+
+    domById('solitaire-tab-live').map(btn => {
+      btn.className = isLive
+        ? 'px-3 py-1 rounded-xl bg-emerald-600 text-stone-950 font-bold text-[11px] transition'
+        : 'px-3 py-1 rounded-xl bg-transparent hover:bg-white/10 text-emerald-300 font-bold text-[11px] transition';
+    });
+
+    if (isLive) {
+      setupArcadeRealtimeSession(
+        ArcadeGameEnum.Solitaire,
+        solitaireLiveCode,
+        asSpectator ? 'Spectator Observer' : verifiedPlayerName.getOrElse('Solitary Pilgrim'),
+        (actionType, payload) => {
+          if (actionType === 'solitaire_state_update' && payload) {
+            solitaireEngine.importSnapshot(payload);
+            renderSolitaireBoard();
+          }
+        }
+      );
+    } else {
+      disconnectActiveArcade();
+    }
+  };
+
+  const broadcastSolitaireIfLive = (): void => {
+    if (solitaireIsLive && activeArcadeClient && !solitaireIsSpectator) {
+      void activeArcadeClient.sendAction('solitaire_state_update', solitaireEngine.exportSnapshot() as any);
+    }
+  };
+
+  const renderSolitaireCardHtml = (card: PlayingCard,
+                                   isSelected: boolean = false): string => {
+    if (!card.faceUp) {
+      return `
+        <div class="playing-card-ui bg-gradient-to-br from-emerald-950 via-stone-900 to-emerald-950 text-emerald-300 border-emerald-500/60 shadow-xl items-center justify-center font-cathedral text-3xl select-none">
+          🂠
+        </div>
+      `;
+    }
+    const isRed = ['hearts', 'diamonds'].includes(card.suit);
+    const suitSymbol = card.suit === 'hearts' ? '♥' : card.suit === 'diamonds' ? '♦' : card.suit === 'clubs' ? '♣' : '♠';
+    return `
+      <div class="playing-card-ui ${isSelected ? 'ring-4 ring-amber-300 scale-105' : ''} ${
+        isRed
+          ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-red-600 border-red-400/70 shadow-xl'
+          : 'bg-gradient-to-b from-stone-50 to-stone-200 text-stone-900 border-stone-400/70 shadow-xl'
+      } cursor-pointer transition select-none">
+        <div class="playing-card-corner">
+          <span>${card.value}</span>
+          <span>${suitSymbol}</span>
+        </div>
+        <div class="playing-card-center">${suitSymbol}</div>
+        <div class="playing-card-corner rotate-180">
+          <span>${card.value}</span>
+          <span>${suitSymbol}</span>
+        </div>
+      </div>
+    `;
+  };
+
+  const renderSolitaireBoard = (): void => {
+    const s = solitaireEngine.state;
+
+    // 1. HUD stats
+    fromNullable(document.getElementById('solitaire-score')).map(el => {
+      el.textContent = String(s.score);
+    });
+    fromNullable(document.getElementById('solitaire-moves')).map(el => {
+      el.textContent = String(s.movesCount);
+    });
+    fromNullable(document.getElementById('solitaire-stock-count')).map(el => {
+      el.textContent = String(s.stock.length);
+    });
+    fromNullable(document.getElementById('solitaire-waste-count')).map(el => {
+      el.textContent = String(s.waste.length);
+    });
+    fromNullable(document.getElementById('solitaire-status-banner')).map(el => {
+      if (s.stage === SolitaireStageEnum.Won) {
+        el.textContent = '🎉 Cathedral Solitaire Victory Consecrated! All 52 cards assembled!';
+        el.className = 'p-2 sm:p-3 rounded-2xl bg-amber-500 text-stone-950 text-center text-xs sm:text-sm font-cathedral font-bold tracking-wide shadow-lg animate-bounce';
+      } else {
+        el.textContent = s.historyText[s.historyText.length - 1] || 'Klondike patience: Build columns down alternating; ascend Ace to King onto Foundations.';
+        el.className = 'p-2 sm:p-3 rounded-2xl bg-black/65 border border-emerald-400/40 text-center text-xs sm:text-sm font-cathedral font-bold text-emerald-200 tracking-wide shadow-lg';
+      }
+    });
+
+    // 2. Stock Pile
+    fromNullable(document.getElementById('solitaire-stock-pile')).map(el => {
+      if (s.stock.length > 0) {
+        el.innerHTML = `
+          <div class="playing-card-ui bg-gradient-to-br from-emerald-950 via-stone-900 to-emerald-950 text-emerald-300 border-emerald-500/60 shadow-xl items-center justify-center font-cathedral text-3xl select-none">
+            🂠
+          </div>
+        `;
+      } else {
+        el.innerHTML = `
+          <span class="material-symbols-rounded text-2xl text-emerald-400/50 hover:text-emerald-300 transition" title="Recycle waste back into stock">refresh</span>
+        `;
+      }
+    });
+
+    // 3. Waste Pile
+    fromNullable(document.getElementById('solitaire-waste-pile')).map(el => {
+      if (s.waste.length > 0) {
+        const topCard = s.waste[s.waste.length - 1]!;
+        const isSelected = selectedSolitaireCard.map(sel => sel.source === 'waste').getOrElse(false);
+        el.innerHTML = renderSolitaireCardHtml(topCard, isSelected);
+      } else {
+        el.innerHTML = '';
+      }
+    });
+
+    // 4. Foundations
+    const suits = [CardSuitEnum.Hearts, CardSuitEnum.Diamonds, CardSuitEnum.Clubs, CardSuitEnum.Spades];
+    suits.forEach(suit => {
+      fromNullable(document.getElementById(`solitaire-foundation-${suit}`)).map(el => {
+        const pile = s.foundations[suit];
+        if (pile.length > 0) {
+          const topCard = pile[pile.length - 1]!;
+          el.innerHTML = renderSolitaireCardHtml(topCard);
+        } else {
+          const icon = suit === 'hearts' ? 'favorite' : suit === 'diamonds' ? 'diamond' : suit === 'clubs' ? 'eco' : 'shield';
+          const color = suit === 'hearts' ? 'text-rose-500/40' : suit === 'diamonds' ? 'text-amber-500/40' : suit === 'clubs' ? 'text-emerald-400/40' : 'text-sky-400/40';
+          el.innerHTML = `<span class="material-symbols-rounded text-2xl ${color} select-none">${icon}</span>`;
+        }
+      });
+    });
+
+    // 5. Tableau Columns
+    for (let colIdx = 0; colIdx < 7; colIdx++) {
+      fromNullable(document.getElementById(`solitaire-tableau-${colIdx}`)).map(el => {
+        const column = s.tableau[colIdx]!;
+        if (column.length === 0) {
+          el.innerHTML = `
+            <div class="solitaire-slot border-2 border-dashed border-white/10 hover:border-emerald-400/40 rounded-2xl flex items-center justify-center text-stone-500 text-xs font-mono select-none" title="Empty Tableau slot (Accepts King)">
+              K
+            </div>
+          `;
+        } else {
+          el.innerHTML = column
+            .map((card, cardIdx) => {
+              const isSelected = selectedSolitaireCard
+                .map(sel => sel.source === 'tableau' && sel.colIdx === colIdx && typeof sel.cardIdx === 'number' && cardIdx >= sel.cardIdx)
+                .getOrElse(false);
+              const cardHtml = renderSolitaireCardHtml(card, isSelected);
+              const marginTop = cardIdx === 0 ? '0' : '-5.5rem';
+              return `
+                <div data-col="${colIdx}" data-idx="${cardIdx}" style="margin-top: ${marginTop}; z-index: ${cardIdx + 1}; position: relative;" class="solitaire-tableau-card">
+                  ${cardHtml}
+                </div>
+              `;
+            })
+            .join('');
+        }
+      });
+    }
+  };
+
+  // Solitaire Interaction Event Listeners
+  fromNullable(document.getElementById('solitaire-stock-slot')).map(slot =>
+    slot.addEventListener('click', () => {
+      if (solitaireIsSpectator) {
+        ui.showTemporaryBanner('Spectator Mode: You are observing this match.', 2000);
+        return;
+      }
+      solitaireEngine.drawFromStock(1);
+      selectedSolitaireCard = none();
+      soundFX.playStoneSlide(0.25);
+      broadcastSolitaireIfLive();
+      renderSolitaireBoard();
+    })
+  );
+
+  fromNullable(document.getElementById('solitaire-waste-slot')).map(slot =>
+    slot.addEventListener('click', () => {
+      if (solitaireIsSpectator) return;
+      if (solitaireEngine.state.waste.length === 0) return;
+
+      selectedSolitaireCard = selectedSolitaireCard.match({
+        Some: sel => (sel.source === 'waste' ? none() : some({ source: 'waste' as const })),
+        None: () => some({ source: 'waste' as const })
+      });
+      soundFX.playSelect();
+      renderSolitaireBoard();
+    })
+  );
+
+  const suitsArr = [CardSuitEnum.Hearts, CardSuitEnum.Diamonds, CardSuitEnum.Clubs, CardSuitEnum.Spades];
+  suitsArr.forEach(suit => {
+    fromNullable(document.getElementById(`solitaire-foundation-${suit}`)).map(el =>
+      el.addEventListener('click', () => {
+        if (solitaireIsSpectator) return;
+        selectedSolitaireCard.map(sel => {
+          if (sel.source === 'waste') {
+            const res = solitaireEngine.moveWasteToFoundation(suit);
+            if (res.isSuccess()) {
+              selectedSolitaireCard = none();
+              soundFX.playSelect();
+              broadcastSolitaireIfLive();
+              renderSolitaireBoard();
+            }
+          } else if (sel.source === 'tableau' && typeof sel.colIdx === 'number') {
+            const res = solitaireEngine.moveTableauToFoundation(sel.colIdx, suit);
+            if (res.isSuccess()) {
+              selectedSolitaireCard = none();
+              soundFX.playSelect();
+              broadcastSolitaireIfLive();
+              renderSolitaireBoard();
+            }
+          }
+        });
+      })
+    );
+  });
+
+  for (let cIdx = 0; cIdx < 7; cIdx++) {
+    const colIdx = cIdx;
+    fromNullable(document.getElementById(`solitaire-tableau-${colIdx}`)).map(colEl =>
+      colEl.addEventListener('click', (e: MouseEvent) => {
+        if (solitaireIsSpectator) return;
+        const target = e.target as HTMLElement;
+        const cardWrapper = target.closest('[data-idx]') as HTMLElement | null;
+
+        if (cardWrapper && cardWrapper.dataset.idx !== undefined) {
+          const cardIdx = Number(cardWrapper.dataset.idx);
+          const clickedCard = solitaireEngine.state.tableau[colIdx]![cardIdx]!;
+
+          selectedSolitaireCard.match({
+            Some: sel => {
+              // Try move onto this column
+              if (sel.source === 'waste') {
+                const res = solitaireEngine.moveWasteToTableau(colIdx);
+                if (res.isSuccess()) {
+                  selectedSolitaireCard = none();
+                  soundFX.playStoneSlide(0.25);
+                  broadcastSolitaireIfLive();
+                  renderSolitaireBoard();
+                  return;
+                }
+              } else if (sel.source === 'tableau' && typeof sel.colIdx === 'number' && typeof sel.cardIdx === 'number') {
+                const res = solitaireEngine.moveTableauToTableau(sel.colIdx, sel.cardIdx, colIdx);
+                if (res.isSuccess()) {
+                  selectedSolitaireCard = none();
+                  soundFX.playStoneSlide(0.25);
+                  broadcastSolitaireIfLive();
+                  renderSolitaireBoard();
+                  return;
+                }
+              }
+              // If move was not possible or invalid, select clicked card if face-up
+              if (clickedCard.faceUp) {
+                if (sel.source === 'tableau' && sel.colIdx === colIdx && sel.cardIdx === cardIdx) {
+                  selectedSolitaireCard = none();
+                } else {
+                  selectedSolitaireCard = some({ source: 'tableau' as const, colIdx, cardIdx });
+                }
+                soundFX.playSelect();
+                renderSolitaireBoard();
+              }
+            },
+            None: () => {
+              if (clickedCard.faceUp) {
+                selectedSolitaireCard = some({ source: 'tableau' as const, colIdx, cardIdx });
+                soundFX.playSelect();
+                renderSolitaireBoard();
+              }
+            }
+          });
+        } else {
+          // Empty column clicked: check if we have a King to move here
+          selectedSolitaireCard.map(sel => {
+            if (sel.source === 'waste') {
+              const res = solitaireEngine.moveWasteToTableau(colIdx);
+              if (res.isSuccess()) {
+                selectedSolitaireCard = none();
+                soundFX.playStoneSlide(0.25);
+                broadcastSolitaireIfLive();
+                renderSolitaireBoard();
+              }
+            } else if (sel.source === 'tableau' && typeof sel.colIdx === 'number' && typeof sel.cardIdx === 'number') {
+              const res = solitaireEngine.moveTableauToTableau(sel.colIdx, sel.cardIdx, colIdx);
+              if (res.isSuccess()) {
+                selectedSolitaireCard = none();
+                soundFX.playStoneSlide(0.25);
+                broadcastSolitaireIfLive();
+                renderSolitaireBoard();
+              }
+            }
+          });
+        }
+      })
+    );
+  }
+
+  fromNullable(document.getElementById('solitaire-btn-draw')).map(btn =>
+    btn.addEventListener('click', () => {
+      if (solitaireIsSpectator) return;
+      solitaireEngine.drawFromStock(1);
+      selectedSolitaireCard = none();
+      soundFX.playStoneSlide(0.25);
+      broadcastSolitaireIfLive();
+      renderSolitaireBoard();
+    })
+  );
+
+  fromNullable(document.getElementById('solitaire-btn-auto-move')).map(btn =>
+    btn.addEventListener('click', () => {
+      if (solitaireIsSpectator) return;
+      const res = solitaireEngine.autoMoveToFoundations();
+      if (res.isSuccess() && res.getOrThrow().movedCount > 0) {
+        soundFX.playSelect();
+        broadcastSolitaireIfLive();
+        renderSolitaireBoard();
+      } else {
+        ui.showTemporaryBanner('No eligible cards for Foundation at this moment.', 2000);
+      }
+    })
+  );
+
+  fromNullable(document.getElementById('solitaire-btn-undo')).map(btn =>
+    btn.addEventListener('click', () => {
+      if (solitaireIsSpectator) return;
+      const res = solitaireEngine.undo();
+      if (res.isSuccess()) {
+        selectedSolitaireCard = none();
+        soundFX.playSelect();
+        broadcastSolitaireIfLive();
+        renderSolitaireBoard();
+      } else {
+        ui.showTemporaryBanner('No moves to undo.', 2000);
+      }
+    })
+  );
+
+  fromNullable(document.getElementById('solitaire-btn-new')).map(btn =>
+    btn.addEventListener('click', () => {
+      if (solitaireIsSpectator) return;
+      solitaireEngine.restartGame();
+      selectedSolitaireCard = none();
+      soundFX.playSelect();
+      broadcastSolitaireIfLive();
+      renderSolitaireBoard();
+    })
+  );
+
+  fromNullable(document.getElementById('btn-solitaire-rules')).map(btn =>
+    btn.addEventListener('click', () => ui.showArcadeRules('solitaire'))
+  );
+
+  fromNullable(document.getElementById('btn-close-solitaire')).map(btn =>
+    btn.addEventListener('click', () => {
+      disconnectActiveArcade();
+      ui.hideSolitaire();
+    })
+  );
+
+  fromNullable(document.getElementById('btn-close-solitaire-x')).map(btn =>
+    btn.addEventListener('click', () => {
+      disconnectActiveArcade();
+      ui.hideSolitaire();
+    })
+  );
+
+  fromNullable(document.getElementById('btn-solitaire-copy-link')).map(btn =>
+    btn.addEventListener('click', () => copyArcadeMatchLink(solitaireLiveCode, btn, 'Cathedral Solitaire'))
+  );
+
+  fromNullable(document.getElementById('btn-solitaire-copy-code')).map(btn =>
+    btn.addEventListener('click', () => copyArcadeMatchCode(solitaireLiveCode, btn, 'Cathedral Solitaire'))
+  );
+
+  fromNullable(document.getElementById('solitaire-live-code')).map(el =>
+    el.addEventListener('click', () => copyArcadeMatchCode(solitaireLiveCode, null, 'Cathedral Solitaire'))
+  );
+
+  fromNullable(document.getElementById('solitaire-tab-ai')).map(btn =>
+    btn.addEventListener('click', () => {
+      setSolitaireMode(false);
+      renderSolitaireBoard();
+    })
+  );
+
+  fromNullable(document.getElementById('solitaire-tab-live')).map(btn =>
+    btn.addEventListener('click', () => {
+      isLocalPlayerHost = true;
+      solitaireLiveCode = generateArcadeCode(GameCodePrefixEnum.Solitaire);
+      setSolitaireMode(true, false);
+      renderSolitaireBoard();
+    })
+  );
+
   // Arcade Hub Dual Buttons (Play vs AI & Play Live)
   document.querySelectorAll('[data-game-ai]').forEach(btn => {
     btn.addEventListener('click', (e: Event) => {
@@ -4667,6 +5103,11 @@ function main(): void {
         setSetMode(false);
         renderSetTable();
         ui.showSet();
+      } else if (targetGame === 'solitaire') {
+        ui.hideArcadeHub();
+        setSolitaireMode(false);
+        renderSolitaireBoard();
+        ui.showSolitaire();
       } else if (targetGame && targetGame in ARCADE_GAMES) {
         const gameMeta = ARCADE_GAMES[targetGame];
         ui.setHubQuickJoinFeedback(
@@ -4722,6 +5163,11 @@ function main(): void {
         setSetMode(true);
         renderSetTable();
         ui.showSet();
+      } else if (targetGame === 'solitaire') {
+        ui.hideArcadeHub();
+        setSolitaireMode(true, false);
+        renderSolitaireBoard();
+        ui.showSolitaire();
       } else if (targetGame && targetGame in ARCADE_GAMES) {
         const gameMeta = ARCADE_GAMES[targetGame];
         ui.setHubQuickJoinFeedback(

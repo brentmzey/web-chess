@@ -10,6 +10,7 @@ export type ArcadeGameType =
   | 'poker'
   | 'skipbo'
   | 'set'
+  | 'solitaire'
   | ArcadeGameEnum;
 
 export interface ArcadeGameMetadata {
@@ -121,6 +122,18 @@ export const ARCADE_GAMES: Record<string, ArcadeGameMetadata> = {
     badgeText: 'Live & Playable',
     isAvailable: true,
     phaseNumber: 8
+  },
+  [ArcadeGameEnum.Solitaire]: {
+    id: ArcadeGameEnum.Solitaire,
+    title: 'Cathedral Solitaire',
+    tagline: 'Classic Klondike patience with 7 tableau columns, 4 foundations, and real-time live spectator tables.',
+    codePrefix: GameCodePrefixEnum.Solitaire,
+    minPlayers: 1,
+    maxPlayers: 1,
+    icon: 'splitscreen',
+    badgeText: 'Live & Playable',
+    isAvailable: true,
+    phaseNumber: 9
   }
 };
 
@@ -132,7 +145,7 @@ export interface RouteResolution {
 }
 
 /**
- * Detects the game type from a session code prefix (e.g. SANCT-, BJK-, AVALON-, UNO-, P10-, POKER-, SKIP-, SET-).
+ * Detects the game type from a session code prefix (e.g. SANCT-, BJK-, AVALON-, UNO-, P10-, POKER-, SKIP-, SET-, SOL-).
  */
 export function detectGameFromSessionCode(code: string): ArcadeGameType {
   const normalized = code.trim().toUpperCase();
@@ -144,6 +157,7 @@ export function detectGameFromSessionCode(code: string): ArcadeGameType {
   if (normalized.startsWith(GameCodePrefixEnum.Poker)) return ArcadeGameEnum.Poker;
   if (normalized.startsWith(GameCodePrefixEnum.SkipBo)) return ArcadeGameEnum.SkipBo;
   if (normalized.startsWith(GameCodePrefixEnum.Set)) return ArcadeGameEnum.Set;
+  if (normalized.startsWith(GameCodePrefixEnum.Solitaire)) return ArcadeGameEnum.Solitaire;
 
   // Default fallback for legacy or custom session codes
   return ArcadeGameEnum.Chess;

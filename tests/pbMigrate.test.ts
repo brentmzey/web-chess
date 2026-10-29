@@ -39,7 +39,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password');
     expect(res.success).toBe(true);
-    expect(res.applied.length).toBe(36);
+    expect(res.applied.length).toBe(39);
     expect(res.errors.length).toBe(0);
   });
 
@@ -134,13 +134,14 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password', true);
     expect(res.success).toBe(true);
-    // 36 collections created + 8 games seeded + 11 controls seeded = 55
-    expect(res.applied.length).toBe(55);
+    // 39 collections created + 9 games seeded + 11 controls seeded = 59
+    expect(res.applied.length).toBe(59);
     expect(res.applied).toContain('seeded: chess');
     expect(res.applied).toContain('seeded: blackjack');
+    expect(res.applied).toContain('seeded: solitaire');
     expect(res.applied).toContain('seeded: ui.app_title');
     expect(res.applied).toContain('seeded: system.wake_lock_default');
-    expect(seededEndpoints.length).toBe(19);
+    expect(seededEndpoints.length).toBe(20);
   });
 
   it('handles seed network exceptions and failed record creation gracefully', async () => {
@@ -164,7 +165,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const resFailRecord = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'pass', true);
     expect(resFailRecord.success).toBe(true);
-    expect(resFailRecord.applied.length).toBe(36); // Only collections, no seeded records added
+    expect(resFailRecord.applied.length).toBe(39); // Only collections, no seeded records added
 
     // 2. Network error during seed check triggers catch (seedErr)
     globalThis.fetch = mock(async (url: any) => {
@@ -183,6 +184,6 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const resThrow = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'pass', true);
     expect(resThrow.success).toBe(true);
-    expect(resThrow.applied.length).toBe(36);
+    expect(resThrow.applied.length).toBe(39);
   });
 });

@@ -607,7 +607,101 @@ CREATE INDEX IF NOT EXISTS idx_hist_snap_set_code ON tbl_archived_set_snapshots_
 CREATE INDEX IF NOT EXISTS idx_hist_snap_set_created ON tbl_archived_set_snapshots_history (created_at);
 
 -- ============================================================================
--- 8. COMPOSITE CLEANUP & ARCHIVAL INDEXES FOR ALL LIVE ARCADE GAMES
+-- 8. CATHEDRAL SOLITAIRE TABLES (KLONDIKE PATIENCE & SPECTATOR OBSERVABILITY)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tbl_sol_sessions (
+    id TEXT PRIMARY KEY,
+    session_code TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL CHECK (status IN ('playing', 'won', 'abandoned')),
+    moves_count INTEGER NOT NULL DEFAULT 0,
+    score INTEGER NOT NULL DEFAULT 0,
+    tableau_json TEXT NOT NULL,
+    foundations_json TEXT NOT NULL,
+    stock_remaining INTEGER NOT NULL DEFAULT 24,
+    waste_remaining INTEGER NOT NULL DEFAULT 0,
+    winner_name TEXT,
+    do_not_delete INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sol_session_code ON tbl_sol_sessions (session_code);
+CREATE INDEX IF NOT EXISTS idx_sol_status ON tbl_sol_sessions (status);
+CREATE INDEX IF NOT EXISTS idx_sol_do_not_delete ON tbl_sol_sessions (do_not_delete);
+CREATE INDEX IF NOT EXISTS idx_sol_updated_at ON tbl_sol_sessions (updated_at);
+
+CREATE TABLE IF NOT EXISTS tbl_sol_seats (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    is_spectator INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_sol_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, seat_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sol_seats_session ON tbl_sol_seats (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_sol_moves (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    move_seq INTEGER NOT NULL,
+    action_type TEXT NOT NULL,
+    source_pile TEXT NOT NULL,
+    target_pile TEXT NOT NULL,
+    cards_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_sol_sessions (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sol_moves_session ON tbl_sol_moves (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_sol_events (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    event_seq INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES tbl_sol_sessions (id) ON DELETE CASCADE,
+    UNIQUE (session_id, event_seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sol_events_session ON tbl_sol_events (session_id);
+
+CREATE TABLE IF NOT EXISTS tbl_archived_sol_snapshots (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL UNIQUE,
+    txt_player_name TEXT,
+    int_score INTEGER NOT NULL DEFAULT 0,
+    int_moves_count INTEGER NOT NULL DEFAULT 0,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    json_snapshot_payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_snap_sol_code ON tbl_archived_sol_snapshots (txt_session_code);
+CREATE INDEX IF NOT EXISTS idx_snap_sol_created ON tbl_archived_sol_snapshots (created_at);
+
+CREATE TABLE IF NOT EXISTS tbl_archived_sol_snapshots_history (
+    id TEXT PRIMARY KEY,
+    txt_session_code TEXT NOT NULL,
+    txt_player_name TEXT,
+    int_score INTEGER NOT NULL DEFAULT 0,
+    int_moves_count INTEGER NOT NULL DEFAULT 0,
+    bln_do_not_delete INTEGER NOT NULL DEFAULT 0,
+    json_snapshot_payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_hist_snap_sol_code ON tbl_archived_sol_snapshots_history (txt_session_code);
+CREATE INDEX IF NOT EXISTS idx_hist_snap_sol_created ON tbl_archived_sol_snapshots_history (created_at);
+
+-- ============================================================================
+-- 9. COMPOSITE CLEANUP & ARCHIVAL INDEXES FOR ALL LIVE ARCADE GAMES
 -- Optimizes semi-daily 3+ day stale session queries: (do_not_delete, updated_at, status)
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_bjk_cleanup_composite ON tbl_bjk_sessions (do_not_delete, updated_at, status);
@@ -617,3 +711,4 @@ CREATE INDEX IF NOT EXISTS idx_p10_cleanup_composite ON tbl_p10_sessions (do_not
 CREATE INDEX IF NOT EXISTS idx_pok_cleanup_composite ON tbl_pok_sessions (do_not_delete, updated_at, status);
 CREATE INDEX IF NOT EXISTS idx_skp_cleanup_composite ON tbl_skp_sessions (do_not_delete, updated_at, status);
 CREATE INDEX IF NOT EXISTS idx_set_cleanup_composite ON tbl_set_sessions (do_not_delete, updated_at, status);
+CREATE INDEX IF NOT EXISTS idx_sol_cleanup_composite ON tbl_sol_sessions (do_not_delete, updated_at, status);
