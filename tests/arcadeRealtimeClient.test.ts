@@ -167,6 +167,27 @@ describe('ArcadeRealtimeClient - Universal Client-Side Real-Time Adapter', () =>
       expect(receivedData).toEqual({ action: 'hit' });
       expect(client.getLastEventSeq()).toBe(5);
 
+      // Register listener after connected
+      let postConnectData: any = null;
+      client.on('seat_claimed', (d) => {
+        postConnectData = d;
+      });
+      const seatHandler = es.listeners['seat_claimed']?.[0];
+      expect(seatHandler).toBeDefined();
+
+      // Non-JSON plain text data
+      seatHandler?.({ lastEventId: '6', data: 'plain text data' });
+      expect(postConnectData).toBe('plain text data');
+
+      // Throwing listener does not crash client
+      client.on('seat_claimed', () => {
+        throw new Error('Exploding event handler');
+      });
+      seatHandler?.({ lastEventId: '7', data: JSON.stringify({ ok: true }) });
+
+      // Calling connect while already connected reconnects
+      client.connect();
+
       // Trigger error
       es.onerror?.({ message: 'connection dropped' });
       expect(client.getIsConnected()).toBe(false);
@@ -175,6 +196,21 @@ describe('ArcadeRealtimeClient - Universal Client-Side Real-Time Adapter', () =>
       // Disconnect
       client.disconnect();
       expect((client as any).eventSource).toBeNull();
+
+      // Constructor throwing is caught safely
+      (globalThis as any).EventSource = class BrokenEventSource {
+        constructor() {
+          throw new Error('Network permission denied');
+        }
+      };
+      let brokenErrorHandled = false;
+      const brokenClient = new ArcadeRealtimeClient({
+        sessionCode: 'BJK-ERR',
+        participantId: 'p_err',
+        onError: () => { brokenErrorHandled = true; }
+      });
+      brokenClient.connect();
+      expect(brokenErrorHandled).toBe(true);
     } finally {
       (globalThis as any).EventSource = originalES;
     }

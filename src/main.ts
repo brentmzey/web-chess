@@ -95,6 +95,7 @@ import {
 import { ArcadeRealtimeClient } from './realtime/arcadeRealtimeClient';
 import {
   ArcadeGameEnum,
+  SystemControlKeyEnum,
   GameCodePrefixEnum,
   PokerVariantEnum,
   PokerActionEnum,
@@ -163,7 +164,7 @@ function main(): void {
 
   // 6b. Database-Driven PocketBase Configuration Sync (Without Redeployment)
   globalConfigClient.subscribe(() => {
-    const announcement = globalConfigClient.getSystemControlValue<string>('ui.global_announcement', '');
+    const announcement = globalConfigClient.getSystemControlValue<string>(SystemControlKeyEnum.GlobalAnnouncement, '');
     if (announcement) {
       ui.showTemporaryBanner(announcement, 6000);
     }
@@ -2061,28 +2062,28 @@ function main(): void {
   );
 
   fromNullable(document.getElementById('btn-chess-rules')).map(btn =>
-    btn.addEventListener('click', () => ui.showArcadeRules('chess'))
+    btn.addEventListener('click', () => ui.showArcadeRules(ArcadeGameEnum.Chess))
   );
   fromNullable(document.getElementById('btn-bjk-rules')).map(btn =>
-    btn.addEventListener('click', () => ui.showArcadeRules('blackjack'))
+    btn.addEventListener('click', () => ui.showArcadeRules(ArcadeGameEnum.Blackjack))
   );
   fromNullable(document.getElementById('btn-poker-rules')).map(btn =>
-    btn.addEventListener('click', () => ui.showArcadeRules('poker'))
+    btn.addEventListener('click', () => ui.showArcadeRules(ArcadeGameEnum.Poker))
   );
   fromNullable(document.getElementById('btn-skipbo-rules')).map(btn =>
-    btn.addEventListener('click', () => ui.showArcadeRules('skipbo'))
+    btn.addEventListener('click', () => ui.showArcadeRules(ArcadeGameEnum.SkipBo))
   );
   fromNullable(document.getElementById('btn-phase10-rules')).map(btn =>
-    btn.addEventListener('click', () => ui.showArcadeRules('phase10'))
+    btn.addEventListener('click', () => ui.showArcadeRules(ArcadeGameEnum.Phase10))
   );
   fromNullable(document.getElementById('btn-uno-rules')).map(btn =>
-    btn.addEventListener('click', () => ui.showArcadeRules('uno'))
+    btn.addEventListener('click', () => ui.showArcadeRules(ArcadeGameEnum.Uno))
   );
   fromNullable(document.getElementById('btn-avalon-rules')).map(btn =>
-    btn.addEventListener('click', () => ui.showArcadeRules('avalon'))
+    btn.addEventListener('click', () => ui.showArcadeRules(ArcadeGameEnum.Avalon))
   );
   fromNullable(document.getElementById('btn-set-rules')).map(btn =>
-    btn.addEventListener('click', () => ui.showArcadeRules('set'))
+    btn.addEventListener('click', () => ui.showArcadeRules(ArcadeGameEnum.Set))
   );
 
   // Fullscreen Table Toggles

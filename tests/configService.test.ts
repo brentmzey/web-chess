@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ConfigService } from '../src/server/services/configService';
 import { DEFAULT_ARCADE_GAME_CONFIGS } from '../src/constants/defaultConfigs';
+import { ArcadeGameEnum, SystemControlKeyEnum } from '../src/constants/gameEnums';
 
 describe('ConfigService & Hungarian Master Configuration Tables', () => {
   let db: Database;
@@ -36,7 +37,7 @@ describe('ConfigService & Hungarian Master Configuration Tables', () => {
   it('retrieves and queries arcade games by key and active status', () => {
     service.seedDefaultConfigurations();
 
-    const chessOpt = service.getArcadeGame('chess');
+    const chessOpt = service.getArcadeGame(ArcadeGameEnum.Chess);
     expect(chessOpt.isSome()).toBe(true);
     const chess = chessOpt.getOrThrow();
     expect(chess.txt_title).toContain("Wizard's Chess 3D");
@@ -90,13 +91,13 @@ describe('ConfigService & Hungarian Master Configuration Tables', () => {
     service.seedDefaultConfigurations();
 
     // String control
-    expect(service.getSystemControlValue('ui.app_title', 'fallback')).toContain("Wizard's Chess 3D");
+    expect(service.getSystemControlValue(SystemControlKeyEnum.AppTitle, 'fallback')).toContain("Wizard's Chess 3D");
 
     // Boolean control
-    expect(service.getSystemControlValue('ui.rules_modal_enabled', false)).toBe(true);
+    expect(service.getSystemControlValue(SystemControlKeyEnum.RulesModalEnabled, false)).toBe(true);
 
     // Number control
-    expect(service.getSystemControlValue('system.stale_session_days', 0)).toBe(3);
+    expect(service.getSystemControlValue(SystemControlKeyEnum.StaleSessionDays, 0)).toBe(3);
 
     // Inactive control should return fallback
     service.upsertSystemControl({

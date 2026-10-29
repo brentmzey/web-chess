@@ -368,3 +368,65 @@ export const REAL_LIFE_GAME_CAPACITIES: Record<ArcadeGameEnum, GameCapacityConfi
   }
 };
 
+// ============================================================================
+// SYSTEM CONTROLS & CONFIGURATION ENUMS
+// ============================================================================
+
+export enum SystemControlKeyEnum {
+  AppTitle = 'ui.app_title',
+  GlobalAnnouncement = 'ui.global_announcement',
+  RulesModalEnabled = 'ui.rules_modal_enabled',
+  ThemeDefault = 'ui.theme_default',
+  CardScaleMultiplier = 'ui.card_scale_multiplier',
+  MasterVolumeDefault = 'audio.master_volume_default',
+  ReverbDecaySec = 'audio.reverb_decay_sec',
+  MinimaxMaxDepth = 'chess.minimax_max_depth',
+  QuickJoinEnabled = 'arcade.quick_join_enabled',
+  StaleSessionDays = 'system.stale_session_days'
+}
+
+export enum ConfigCategoryEnum {
+  UI = 'ui',
+  Audio = 'audio',
+  Chess = 'chess',
+  Arcade = 'arcade',
+  System = 'system',
+  ClassicBoard = 'classic-board',
+  CasinoCards = 'casino-cards',
+  FamilyCards = 'family-cards',
+  PartyDeduction = 'party-deduction',
+  FiniteGeometry = 'finite-geometry'
+}
+
+export enum ConfigValTypeEnum {
+  String = 'string',
+  Number = 'number',
+  Boolean = 'boolean',
+  Json = 'json'
+}
+
+export enum ConfigAuditActionEnum {
+  Create = 'CREATE',
+  Update = 'UPDATE',
+  Delete = 'DELETE',
+  Migrate = 'MIGRATE',
+  Sync = 'SYNC',
+  Purge = 'PURGE'
+}
+
+export enum ThemeEnum {
+  GothicBasilica = 'gothic-basilica',
+  CathedralCrypt = 'cathedral-crypt',
+  CelestialSanctuary = 'celestial-sanctuary',
+  ObsidianMonastery = 'obsidian-monastery'
+}
+
+export enum BadgeColorEnum {
+  Emerald = 'emerald',
+  Amber = 'amber',
+  Fuchsia = 'fuchsia',
+  Sky = 'sky',
+  Rose = 'rose'
+}
+
+

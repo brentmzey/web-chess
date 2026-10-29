@@ -170,20 +170,25 @@ export class ArcadeRealtimeService {
     const session = sessionOpt.getOrThrow();
     session.subscribers.set(participantId, controller);
 
-    // Initial greeting
-    const encoder = new TextEncoder();
-    controller.enqueue(
-      encoder.encode(`event: connected\ndata: ${JSON.stringify({ sessionCode, maxSeats: session.maxSeats })}\n\n`)
-    );
+    try {
+      // Initial greeting
+      const encoder = new TextEncoder();
+      controller.enqueue(
+        encoder.encode(`event: connected\ndata: ${JSON.stringify({ sessionCode, maxSeats: session.maxSeats })}\n\n`)
+      );
 
-    // Replay missed events if client reconnected with Last-Event-ID
-    if (typeof lastEventId === 'number' && lastEventId > 0) {
-      const missed = session.events.filter((e: ArcadeRealtimeEvent) => e.id > lastEventId);
-      missed.forEach((e: ArcadeRealtimeEvent) => {
-        controller.enqueue(
-          encoder.encode(`id: ${e.id}\nevent: ${e.eventType}\ndata: ${JSON.stringify(e.data)}\n\n`)
-        );
-      });
+      // Replay missed events if client reconnected with Last-Event-ID
+      if (typeof lastEventId === 'number' && lastEventId > 0) {
+        const missed = session.events.filter((e: ArcadeRealtimeEvent) => e.id > lastEventId);
+        missed.forEach((e: ArcadeRealtimeEvent) => {
+          controller.enqueue(
+            encoder.encode(`id: ${e.id}\nevent: ${e.eventType}\ndata: ${JSON.stringify(e.data)}\n\n`)
+          );
+        });
+      }
+    } catch (err) {
+      logger.warn(`[ARCADE_REALTIME] Failed to deliver initial stream greeting to ${participantId}: ${String(err)}`);
+      session.subscribers.delete(participantId);
     }
   }
 

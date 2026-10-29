@@ -8,7 +8,7 @@ import {
   ArcadeGameConfigSchema,
   SystemControlSchema
 } from '../src/validation/gameSchemas';
-import { PokerHandRankEnum } from '../src/constants/gameEnums';
+import { PokerHandRankEnum, ArcadeGameEnum, SystemControlKeyEnum } from '../src/constants/gameEnums';
 
 describe('Zod Schema Validation & Strong Typing for Arcade Games', () => {
   it('exports underlying Zod schema definitions', () => {
@@ -83,7 +83,7 @@ describe('Zod Schema Validation & Strong Typing for Arcade Games', () => {
   describe('ArcadeGameConfig Zod Validation', () => {
     it('validates and parses a valid ArcadeGameConfigRecord', () => {
       const valid = {
-        txt_game_key: 'chess',
+        txt_game_key: ArcadeGameEnum.Chess,
         txt_title: 'Sanctuary Chess',
         txt_real_life_name: 'Chess (FIDE)',
         txt_prefix: 'SANCT-',
@@ -175,7 +175,7 @@ describe('Zod Schema Validation & Strong Typing for Arcade Games', () => {
   describe('SystemControl Zod Validation', () => {
     it('validates string, number, boolean, and json system controls', () => {
       const ctrlStr = {
-        txt_config_key: 'ui.app_title',
+        txt_config_key: SystemControlKeyEnum.AppTitle,
         txt_category: 'ui',
         txt_label: 'Title',
         txt_val_type: 'string',

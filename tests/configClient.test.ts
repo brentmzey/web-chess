@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'bun:test';
 import { ConfigClient } from '../src/realtime/configClient';
+import { ArcadeGameEnum, SystemControlKeyEnum } from '../src/constants/gameEnums';
 
 describe('ConfigClient - Client-Side Database-Driven Dynamic UI Synchronization', () => {
   let client: ConfigClient;
@@ -12,18 +13,18 @@ describe('ConfigClient - Client-Side Database-Driven Dynamic UI Synchronization'
     const allGames = client.getAllActiveGames();
     expect(allGames.length).toBe(8);
 
-    const chessConfig = client.getGameConfig('chess');
+    const chessConfig = client.getGameConfig(ArcadeGameEnum.Chess);
     expect(chessConfig.isSome()).toBe(true);
     expect(chessConfig.getOrThrow().txt_real_life_name).toBe('Classical Chess (FIDE)');
 
-    const ruleInfo = client.getGameRuleInfo('blackjack').getOrThrow();
+    const ruleInfo = client.getGameRuleInfo(ArcadeGameEnum.Blackjack).getOrThrow();
     expect(ruleInfo.realLifeName).toBe('Blackjack (Twenty-One)');
     expect(ruleInfo.objective).toContain('21');
 
-    const appTitle = client.getSystemControlValue('ui.app_title', 'default');
+    const appTitle = client.getSystemControlValue(SystemControlKeyEnum.AppTitle, 'default');
     expect(appTitle).toContain("Wizard's Chess 3D");
 
-    const rulesEnabled = client.getSystemControlValue('ui.rules_modal_enabled', false);
+    const rulesEnabled = client.getSystemControlValue(SystemControlKeyEnum.RulesModalEnabled, false);
     expect(rulesEnabled).toBe(true);
   });
 

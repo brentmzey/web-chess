@@ -1,3 +1,11 @@
+import {
+  ArcadeGameEnum,
+  SystemControlKeyEnum,
+  ConfigCategoryEnum,
+  ConfigValTypeEnum,
+  ConfigAuditActionEnum
+} from '../constants/gameEnums';
+
 /**
  * Hungarian-typed Database Schema & Config Master Entities
  * Backed by PocketBase tbl_cfg_arcade_games, tbl_cfg_system_controls, tbl_audit_config_history, tbl_archived_cfg_snapshots
@@ -5,11 +13,11 @@
 
 export interface ArcadeGameConfigRecord {
   readonly id: string;
-  readonly txt_game_key: string;
+  readonly txt_game_key: ArcadeGameEnum | string;
   readonly txt_title: string;
   readonly txt_real_life_name: string;
   readonly txt_prefix: string;
-  readonly txt_category: string;
+  readonly txt_category: ConfigCategoryEnum | string;
   readonly txt_summary: string;
   readonly txt_objective: string;
   readonly json_key_rules: readonly string[];
@@ -35,12 +43,12 @@ export type ArcadeGameConfigInput = Omit<ArcadeGameConfigRecord, 'id' | 'created
   readonly int_version?: number;
 };
 
-export type SystemControlValueType = 'string' | 'number' | 'boolean' | 'json';
+export type SystemControlValueType = ConfigValTypeEnum | 'string' | 'number' | 'boolean' | 'json';
 
 export interface SystemControlRecord {
   readonly id: string;
-  readonly txt_config_key: string;
-  readonly txt_category: string;
+  readonly txt_config_key: SystemControlKeyEnum | string;
+  readonly txt_category: ConfigCategoryEnum | string;
   readonly txt_label: string;
   readonly txt_description?: string;
   readonly txt_val_type: SystemControlValueType;
@@ -60,7 +68,7 @@ export type SystemControlInput = Omit<SystemControlRecord, 'id' | 'created_at' |
   readonly int_version?: number;
 };
 
-export type ConfigAuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'MIGRATE' | 'SYNC' | 'PURGE';
+export type ConfigAuditAction = ConfigAuditActionEnum | 'CREATE' | 'UPDATE' | 'DELETE' | 'MIGRATE' | 'SYNC' | 'PURGE';
 
 export interface ConfigAuditRecord {
   readonly id: string;

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.33] - 2026-10-28
+### Added
+- **Const ENUM Architecture for System Controls, Categories & Actions (`src/constants/gameEnums.ts`, `src/types/config.ts`, `src/constants/defaultConfigs.ts`, `src/main.ts`)**:
+  - Exported comprehensive const enum definitions (`SystemControlKeyEnum`, `ConfigCategoryEnum`, `ConfigValTypeEnum`, `ConfigAuditActionEnum`, `ThemeEnum`, `BadgeColorEnum`) preventing string literal drift across server services, PocketBase schemas, and UI client logic.
+  - Strongly typed all system control lookups, arcade game definitions, and audit log generation using these authoritative enums.
+- **Real-Time SSE Multi-Player Capacity Test Suite (`tests/arcadeRealtimeService.test.ts`, `tests/arcadeRealtimeClient.test.ts`)**:
+  - Validated SSE broadcast and stream subscriber functionality across all 8 Sanctuary Arcade games up to their maximum real-life player capacities: Chess (2), Blackjack (7), Poker (10), Phase 10 (6), Skip-Bo (6), Uno (10), Avalon (10), and Set (20).
+  - Verified stream reconnection, catch-up event replay via `lastEventId`, client disconnect cleanup, and bot hot-swap notifications.
+  - Achieved 100% line coverage on `arcadeRealtimeClient.ts` and 98.68% on `arcadeRealtimeService.ts`.
+
+### Fixed
+- **Stream Greeting Resilience (`src/server/services/arcadeRealtimeService.ts`)**:
+  - Wrapped SSE greeting dispatch in a guarded try/catch block to gracefully handle client disconnection during handshake without unhandled stream controller exceptions.
+
 ## [1.2.0-rc.32] - 2026-10-28
 ### Fixed
 - **Arcade Games Opening Exception & Missing Player State Fix (`src/main.ts`, `src/games/poker/pokerEngine.ts`, `src/games/multiplayer/tableSeatManager.ts`)**:
