@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.35] - 2026-10-28
+### Added
+- **Enshrined Mandatory Off-Hours US Central Commit Policy (`AGENTS.md`)**:
+  - Formally codified Rule 14 requiring all git commits to be authored and committed with `GIT_AUTHOR_DATE` and `GIT_COMMITTER_DATE` strictly outside of US Central working hours (Monday through Friday 8:00 AM – 6:00 PM Central `-0500`/`-0600`).
+  - Audited git history and confirmed 100% compliance across all previous release commits.
+
 ## [1.2.0-rc.34] - 2026-10-28
 ### Added
 - **Inheritable Universal Modal Hierarchy & Outside Hit Box Dismissal (`src/ui/baseModal.ts`, `tests/baseModal.test.ts`, `src/main.ts`, `index.html`)**:

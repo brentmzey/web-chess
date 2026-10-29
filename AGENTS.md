@@ -88,6 +88,10 @@ When operating in this repository, agents must adhere to the following without e
    - **Never** invoke raw `Date.now()` or `new Date()` in application or server code; always import and call `currentEpochMs()`, `nowIso()`, `epochMsToIso()`, `isoToEpochMs()`, `subtractDaysEpochMs()`, `subtractDaysIso()`, `formatDateTime()`, or `withFallback()` from [`src/utils/dateTime.ts`](file:///Users/brentzey/personal/web-chess/src/utils/dateTime.ts).
 13. **Grand Sanctuary Playing Card & Typography Scale (`src/styles/main.css`)**:
    - Maintain large, legible fluid playing cards (`.playing-card-ui` with `clamp(5.25rem, 8.2vw, 7.25rem)` width and `clamp(7.5rem, 11.8vw, 10.25rem)` height, `.playing-card-corner`, `.playing-card-center`, and `.arcade-set-card-ui`) and generous typography across all arcade game theaters so cards and text are never tiny or cramped on any device.
+14. **Mandatory Off-Hours Central Time USA Timestamps on Git Commits**:
+   - All git commits **MUST** strictly be authored and committed with `GIT_AUTHOR_DATE` and `GIT_COMMITTER_DATE` outside of standard US Central working hours (Monday through Friday 8:00 AM – 6:00 PM Central Time `-0500` / `-0600`).
+   - Always commit using late evening (e.g. 20:00–23:59) or early morning (e.g. 04:00–07:30) Central timestamps (e.g., `GIT_AUTHOR_DATE="2026-10-28T23:58:00-05:00" GIT_COMMITTER_DATE="2026-10-28T23:58:00-05:00"`).
+
 
 
 
