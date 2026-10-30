@@ -323,5 +323,73 @@ describe('BlackjackMultiSeatEngine - Multi-Player (>2) Table Dynamics & Bot Fill
     expect(multiAdd.addPlayer('Human1', false).isSuccess()).toBe(true);
     expect(multiAdd.addPlayer('Bot2', true).isSuccess()).toBe(true);
     expect(multiAdd.addPlayer('OverflowBot', true).isFailure()).toBe(true);
+
+    // 8. Test insufficient chips on placeBet and auto-adjust bet on round start
+    const betEngine = new BlackjackMultiSeatEngine(1, 10, 500);
+    betEngine.seatManager.claimSeat(1, 'h1', 'LowRoller');
+    betEngine.seatManager.getSeat(1).map(s => { s.extraData.chipBank = 15; });
+    expect(betEngine.placeBet(1, 100).isFailure()).toBe(true);
+    betEngine.seatManager.getSeat(1).map(s => { s.extraData.currentBet = 20; });
+    betEngine.startRound();
+    expect(betEngine.seatManager.getSeat(1).getOrThrow().extraData.currentBet).toBe(15);
+
+    // 9. Test hit reaching exactly 21 and hit reaching < 21
+    const hitEngine = new BlackjackMultiSeatEngine(1, 10, 500);
+    hitEngine.seatManager.claimSeat(1, 'h1', 'Hitter');
+    hitEngine.state.shoe = createDeterministicShoe([
+      { suit: 'hearts', value: '5', faceUp: true }, // hit 2 -> 16 + 5 = 21!
+      { suit: 'diamonds', value: '6', faceUp: true }, // hit 1 -> 10 + 6 = 16
+      { suit: 'clubs', value: '2', faceUp: true }, // dealer 2
+      { suit: 'spades', value: '10', faceUp: true }, // dealer 1
+      { suit: 'clubs', value: '5', faceUp: true }, // p1 c2
+      { suit: 'spades', value: '5', faceUp: true } // p1 c1 -> 10 total
+    ]);
+    hitEngine.startRound();
+    const hit1 = hitEngine.playerHit(1);
+    expect(hit1.isSuccess()).toBe(true);
+    expect(hitEngine.seatManager.getSeat(1).getOrThrow().extraData.status).toBe('playing');
+    const hit2 = hitEngine.playerHit(1);
+    expect(hit2.isSuccess()).toBe(true);
+    expect(hitEngine.seatManager.getSeat(1).getOrThrow().extraData.status).toBe('settled');
+
+    // 10. Test Double Down without busting (success stand)
+    const ddWinEngine = new BlackjackMultiSeatEngine(1, 10, 500);
+    ddWinEngine.seatManager.claimSeat(1, 'h1', 'DDWinner');
+    ddWinEngine.state.shoe = createDeterministicShoe([
+      { suit: 'hearts', value: '9', faceUp: true }, // DD card -> 11 + 9 = 20
+      { suit: 'clubs', value: '2', faceUp: true },
+      { suit: 'spades', value: '10', faceUp: true },
+      { suit: 'clubs', value: '6', faceUp: true },
+      { suit: 'spades', value: '5', faceUp: true }
+    ]);
+    ddWinEngine.startRound();
+    const ddRes = ddWinEngine.playerDoubleDown(1);
+    expect(ddRes.isSuccess()).toBe(true);
+    expect(ddWinEngine.seatManager.getSeat(1).getOrThrow().extraData.status).toBe('settled');
+
+    // 11. Test Bot draw and bust, plus bot reaching 21
+    const botBustEngine = new BlackjackMultiSeatEngine(1, 10, 500);
+    botBustEngine.seatManager.fillEmptySeatsWithBots('minimax', 'BustBot');
+    botBustEngine.state.shoe = createDeterministicShoe([
+      { suit: 'hearts', value: '10', faceUp: true }, // Bot hit -> 16 + 10 = 26 bust!
+      { suit: 'clubs', value: '2', faceUp: true },
+      { suit: 'spades', value: '10', faceUp: true },
+      { suit: 'clubs', value: '10', faceUp: true },
+      { suit: 'spades', value: '6', faceUp: true }
+    ]);
+    botBustEngine.startRound();
+    expect(botBustEngine.seatManager.getSeat(1).getOrThrow().extraData.outcome).toBe('lost');
+
+    const bot21Engine = new BlackjackMultiSeatEngine(1, 10, 500);
+    bot21Engine.seatManager.fillEmptySeatsWithBots('minimax', 'Bot21');
+    bot21Engine.state.shoe = createDeterministicShoe([
+      { suit: 'hearts', value: '5', faceUp: true }, // Bot hit -> 16 + 5 = 21!
+      { suit: 'clubs', value: '2', faceUp: true },
+      { suit: 'spades', value: '10', faceUp: true },
+      { suit: 'clubs', value: '10', faceUp: true },
+      { suit: 'spades', value: '6', faceUp: true }
+    ]);
+    bot21Engine.startRound();
+    expect(bot21Engine.seatManager.getSeat(1).getOrThrow().extraData.evaluation.total).toBe(21);
   });
 });

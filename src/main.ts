@@ -2107,6 +2107,10 @@ function main(): void {
     btn.addEventListener('click', (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
+      disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
       ui.hideAllArcadeModals();
       ui.showArcadeHub();
       soundFX.playSelect();
@@ -2117,6 +2121,10 @@ function main(): void {
     btn.addEventListener('click', (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
+      disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
       ui.hideAllArcadeModals();
       soundFX.playSelect();
       syncBoardPiecesWithChessState();
@@ -2249,22 +2257,41 @@ function main(): void {
       track.innerHTML = occupied
         .map(seat => {
           const isTurn = bjkMultiEngine.state.activeSeatTurn.getOrElse(-1) === seat.seatNumber;
+          const canKick = isLocalPlayerHost && !seat.isBot && seat.seatNumber !== 1;
           return `
             <div data-bjk-seat="${seat.seatNumber}" class="px-3.5 py-2 rounded-2xl bg-black/65 border-2 ${
               isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-purple-500/40'
             } flex items-center gap-2.5 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
               <div class="w-2.5 h-2.5 rounded-full ${seat.isBot ? 'bg-purple-400' : 'bg-emerald-400'}"></div>
               <span class="font-bold text-stone-100">S${seat.seatNumber}: ${seat.playerName}</span>
-              <span class="text-amber-300 font-mono font-bold">${seat.extraData.chipBank}🪙</span>
+              <span class="text-amber-300 font-mono font-bold">${seat.extraData?.chipBank ?? 500}🪙</span>
               <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
                 seat.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
               }">${seat.isBot ? 'AI' : 'Human'}</span>
+              ${
+                canKick
+                  ? `<button type="button" data-kick-participant="${seat.playerId}" data-kick-name="${seat.playerName}" class="ml-1 px-1.5 py-0.5 rounded-md bg-red-950/90 hover:bg-red-900 text-red-300 border border-red-500/40 text-[10px] font-bold transition" title="Kick Player from Table">Kick</button>`
+                  : ''
+              }
             </div>
           `;
         })
         .join('');
+      track.querySelectorAll('[data-kick-participant]').forEach(btn => {
+        btn.addEventListener('click', (e: Event) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const targetId = btn.getAttribute('data-kick-participant') || '';
+          const targetName = btn.getAttribute('data-kick-name') || 'Player';
+          if (activeArcadeClient && targetId) {
+            void activeArcadeClient.kickPlayer(targetId, 'Removed by table host');
+            ui.showTemporaryBanner(`Removed ${targetName} from the table.`, 2500);
+          }
+        });
+      });
       track.querySelectorAll('[data-bjk-seat]').forEach(el => {
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e: Event) => {
+          if ((e.target as HTMLElement)?.closest('[data-kick-participant]')) return;
           const seatNum = parseInt(el.getAttribute('data-bjk-seat') || '1', 10);
           bjkMultiEngine.seatManager.claimSeat(seatNum, `human_s${seatNum}`, `Player ${seatNum}`);
           soundFX.playSelect();
@@ -2492,33 +2519,46 @@ function main(): void {
   const switchToArcadeGame = (targetGame: ArcadeGameType | 'hub'): void => {
     ui.hideAllArcadeModals();
     soundFX.playSelect();
+    if (typeof window !== 'undefined' && window.location.search && (targetGame === 'chess' || targetGame === 'hub')) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
     if (targetGame === 'hub') {
+      disconnectActiveArcade();
       ui.showArcadeHub();
     } else if (targetGame === 'chess') {
+      disconnectActiveArcade();
       syncBoardPiecesWithChessState();
       updateHighlights();
     } else if (targetGame === 'blackjack') {
+      setBlackjackMode(false);
       renderBlackjackTable();
       ui.showBlackjack();
     } else if (targetGame === 'poker') {
+      setPokerMode(false);
       renderPokerTable();
       ui.showPoker();
     } else if (targetGame === 'skipbo') {
+      setSkipBoMode(false);
       renderSkipBoTable();
       ui.showSkipBo();
     } else if (targetGame === 'phase10') {
+      setPhase10Mode(false);
       renderPhase10Table();
       ui.showPhase10();
     } else if (targetGame === 'uno') {
+      setUnoMode(false);
       renderUnoTable();
       ui.showUno();
     } else if (targetGame === 'avalon') {
+      setAvalonMode(false);
       renderAvalonTable();
       ui.showAvalon();
     } else if (targetGame === 'set') {
+      setSetMode(false);
       renderSetTable();
       ui.showSet();
     } else if (targetGame === 'solitaire') {
+      setSolitaireMode(false);
       renderSolitaireBoard();
       ui.showSolitaire();
     }
@@ -2678,7 +2718,7 @@ function main(): void {
     });
   };
 
-  const setupArcadeRealtimeSession = (game: ArcadeGameEnum,
+  const setupArcadeRealtimeSession = (_game: ArcadeGameEnum,
                                       sessionCode: string,
                                       playerName: string = 'Cathedral Player',
                                       onAction?: (actionType: string, payload: unknown) => void): ArcadeRealtimeClient => {
@@ -2689,23 +2729,6 @@ function main(): void {
       participantId: 'usr_' + Math.random().toString(36).substring(2, 9)
     });
     activeArcadeClient = client;
-
-    // Register or auto-create arcade room on server
-    fetch('/api/arcade/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        game,
-        sessionCode,
-        creatorName: playerName
-      })
-    })
-      .catch(() => {})
-      .then(() => client.claimSeat(playerName))
-      .then(() => {
-        client.connect();
-      })
-      .catch(() => {});
 
     client.on('player_kicked', (evt: any) => {
       if (evt?.targetParticipantId === client.getParticipantId()) {
@@ -2724,6 +2747,9 @@ function main(): void {
         onAction(evt.actionType, evt.payload);
       });
     }
+
+    client.connect();
+    void client.claimSeat(playerName);
 
     return client;
   };
@@ -2753,7 +2779,7 @@ function main(): void {
     if (isLive) {
       setupArcadeRealtimeSession(ArcadeGameEnum.Blackjack,
                                  bjkLiveCode,
-                                 'Blackjack Pilgrim',
+                                 verifiedPlayerName.getOrElse('Blackjack Pilgrim'),
                                  (action, payload: any) => {
         if (action === 'bjk_deal') {
           bjkEngine.startRound();
@@ -2770,7 +2796,11 @@ function main(): void {
       });
     } else {
       disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
+    renderBlackjackTable();
   };
   fromNullable(document.getElementById('bjk-tab-ai')).map(b => b.addEventListener('click', () => setBlackjackMode(false)));
   fromNullable(document.getElementById('bjk-tab-live')).map(b => b.addEventListener('click', () => setBlackjackMode(true)));
@@ -2992,7 +3022,7 @@ function main(): void {
     if (isLive) {
       setupArcadeRealtimeSession(ArcadeGameEnum.Poker,
                                  pokerLiveCode,
-                                 'Poker Pilgrim',
+                                 verifiedPlayerName.getOrElse('Poker Pilgrim'),
                                  (action, payload: any) => {
         if (action === 'poker_deal') {
           pokerEngine.startHand();
@@ -3009,7 +3039,11 @@ function main(): void {
       });
     } else {
       disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
+    renderPokerTable();
   };
 
   fromNullable(document.getElementById('poker-tab-ai')).map(b => b.addEventListener('click', () => setPokerMode(false)));
@@ -3351,7 +3385,7 @@ function main(): void {
     if (isLive) {
       setupArcadeRealtimeSession(ArcadeGameEnum.SkipBo,
                                  skipboLiveCode,
-                                 'Skip-Bo Pilgrim',
+                                 verifiedPlayerName.getOrElse('Skip-Bo Pilgrim'),
                                  (action, payload: any) => {
         if (action === 'skipbo_play' && payload) {
           skipboEngine.playToBuilding(payload.source, payload.sourceIndex, payload.buildingIndex);
@@ -3362,7 +3396,11 @@ function main(): void {
       });
     } else {
       disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
+    renderSkipBoTable();
   };
 
   fromNullable(document.getElementById('skipbo-tab-ai')).map(b => b.addEventListener('click', () => setSkipBoMode(false)));
@@ -3647,7 +3685,7 @@ function main(): void {
     if (isLive) {
       setupArcadeRealtimeSession(ArcadeGameEnum.Phase10,
                                  phase10LiveCode,
-                                 'Phase 10 Pilgrim',
+                                 verifiedPlayerName.getOrElse('Phase 10 Pilgrim'),
                                  (action, payload: any) => {
         if (action === 'p10_draw' && payload) {
           phase10Engine.drawCard(Boolean(payload.fromDiscard));
@@ -3662,7 +3700,11 @@ function main(): void {
       });
     } else {
       disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
+    renderPhase10Table();
   };
 
   fromNullable(document.getElementById('phase10-tab-ai')).map(b => b.addEventListener('click', () => setPhase10Mode(false)));
@@ -3977,7 +4019,7 @@ function main(): void {
     if (isLive) {
       setupArcadeRealtimeSession(ArcadeGameEnum.Uno,
                                  unoLiveCode,
-                                 'Pilgrim Player',
+                                 verifiedPlayerName.getOrElse('Cardinal Pilgrim'),
                                  (action, payload: any) => {
         if (action === 'uno_play' && typeof payload?.handIndex === 'number') {
           unoEngine.playCard(payload.handIndex, payload.wildColor);
@@ -3989,7 +4031,11 @@ function main(): void {
       });
     } else {
       disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
+    renderUnoTable();
   };
 
   fromNullable(document.getElementById('uno-tab-ai')).map(b => b.addEventListener('click', () => setUnoMode(false)));
@@ -4219,7 +4265,7 @@ function main(): void {
     if (isLive) {
       setupArcadeRealtimeSession(ArcadeGameEnum.Avalon,
                                  avalonLiveCode,
-                                 'Arthurian Knight',
+                                 verifiedPlayerName.getOrElse('Arthurian Knight'),
                                  (action, payload: any) => {
         if (action === 'avalon_propose' && Array.isArray(payload?.team)) {
           avalonEngine.proposeTeam(payload.team);
@@ -4234,7 +4280,11 @@ function main(): void {
       });
     } else {
       disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
+    renderAvalonTable();
   };
 
   fromNullable(document.getElementById('avalon-tab-ai')).map(b => b.addEventListener('click', () => setAvalonMode(false)));
@@ -4510,11 +4560,15 @@ function main(): void {
     if (isLive) {
       setupArcadeRealtimeSession(ArcadeGameEnum.Set,
                                  setLiveCode,
-                                 'Sanctuary Geometer',
+                                 verifiedPlayerName.getOrElse('Sanctuary Geometer'),
                                  () => renderSetTable());
     } else {
       disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
+    renderSetTable();
   };
 
   ['set-tab-ai', 'set-mode-ai'].forEach(id => {
@@ -4688,7 +4742,11 @@ function main(): void {
       );
     } else {
       disconnectActiveArcade();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
+    renderSolitaireBoard();
   };
 
   const broadcastSolitaireIfLive = (): void => {
@@ -5063,6 +5121,9 @@ function main(): void {
     btn.addEventListener('click', (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
       const targetGame = btn.getAttribute('data-game-ai') as ArcadeGameType | null;
       if (targetGame === 'chess') {
         ui.hideArcadeHub();
@@ -5129,41 +5190,49 @@ function main(): void {
         ui.showLiveSessionModal();
         ui.switchLiveSessionTab('create');
       } else if (targetGame === 'blackjack') {
+        bjkLiveCode = generateArcadeCode(GameCodePrefixEnum.Blackjack);
         ui.hideArcadeHub();
         setBlackjackMode(true);
         renderBlackjackTable();
         ui.showBlackjack();
       } else if (targetGame === 'poker') {
+        pokerLiveCode = generateArcadeCode(GameCodePrefixEnum.Poker);
         ui.hideArcadeHub();
         setPokerMode(true);
         renderPokerTable();
         ui.showPoker();
       } else if (targetGame === 'skipbo') {
+        skipboLiveCode = generateArcadeCode(GameCodePrefixEnum.SkipBo);
         ui.hideArcadeHub();
         setSkipBoMode(true);
         renderSkipBoTable();
         ui.showSkipBo();
       } else if (targetGame === 'phase10') {
+        phase10LiveCode = generateArcadeCode(GameCodePrefixEnum.Phase10);
         ui.hideArcadeHub();
         setPhase10Mode(true);
         renderPhase10Table();
         ui.showPhase10();
       } else if (targetGame === 'uno') {
+        unoLiveCode = generateArcadeCode(GameCodePrefixEnum.Uno);
         ui.hideArcadeHub();
         setUnoMode(true);
         renderUnoTable();
         ui.showUno();
       } else if (targetGame === 'avalon') {
+        avalonLiveCode = generateArcadeCode(GameCodePrefixEnum.Avalon);
         ui.hideArcadeHub();
         setAvalonMode(true);
         renderAvalonTable();
         ui.showAvalon();
       } else if (targetGame === 'set') {
+        setLiveCode = generateArcadeCode(GameCodePrefixEnum.Set);
         ui.hideArcadeHub();
         setSetMode(true);
         renderSetTable();
         ui.showSet();
       } else if (targetGame === 'solitaire') {
+        solitaireLiveCode = generateArcadeCode(GameCodePrefixEnum.Solitaire);
         ui.hideArcadeHub();
         setSolitaireMode(true, false);
         renderSolitaireBoard();

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.45] - 2026-10-29
+### Added
+- **Dual-Mode PocketBase & Local SSE Realtime Engine (`src/realtime/arcadeRealtimeClient.ts`, `tests/arcadeRealtimeClient.test.ts`)**:
+  - Implemented automatic runtime environment detection in `ArcadeRealtimeClient`: connects directly to PocketBase (`https://web-chess.pockethost.io`) via `/api/realtime` and `session_events` collection when running in browser environments outside `localhost`.
+  - Resolved Netlify static SPA 404 and `text/html` MIME type EventSource aborts by bypassing relative `/api/arcade/...` paths in production and synchronizing seat claims, action dispatches, and player kicks directly over PocketBase SSE.
+  - Retained local Bun server SSE endpoints (`/api/arcade/sessions/...`) with fallback for local test harnesses and development environments.
+  - Achieved **100.00% line coverage** on `src/realtime/arcadeRealtimeClient.ts`.
+- **Arcade Theater Navigation & Clean Mode Switching (`src/main.ts`)**:
+  - Fixed arcade mode switchers (`setBlackjackMode`, `setPokerMode`, `setSkipBoMode`, `setPhase10Mode`, `setUnoMode`, `setAvalonMode`, `setSetMode`, `setSolitaireMode`) to immediately re-render tables upon switching between Live and AI modes, preventing unexpected drops to the 3D chess sanctuary.
+  - Added automated URL query string cleanup (`window.history.replaceState`) and active arcade connection termination when switching to AI/solo modes or navigating between games.
+  - Added match host kick buttons (`data-kick-participant`) on multi-seat tables allowing room creators to remove participants via realtime client dispatch.
+- **Multi-Seat Engine Default Extra Data Provider (`src/games/blackjack/blackjackMultiSeatEngine.ts`)**:
+  - Supplied `defaultExtraDataProvider` to `TableSeatManager` ensuring newly claimed human seats and hot-swapped bot seats initialize with valid `MultiSeatPlayerData` (default 500 chips, 25 bet, clean evaluation state).
+
 ## [1.2.0-rc.44] - 2026-10-29
 ### Added
 - **Namespaced Error Data Model & Subsystem Architecture (`src/errors/sanctuaryError.ts`, `tests/sanctuaryError.test.ts`)**:

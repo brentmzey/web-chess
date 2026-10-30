@@ -48,7 +48,19 @@ export class BlackjackMultiSeatEngine {
   ) {
     this.minBet = minBet;
     this.maxBet = maxBet;
-    this.seatManager = new TableSeatManager<MultiSeatPlayerData>(maxSeats, 2, defaultBotModel);
+    this.seatManager = new TableSeatManager<MultiSeatPlayerData>(
+      maxSeats,
+      2,
+      defaultBotModel,
+      () => ({
+        chipBank: 500,
+        currentBet: 25,
+        cards: [],
+        evaluation: { total: 0, isSoft: false, isBlackjack: false, isBusted: false },
+        status: 'waiting',
+        outcome: 'in-progress'
+      })
+    );
 
     // Initialize initial player data on seats
     for (let i = 1; i <= maxSeats; i++) {
