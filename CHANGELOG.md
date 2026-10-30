@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.4.0] - 2026-10-30
+### Release
+Minor release promoting `1.4.0-rc.1` through `1.4.0-rc.4` (see those entries for detail): hidden information stays hidden at live arcade tables on PocketHost.
+- **Privacy**: guests sign in as `tbl_arcade_players`; the host publishes a redacted public table and writes each guest's own secrets to the owner-readable `tbl_arcade_private`; arcade events must come from the signed-in player they name.
+- **Fairness**: guests send zod-validated intents that the host applies only to the sender's seat and turn.
+- **Hosting**: the first player at a table hosts it, including tables opened from a shared link.
+- **Housekeeping**: idle guest players are pruned by the maintenance cron (`system.guest_player_retention_days`).
+- **Verified on production with two browsers**: Uno, Poker, Avalon, Blackjack and SET (seating, intents, redacted public snapshots, private secrets, reload resume).
+
 ## [1.4.0-rc.4] - 2026-10-30
 ### Fixed
 - **Blackjack dealer total read "8 + NAN = NAN" for live guests**: the multi-seat table names its stage `player-turns` (not `player-turn`), so the hidden hole card was counted as a number. The dealer total now always counts only face-up cards ("8 + ? = 8+?" until the reveal).
