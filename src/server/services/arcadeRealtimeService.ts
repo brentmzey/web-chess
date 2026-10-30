@@ -6,6 +6,7 @@ import {
   tryCatch,
   fromNullable,
   fromResult,
+  none,
   some
 } from '../../utils/fp';
 import { RealtimeError } from '../../errors/sanctuaryError';
@@ -41,8 +42,56 @@ export interface ArcadeSessionState {
   subscribers: Map<string, ReadableStreamDefaultController<Uint8Array>>;
 }
 
+/** Bun closes connections idle for 10s, so streams must hear from the server more often than that. */
+export const ARCADE_HEARTBEAT_INTERVAL_MS = 5000;
+const HEARTBEAT_CHUNK = new TextEncoder().encode(':keepalive\n\n');
+
 export class ArcadeRealtimeService {
   private sessions: Map<string, ArcadeSessionState> = new Map();
+  private heartbeatTimer: Option<ReturnType<typeof setInterval>> = none();
+
+  constructor(private readonly heartbeatIntervalMs: number = ARCADE_HEARTBEAT_INTERVAL_MS) {}
+
+  /**
+   * Sends one SSE comment to every open arcade stream, dropping streams that can no longer be written.
+   * Returns the number of streams still open.
+   */
+  public sendHeartbeat(): number {
+    let open = 0;
+    this.sessions.forEach(session =>
+      session.subscribers.forEach((controller, subId) => {
+        tryCatch(() => controller.enqueue(HEARTBEAT_CHUNK)).match({
+          Ok: () => {
+            open += 1;
+          },
+          Err: () => {
+            session.subscribers.delete(subId);
+          }
+        });
+      })
+    );
+    if (open === 0) {
+      this.stopHeartbeat();
+    }
+    return open;
+  }
+
+  private ensureHeartbeat(): void {
+    if (this.heartbeatTimer.isSome()) return;
+    const timer = setInterval(() => this.sendHeartbeat(), this.heartbeatIntervalMs);
+    // Never keep the process alive just for heartbeats
+    (timer as { unref?: () => void }).unref?.();
+    this.heartbeatTimer = some(timer);
+  }
+
+  public stopHeartbeat(): void {
+    this.heartbeatTimer.map(timer => clearInterval(timer));
+    this.heartbeatTimer = none();
+  }
+
+  public isHeartbeatRunning(): boolean {
+    return this.heartbeatTimer.isSome();
+  }
 
   public createSession(game: ArcadeGameEnum,
                        sessionCode: string,
@@ -285,6 +334,7 @@ export class ArcadeRealtimeService {
 
     const session = sessionOpt.getOrThrow();
     session.subscribers.set(participantId, controller);
+    this.ensureHeartbeat();
 
     try {
       // Initial greeting
@@ -293,15 +343,20 @@ export class ArcadeRealtimeService {
         encoder.encode(`event: connected\ndata: ${JSON.stringify({ sessionCode, maxSeats: session.maxSeats })}\n\n`)
       );
 
-      // Replay missed events if client reconnected with Last-Event-ID
-      if (typeof lastEventId === 'number' && lastEventId > 0) {
-        const missed = session.events.filter((e: ArcadeRealtimeEvent) => e.id > lastEventId);
-        missed.forEach((e: ArcadeRealtimeEvent) => {
-          controller.enqueue(
-            encoder.encode(`id: ${e.id}\nevent: ${e.eventType}\ndata: ${JSON.stringify(e.data)}\n\n`)
-          );
-        });
-      }
+      // Replay missed events if client reconnected with Last-Event-ID; otherwise hand a new joiner the
+      // latest full table snapshot so they see the current table without waiting for the host
+      const isResume = typeof lastEventId === 'number' && lastEventId > 0;
+      const latestSnapshot = [...session.events].reverse().find(e => e.data.actionType === 'state_sync');
+      const replay = isResume
+        ? session.events.filter((e: ArcadeRealtimeEvent) => e.id > (lastEventId as number))
+        : fromNullable(latestSnapshot).map(e => [e]).getOrElse([]);
+      replay.forEach((e: ArcadeRealtimeEvent) => {
+        // A fresh joiner must apply the snapshot even if they sent it themselves before reloading
+        const data = isResume ? e.data : { ...e.data, replayed: true };
+        controller.enqueue(
+          encoder.encode(`id: ${e.id}\nevent: ${e.eventType}\ndata: ${JSON.stringify(data)}\n\n`)
+        );
+      });
     } catch (err) {
       logger.warn(`[ARCADE_REALTIME] Failed to deliver initial stream greeting to ${participantId}: ${String(err)}`);
       session.subscribers.delete(participantId);

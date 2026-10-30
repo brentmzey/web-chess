@@ -14,6 +14,18 @@ Every general feature change or application behavior update is consolidated unde
 - **Local Bun server protocol**: the server emitted `game_action` while clients listened for `action_dispatched`, and joining never created the table. Actions are now broadcast as `action_dispatched` with the sender id. The first participant to join an unknown code opens the table as its host, and re-joining is idempotent.
 - **Player names from other browsers were rendered unescaped** in seat strips and score badges; they are now HTML-escaped.
 
+### Fixed (found by two-browser testing in Chrome, local Bun server and live PocketHost)
+- **Live tables went deaf after ~10 seconds**: Bun closes connections idle for 10s, and arcade SSE streams sent no heartbeat. Behind a proxy that surfaced as a non-SSE error, after which the browser stopped reconnecting. The arcade service now sends `:keepalive` every 5s while streams are open, and the client reconnects with capped exponential backoff whenever the browser gives up on a stream.
+- **Host's stream opened before its table existed** on the local server (404, no retry): the client now joins first and connects after.
+- **Guests could overwrite the host's table on reload**: a guest restored its own stale saved table and published it. Only the host restores a saved live table now; guests always take the shared state. New subscribers also receive the latest table snapshot (marked `replayed`, so a reloading player applies it even if they sent it).
+- **Refresh against AI turned a bot seat human**: the live seat-claim logic ran while restoring an AI table. Seats are now claimed only at live tables.
+- **Leaving a table kept `?game=` in the URL**, so a reload reopened it. Leaving now clears the arcade URL.
+- **Opening a live table from a game's "Live Multiplayer" tab did not make you host**, so nobody ran the bots. All in-theater live tabs now mark the creator as host.
+- **The host's seat stayed "You (Pilgrim)" for everyone** in Poker and Blackjack: numbered seats now hand the placeholder seat to the bot pool (keeping chips and cards) and re-claim it under the player's real name.
+- **Poker said "Your turn" to every player**: the turn banner now uses the local player's own seat.
+- **The app failed to start over plain HTTP** (e.g. LAN testing): `crypto.randomUUID` only exists in secure contexts. `generateUuidV4` now falls back to an RFC 4122 v4 UUID built from `crypto.getRandomValues`.
+- **Uno's status line lagged behind plays**: number cards and plain wilds now write a history line, so the banner always shows the latest move.
+
 ### Added
 - **Every human plays their own seat at live tables (`src/games/multiplayer/liveSeats.ts`)**: seat ownership (seat → participant) travels inside every table snapshot. The host takes the first seat, and each guest claims the first open bot seat once they have the table state. Players see only their own hand, cards and Avalon role, and act only on their own turn. When a player leaves or is kicked, the host hands their seat back to a bot. Guests cannot reset or deal the table (seat counts, new game, deal, next street). Live Blackjack now plays on the multi-seat table with per-seat bets, hit, stand and double.
 - **Bots run on exactly one browser**: against AI the local browser drives bots; at a live table only the host does. Uno, Skip-Bo and Phase 10 bots now play automatically at the DB-configured pace (`arcade.bot_turn_delay_ms`), also after another player's move arrives.

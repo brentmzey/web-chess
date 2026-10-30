@@ -264,4 +264,56 @@ describe('ArcadeRealtimeService - Multi-Game Real-Time Seating & Bot Hot-Swappin
     expect(lastEvent.eventType).toBe('player_kicked');
     expect((lastEvent.data as any).targetParticipantId).toBe('rogue_user_99');
   });
+
+  it('keeps arcade streams alive with heartbeats and stops when no streams remain', async () => {
+    const service = new ArcadeRealtimeService(20);
+    service.createSession(ArcadeGameEnum.Uno, 'UNO-BEAT', 4, 'Host');
+    const chunks: string[] = [];
+    const healthy = { enqueue: (c: Uint8Array) => chunks.push(new TextDecoder().decode(c)) } as any;
+    const broken = { enqueue: (c: Uint8Array) => {
+      if (new TextDecoder().decode(c).startsWith(':')) throw new Error('closed');
+    } } as any;
+
+    expect(service.isHeartbeatRunning()).toBe(false);
+    service.subscribe('UNO-BEAT', 'usr_a', healthy);
+    service.subscribe('UNO-BEAT', 'usr_b', broken);
+    expect(service.isHeartbeatRunning()).toBe(true);
+
+    await new Promise(r => setTimeout(r, 50));
+    expect(chunks.some(c => c === ':keepalive\n\n')).toBe(true);
+    expect(service.getSession('UNO-BEAT').getOrThrow().subscribers.has('usr_b')).toBe(false);
+
+    service.unsubscribe('UNO-BEAT', 'usr_a');
+    expect(service.sendHeartbeat()).toBe(0);
+    expect(service.isHeartbeatRunning()).toBe(false);
+  });
+
+  it('hands new joiners the latest table snapshot and resumers only what they missed', () => {
+    const service = new ArcadeRealtimeService();
+    service.createSession(ArcadeGameEnum.Uno, 'UNO-REPLAY', 4, 'Host');
+    service.dispatchAction('UNO-REPLAY', 'usr_a', 'state_sync', { version: 1, n: 1 });
+    service.dispatchAction('UNO-REPLAY', 'usr_a', 'state_sync', { version: 1, n: 2 });
+    service.dispatchAction('UNO-REPLAY', 'usr_a', 'uno_draw', {});
+    const read = (lastEventId?: number) => {
+      const chunks: string[] = [];
+      service.subscribe('UNO-REPLAY', `sub_${lastEventId}`, { enqueue: (c: Uint8Array) => chunks.push(new TextDecoder().decode(c)) } as any, lastEventId);
+      service.stopHeartbeat();
+      return chunks.join('');
+    };
+    const fresh = read();
+    expect(fresh).toContain('"n":2');
+    expect(fresh).toContain('"replayed":true');
+    expect(fresh).not.toContain('"n":1');
+    expect(fresh).not.toContain('uno_draw');
+    const resumed = read(1);
+    expect(resumed).toContain('"n":2');
+    expect(resumed).toContain('uno_draw');
+    expect(resumed).not.toContain('"replayed"');
+
+    service.createSession(ArcadeGameEnum.Uno, 'UNO-EMPTY', 4, 'Host');
+    const chunks: string[] = [];
+    service.subscribe('UNO-EMPTY', 'sub_empty', { enqueue: (c: Uint8Array) => chunks.push(new TextDecoder().decode(c)) } as any);
+    service.stopHeartbeat();
+    expect(chunks.join('')).not.toContain('action_dispatched');
+  });
 });

@@ -113,6 +113,7 @@ import {
 } from './games/solitaire/solitaireEngine';
 import { ArcadeRealtimeClient, type ArcadeConnectionStatus } from './realtime/arcadeRealtimeClient';
 import { exportTableSnapshot, importTableSnapshot, type ArcadeTableSnapshot, type SnapshotableEngine } from './games/multiplayer/tableSnapshot';
+import type { TableSeatManager } from './games/multiplayer/tableSeatManager';
 import {
   claimLiveSeat,
   isLocalTurn,
@@ -2922,6 +2923,20 @@ function main(): void {
     }
   });
 
+  /**
+   * Seats a live participant on a numbered seat. A seat still held by a local placeholder human (the
+   * host's default seat) is first returned to the bot pool, which keeps its chips and cards.
+   */
+  const claimNumberedSeat = (seatManager: TableSeatManager<any>,
+                             key: string,
+                             playerName: string): void => {
+    const seatNumber = Number(key);
+    seatManager.getSeat(seatNumber)
+      .filter(seat => seat.isOccupied && !seat.isBot && seat.playerId !== arcadeParticipantId)
+      .map(() => seatManager.vacateSeat(seatNumber));
+    seatManager.claimSeat(seatNumber, arcadeParticipantId, playerName);
+  };
+
   /** Seat adapter for engines that model the table as `state.players` with `claimSeatForHuman`. */
   const playerListSeats = (getEngine: () => {
     readonly state: { readonly players: readonly { readonly id: string; readonly isBot: boolean }[] };
@@ -2956,9 +2971,7 @@ function main(): void {
         })),
         rerender: () => renderBlackjackTable(),
         seats: () => bjkMultiEngine.seatManager.getOccupiedSeats().map(seat => ({ key: String(seat.seatNumber), isBot: seat.isBot })),
-        claimSeat: (key, playerName) => {
-          bjkMultiEngine.seatManager.claimSeat(Number(key), arcadeParticipantId, playerName);
-        },
+        claimSeat: (key, playerName) => claimNumberedSeat(bjkMultiEngine.seatManager, key, playerName),
         releaseSeat: key => {
           bjkMultiEngine.seatManager.vacateSeat(Number(key));
         }
@@ -2970,9 +2983,7 @@ function main(): void {
           renderPokerTable();
         },
         seats: () => pokerEngine.seatManager.getOccupiedSeats().map(seat => ({ key: String(seat.seatNumber), isBot: seat.isBot })),
-        claimSeat: (key, playerName) => {
-          pokerEngine.seatManager.claimSeat(Number(key), arcadeParticipantId, playerName);
-        },
+        claimSeat: (key, playerName) => claimNumberedSeat(pokerEngine.seatManager, key, playerName),
         releaseSeat: key => {
           pokerEngine.seatManager.vacateSeat(Number(key));
         },
@@ -3020,6 +3031,8 @@ function main(): void {
     isLocalTurn(localSeatKeyFor(defaultKey), currentSeatKey);
 
   const ensureLocalLiveSeat = (sync: ArcadeTableSync): void => {
+    // Seats are only claimed at live tables; against AI the local player already owns the first seat
+    if (!isArcadeLive()) return;
     zipOptions(fromNullable(sync.seats), fromNullable(sync.claimSeat)).map(([seats, claim]) =>
       claimLiveSeat(seats(), liveSeatOwners, arcadeParticipantId, isLocalPlayerHost).map(({ key, owners }) => {
         liveSeatOwners = owners;
@@ -3167,6 +3180,10 @@ function main(): void {
     resumeSaveTimer.map(timer => clearTimeout(timer));
     resumeSaveTimer = none();
     void clearArcadeResumeState();
+    // Drop the arcade game from the URL too, or a reload would reopen the table just left
+    if (new URLSearchParams(window.location.search).has('game')) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
   };
 
   const restoreArcadeTableSnapshot = (game: ArcadeGameEnum,
@@ -3208,7 +3225,10 @@ function main(): void {
           true: () => joinVerifiedArcadeGame(game, state.sessionCode, state.playerName || 'Cathedral Player'),
           false: () => switchToArcadeGame(game)
         });
-        restoreArcadeTableSnapshot(game, state.snapshot);
+        // At a live table only the host may restore its saved copy; guests always take the shared table state
+        if (!state.isLive || state.isHost) {
+          restoreArcadeTableSnapshot(game, state.snapshot);
+        }
         ui.showTemporaryBanner(`Welcome back to ${ARCADE_GAMES[game]?.title ?? 'your table'}.`, 2200);
         return true;
       })
@@ -3310,16 +3330,19 @@ function main(): void {
     client.on('seat_left', (evt: any) => releaseLiveParticipant(String(evt?.participantId ?? '')));
     client.on('bot_restored', (evt: any) => releaseLiveParticipant(String(evt?.vacatedPlayerId ?? '')));
 
-    client.connect();
     if (isLocalPlayerHost) {
       activeArcadeSync.map(ensureLocalLiveSeat);
     }
-    void client.claimSeat(playerName).then(res =>
+    // Join first: on the local server the join creates the table, and its event stream 404s until then
+    void client.claimSeat(playerName).then(res => {
       res.match({
         Ok: () => undefined,
         Err: err => ui.showTemporaryBanner(`Could not join live table ${sessionCode}: ${err}`, 4500)
-      })
-    );
+      });
+      if (activeArcadeClient === client) {
+        client.connect();
+      }
+    });
 
     return client;
   };
@@ -3373,7 +3396,11 @@ function main(): void {
     renderBlackjackTable();
   };
   fromNullable(document.getElementById('bjk-tab-ai')).map(b => b.addEventListener('click', () => setBlackjackMode(false)));
-  fromNullable(document.getElementById('bjk-tab-live')).map(b => b.addEventListener('click', () => setBlackjackMode(true)));
+  fromNullable(document.getElementById('bjk-tab-live')).map(b => b.addEventListener('click', () => {
+    // Opening a live table from here creates it, so this browser hosts it
+    isLocalPlayerHost = true;
+    setBlackjackMode(true);
+  }));
   fromNullable(document.getElementById('btn-bjk-copy-link')).map(b =>
     b.addEventListener('click', () => copyArcadeMatchLink(bjkLiveCode, b, 'Blackjack'))
   );
@@ -3494,7 +3521,7 @@ function main(): void {
       None: (): PokerPlayerData => defaultPokerPlayerData()
     });
 
-    const isMyTurn = s.activeSeatTurn.getOrElse(-1) === 1;
+    const isMyTurn = isPokerLocalTurn();
 
     fromNullable(document.getElementById('poker-pot-val')).map(el => {
       el.textContent = `$${s.pot}`;
@@ -3620,7 +3647,11 @@ function main(): void {
   };
 
   fromNullable(document.getElementById('poker-tab-ai')).map(b => b.addEventListener('click', () => setPokerMode(false)));
-  fromNullable(document.getElementById('poker-tab-live')).map(b => b.addEventListener('click', () => setPokerMode(true)));
+  fromNullable(document.getElementById('poker-tab-live')).map(b => b.addEventListener('click', () => {
+    // Opening a live table from here creates it, so this browser hosts it
+    isLocalPlayerHost = true;
+    setPokerMode(true);
+  }));
   fromNullable(document.getElementById('btn-poker-copy-link')).map(b =>
     b.addEventListener('click', () => copyArcadeMatchLink(pokerLiveCode, b, 'Poker'))
   );
@@ -4004,7 +4035,11 @@ function main(): void {
   };
 
   fromNullable(document.getElementById('skipbo-tab-ai')).map(b => b.addEventListener('click', () => setSkipBoMode(false)));
-  fromNullable(document.getElementById('skipbo-tab-live')).map(b => b.addEventListener('click', () => setSkipBoMode(true)));
+  fromNullable(document.getElementById('skipbo-tab-live')).map(b => b.addEventListener('click', () => {
+    // Opening a live table from here creates it, so this browser hosts it
+    isLocalPlayerHost = true;
+    setSkipBoMode(true);
+  }));
   fromNullable(document.getElementById('btn-skipbo-copy-link')).map(b =>
     b.addEventListener('click', () => copyArcadeMatchLink(skipboLiveCode, b, 'Skip-Bo'))
   );
@@ -4328,7 +4363,11 @@ function main(): void {
   };
 
   fromNullable(document.getElementById('phase10-tab-ai')).map(b => b.addEventListener('click', () => setPhase10Mode(false)));
-  fromNullable(document.getElementById('phase10-tab-live')).map(b => b.addEventListener('click', () => setPhase10Mode(true)));
+  fromNullable(document.getElementById('phase10-tab-live')).map(b => b.addEventListener('click', () => {
+    // Opening a live table from here creates it, so this browser hosts it
+    isLocalPlayerHost = true;
+    setPhase10Mode(true);
+  }));
   fromNullable(document.getElementById('btn-phase10-copy-link')).map(b =>
     b.addEventListener('click', () => copyArcadeMatchLink(phase10LiveCode, b, 'Phase 10'))
   );
@@ -4681,7 +4720,11 @@ function main(): void {
   };
 
   fromNullable(document.getElementById('uno-tab-ai')).map(b => b.addEventListener('click', () => setUnoMode(false)));
-  fromNullable(document.getElementById('uno-tab-live')).map(b => b.addEventListener('click', () => setUnoMode(true)));
+  fromNullable(document.getElementById('uno-tab-live')).map(b => b.addEventListener('click', () => {
+    // Opening a live table from here creates it, so this browser hosts it
+    isLocalPlayerHost = true;
+    setUnoMode(true);
+  }));
   fromNullable(document.getElementById('btn-uno-copy-link')).map(b =>
     b.addEventListener('click', () => copyArcadeMatchLink(unoLiveCode, b, 'Uno'))
   );
@@ -4966,7 +5009,11 @@ function main(): void {
   };
 
   fromNullable(document.getElementById('avalon-tab-ai')).map(b => b.addEventListener('click', () => setAvalonMode(false)));
-  fromNullable(document.getElementById('avalon-tab-live')).map(b => b.addEventListener('click', () => setAvalonMode(true)));
+  fromNullable(document.getElementById('avalon-tab-live')).map(b => b.addEventListener('click', () => {
+    // Opening a live table from here creates it, so this browser hosts it
+    isLocalPlayerHost = true;
+    setAvalonMode(true);
+  }));
   fromNullable(document.getElementById('btn-avalon-copy-link')).map(b =>
     b.addEventListener('click', () => copyArcadeMatchLink(avalonLiveCode, b, 'Avalon'))
   );
@@ -5241,7 +5288,11 @@ function main(): void {
     domById(id).map(b => b.addEventListener('click', () => setSetMode(false)));
   });
   ['set-tab-live', 'set-mode-live'].forEach(id => {
-    domById(id).map(b => b.addEventListener('click', () => setSetMode(true)));
+    domById(id).map(b => b.addEventListener('click', () => {
+      // Opening a live table from here creates it, so this browser hosts it
+      isLocalPlayerHost = true;
+      setSetMode(true);
+    }));
   });
   ['btn-set-copy-link'].forEach(id => {
     domById(id).map(b =>

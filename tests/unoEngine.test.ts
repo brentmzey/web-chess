@@ -165,4 +165,23 @@ describe('Cardinal Uno Engine - 2 to 10 Player Capacity & Tournament Rules', () 
     expect(engine.state.players[1]!.isBot).toBe(true);
     expect(engine.vacatePlayerSeat('unknown').isFailure()).toBe(true);
   });
+
+  it('announces every play in the history, including plain numbers and wilds', () => {
+    const engine = new CardinalUnoEngine('Pilgrim', 3);
+    engine.state.discardPile = [{ id: 'top', color: 'red', type: 'number', value: 7 }];
+    engine.state.activeColor = 'red';
+    engine.state.currentTurnIndex = 0;
+    engine.state.players[0]!.hand = [
+      { id: 'n1', color: 'red', type: 'number', value: 3 },
+      { id: 'w1', color: 'wild', type: 'wild' },
+      { id: 'pad', color: 'blue', type: 'number', value: 1 }
+    ] as any;
+    expect(engine.playCard(0).isSuccess()).toBe(true);
+    expect(engine.state.historyText.at(-1)).toBe('Pilgrim played red 3.');
+
+    engine.state.currentTurnIndex = 0;
+    expect(engine.playCard(0, 'green').isSuccess()).toBe(true);
+    expect(engine.state.historyText.at(-1)).toBe('Pilgrim played Wild! Color set to green.');
+  });
 });
+

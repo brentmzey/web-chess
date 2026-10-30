@@ -291,6 +291,10 @@ export class CardinalUnoEngine {
       cardsToDrawNext = 4;
       skipNext = true;
       this.state.historyText.push(`${player.name} played Wild Draw 4! Color set to ${resolvedColor}.`);
+    } else if (card.type === 'wild') {
+      this.state.historyText.push(`${player.name} played Wild! Color set to ${resolvedColor}.`);
+    } else {
+      this.state.historyText.push(`${player.name} played ${card.color} ${card.value}.`);
     }
 
     this.advanceTurn(skipNext, cardsToDrawNext);

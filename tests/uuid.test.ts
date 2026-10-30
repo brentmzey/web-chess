@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   isValidUuidV4,
   generateUuidV4,
+  uuidV4FromRandomBytes,
   generateTraceId,
   parseUuidV4,
   validateUuidV4,
@@ -97,5 +98,19 @@ describe('UUID v4 Branded Typing, Validation & Trace ID Utility', () => {
       expect(err.code).toBe('ERR_INVALID_UUID_V4');
       expect(err.data.fieldName).toBe('strictId');
     }
+  });
+
+  it('falls back to crypto.getRandomValues outside secure contexts (no randomUUID)', () => {
+    const original = globalThis.crypto.randomUUID;
+    try {
+      (globalThis.crypto as any).randomUUID = undefined;
+      const id = generateUuidV4();
+      expect(isValidUuidV4(id)).toBe(true);
+      expect(generateUuidV4()).not.toBe(id);
+    } finally {
+      (globalThis.crypto as any).randomUUID = original;
+    }
+    expect(String(uuidV4FromRandomBytes(new Uint8Array(16).fill(0xff)))).toBe('ffffffff-ffff-4fff-bfff-ffffffffffff');
+    expect(String(uuidV4FromRandomBytes(new Uint8Array(16)))).toBe('00000000-0000-4000-8000-000000000000');
   });
 });

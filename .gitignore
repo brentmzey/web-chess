@@ -47,3 +47,6 @@ bun.lockb
 id_rsa*
 id_ed25519*
 
+
+# Local Bun server SQLite database (bun run server)
+sanctuary_chess.db*

@@ -14,6 +14,9 @@ import {
 export const POCKETHOST_URL = 'https://web-chess.pockethost.io';
 export const ARCADE_EVENTS_COLLECTION = 'tbl_arcade_events';
 export const ARCADE_TABLES_COLLECTION = 'tbl_arcade_tables';
+export const RECONNECT_BASE_DELAY_MS = 1000;
+export const RECONNECT_MAX_DELAY_MS = 30000;
+const EVENT_SOURCE_CLOSED = 2;
 /** Sender id used for state loaded from the server-kept table snapshot rather than a live peer. */
 export const TABLE_SNAPSHOT_SENDER = '__table_snapshot__';
 
@@ -72,6 +75,9 @@ export class ArcadeRealtimeClient {
   private lastSentSeq: number = 0;
   private isConnected: boolean = false;
   private hasConnectedOnce: boolean = false;
+  private reconnectAttempts: number = 0;
+  private reconnectTimer: Option<ReturnType<typeof setTimeout>> = none();
+  private isClosedByUser: boolean = false;
   private readonly seenRecordIds: Set<string> = new Set();
   private readonly eventHandlers: Map<string, Set<ArcadeRealtimeEventHandler>> = new Map();
 
@@ -157,8 +163,9 @@ export class ArcadeRealtimeClient {
       this.lastEventSeq = Math.max(this.lastEventSeq, id);
 
       const parsed = parseJson(e.data);
-      const sender = typeof parsed === 'object' && parsed !== null ? (parsed as { participantId?: unknown }).participantId : undefined;
-      matchBool(this.isOwnEvent(sender), {
+      const envelope = (typeof parsed === 'object' && parsed !== null ? parsed : {}) as { participantId?: unknown; replayed?: unknown };
+      // Replayed snapshots are delivered even when this participant sent them before a reload
+      matchBool(this.isOwnEvent(envelope.participantId) && envelope.replayed !== true, {
         true: () => undefined,
         false: () => this.dispatchEvent(evtType, parsed, id)
       });
@@ -264,6 +271,7 @@ export class ArcadeRealtimeClient {
         }
 
         const isReconnect = this.hasConnectedOnce;
+        this.reconnectAttempts = 0;
         this.hasConnectedOnce = true;
         this.isConnected = true;
         this.setStatus('live');
@@ -303,11 +311,7 @@ export class ArcadeRealtimeClient {
       });
     });
 
-    es.onerror = err => {
-      this.isConnected = false;
-      this.setStatus(this.hasConnectedOnce ? 'reconnecting' : 'offline');
-      this.config.onError?.(err);
-    };
+    es.onerror = err => this.handleStreamError(es, err);
   }
 
   private connectLocal(): void {
@@ -320,23 +324,28 @@ export class ArcadeRealtimeClient {
     this.eventSource = some(es);
 
     es.onopen = () => {
+      this.reconnectAttempts = 0;
       this.hasConnectedOnce = true;
       this.isConnected = true;
       this.setStatus('live');
       this.config.onOpen?.();
     };
 
-    es.onerror = err => {
-      this.isConnected = false;
-      this.setStatus(this.hasConnectedOnce ? 'reconnecting' : 'offline');
-      this.config.onError?.(err);
-    };
+    es.onerror = err => this.handleStreamError(es, err);
 
     this.eventHandlers.forEach((_, evtType) => this.wireLocalEventListener(es, evtType));
   }
 
   public connect(): void {
-    this.disconnect();
+    this.isClosedByUser = false;
+    this.reconnectAttempts = 0;
+    this.reconnectTimer.map(timer => clearTimeout(timer));
+    this.reconnectTimer = none();
+    this.openStream();
+  }
+
+  private openStream(): void {
+    this.closeStream();
     this.setStatus('connecting');
 
     tryCatch(() => matchBool(this.isPocketBaseMode(), {
@@ -352,7 +361,34 @@ export class ArcadeRealtimeClient {
     });
   }
 
+  /**
+   * The browser retries dropped streams by itself, but gives up for good (readyState CLOSED) when a
+   * proxy answers with a non-SSE error. Then this client reconnects with capped exponential backoff;
+   * replay and table hydration catch up on anything missed.
+   */
+  private handleStreamError(es: EventSource,
+                            err: unknown): void {
+    this.isConnected = false;
+    this.setStatus(this.hasConnectedOnce ? 'reconnecting' : 'offline');
+    this.config.onError?.(err);
+    const browserGaveUp = es.readyState === EVENT_SOURCE_CLOSED;
+    if (!browserGaveUp || this.isClosedByUser || this.reconnectTimer.isSome()) return;
+    const delayMs = Math.min(RECONNECT_MAX_DELAY_MS, RECONNECT_BASE_DELAY_MS * 2 ** this.reconnectAttempts);
+    this.reconnectAttempts += 1;
+    this.reconnectTimer = some(setTimeout(() => {
+      this.reconnectTimer = none();
+      if (!this.isClosedByUser) this.openStream();
+    }, delayMs));
+  }
+
   public disconnect(): void {
+    this.isClosedByUser = true;
+    this.reconnectTimer.map(timer => clearTimeout(timer));
+    this.reconnectTimer = none();
+    this.closeStream();
+  }
+
+  private closeStream(): void {
     this.eventSource.map(es => es.close());
     this.eventSource = none();
     this.clientId = none();

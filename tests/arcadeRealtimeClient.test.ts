@@ -149,8 +149,13 @@ describe('ArcadeRealtimeClient', () => {
 
       es.emit('action_dispatched', { lastEventId: '4', data: JSON.stringify({ participantId: 'peer', actionType: 'hit' }) });
       es.emit('action_dispatched', { lastEventId: '5', data: JSON.stringify({ participantId: 'me', actionType: 'hit' }) });
+      es.emit('action_dispatched', { lastEventId: '5', data: JSON.stringify({ participantId: 'me', actionType: 'state_sync', replayed: true }) });
       es.emit('action_dispatched', { lastEventId: 'x', data: 'plain text' });
-      expect(received).toEqual([{ participantId: 'peer', actionType: 'hit' }, 'plain text']);
+      expect(received).toEqual([
+        { participantId: 'peer', actionType: 'hit' },
+        { participantId: 'me', actionType: 'state_sync', replayed: true },
+        'plain text'
+      ]);
       expect(client.getLastEventSeq()).toBe(5);
 
       // Listeners registered after connecting are wired to the open stream
@@ -169,6 +174,40 @@ describe('ArcadeRealtimeClient', () => {
       expect(MockEventSource.last!.url).toContain('lastEventId=6');
       client.disconnect();
       expect(client.getIsConnected()).toBe(false);
+    });
+
+    it('reconnects with backoff when the browser gives up on the stream, and stops after disconnect', async () => {
+      const client = local();
+      client.connect();
+      const first = MockEventSource.last!;
+      first.onopen?.();
+
+      // A transient drop the browser retries by itself: no manual reconnect
+      (first as any).readyState = 0;
+      first.onerror?.({});
+      await new Promise(r => setTimeout(r, 1100));
+      expect(MockEventSource.last).toBe(first);
+
+      // The browser gave up (proxy error page): reconnect after the base backoff
+      (first as any).readyState = 2;
+      first.onerror?.({});
+      first.onerror?.({});
+      await new Promise(r => setTimeout(r, 1100));
+      const second = MockEventSource.last!;
+      expect(second).not.toBe(first);
+      expect(first.closed).toBe(true);
+
+      // A user disconnect cancels a pending reconnect
+      (second as any).readyState = 2;
+      second.onerror?.({});
+      client.disconnect();
+      await new Promise(r => setTimeout(r, 1100));
+      expect(MockEventSource.last).toBe(second);
+
+      // Errors after a user disconnect never schedule a reconnect
+      second.onerror?.({});
+      await new Promise(r => setTimeout(r, 1100));
+      expect(MockEventSource.last).toBe(second);
     });
 
     it('reports offline when the EventSource cannot be created', () => {
