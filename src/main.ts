@@ -167,6 +167,10 @@ import { ScreenWakeLockManager } from './utils/wakeLock';
 
 // Entry point initialization
 function main(): void {
+  // Identify the deployed release (visible as <html data-app-version> and in the console)
+  document.documentElement.dataset.appVersion = __APP_VERSION__;
+  logger.info(`[RELEASE] Sanctuary Arcade v${__APP_VERSION__}`);
+
   const container = fromNullable(document.getElementById('canvas-container')).getOrThrow(
     () => new Error('Canvas container (#canvas-container) not found in DOM')
   );

@@ -15,6 +15,9 @@ Minor release promoting release candidates `1.2.0-rc.45` through `1.2.0-rc.47` (
 - **Realtime & clients**: chess moves and arcade table state stream live over filtered PocketBase topics; late joiners hydrate from the server-kept snapshot; clients reconnect and replay after drops.
 - **Games**: Sanctuary Chess plus all eight arcade games (Blackjack, Poker, Skip-Bo, Phase 10, Uno, Avalon, SET, Solitaire) play against AI and live with per-seat hands, host-driven bots, refresh resume and live-config pacing.
 
+### Added
+- **Release version stamp**: the build injects `package.json`'s version (`__APP_VERSION__`), exposed as `<html data-app-version>` and logged at startup, so the deployed release can always be verified.
+
 ### Highlights
 - Live multiplayer on PocketHost for every arcade game, with each human owning their own seat.
 - Server-owned arcade table registry with cascading relations and a DB-driven storage lifecycle (archives → `*_history` → retention).
