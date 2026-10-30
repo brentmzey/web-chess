@@ -9,7 +9,8 @@ import {
   ListResponseSchema,
   RealtimeRecordMessageSchema,
   parseWith,
-  type ArcadeEventRecord
+  type ArcadeEventRecord,
+  type ArcadeTableRecord
 } from '../validation/realtimeSchemas';
 
 export const POCKETHOST_URL = 'https://web-chess.pockethost.io';
@@ -261,17 +262,8 @@ export class ArcadeRealtimeClient {
    * while the host is away still sees the current table. Delivered as a `state_sync` action.
    */
   public async hydrateFromTableSnapshot(): Promise<Result<boolean, string>> {
-    const filter = `session_code="${this.config.sessionCode}"`;
-    return tryCatchAsync(async () => {
-      const res = await fetch(
-        `${this.getBaseUrl()}/api/collections/${ARCADE_TABLES_COLLECTION}/records?perPage=1&filter=${encodeURIComponent(filter)}`
-      );
-      if (!res.ok) {
-        throw new Error(await describeHttpFailure(res, 'Failed to load table'));
-      }
-      const items = parseWith(ListResponseSchema, await res.json(), 'table list').map(list => list.items).getOrElse([]);
-      return fromNullable(items[0])
-        .flatMap(item => fromResult(parseWith(ArcadeTableRecordSchema, item, 'arcade table')))
+    return tryCatchAsync(async () =>
+      (await this.fetchTableRecord())
         .flatMap(table => fromNullable(table.json_last_snapshot))
         .map(snapshot => {
           this.dispatchEvent('action_dispatched', {
@@ -282,8 +274,31 @@ export class ArcadeRealtimeClient {
           }, this.lastEventSeq);
           return true;
         })
-        .getOrElse(false);
-    }, toMessage);
+        .getOrElse(false), toMessage);
+  }
+
+  /**
+   * The participant the server registered as this table's host (the first player to join it), so a
+   * browser that arrived by link still knows whether it runs the table. Empty when the table is unknown.
+   */
+  public async fetchTableHost(): Promise<Result<Option<string>, string>> {
+    if (!this.isPocketBaseMode()) return success(none());
+    return tryCatchAsync(async () =>
+      (await this.fetchTableRecord())
+        .map(table => table.host_participant_id)
+        .filter(hostId => hostId !== ''), toMessage);
+  }
+
+  private async fetchTableRecord(): Promise<Option<ArcadeTableRecord>> {
+    const filter = `session_code="${this.config.sessionCode}"`;
+    const res = await fetch(
+      `${this.getBaseUrl()}/api/collections/${ARCADE_TABLES_COLLECTION}/records?perPage=1&filter=${encodeURIComponent(filter)}`
+    );
+    if (!res.ok) {
+      throw new Error(await describeHttpFailure(res, 'Failed to load table'));
+    }
+    const items = parseWith(ListResponseSchema, await res.json(), 'table list').map(list => list.items).getOrElse([]);
+    return fromNullable(items[0]).flatMap(item => fromResult(parseWith(ArcadeTableRecordSchema, item, 'arcade table')));
   }
 
   /** Validates one private record and delivers it to this player as `private_state`. */

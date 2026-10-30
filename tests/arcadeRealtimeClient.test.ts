@@ -373,6 +373,19 @@ describe('ArcadeRealtimeClient', () => {
       expect((await client.replayMissedEvents()).match({ Ok: () => '', Err: e => e })).toBe('Failed to replay missed events: HTTP 500');
     });
 
+    it('looks up the server-recorded table host', async () => {
+      const client = remote();
+      responder = () => jsonResponse({ items: [{ id: 't1', session_code: 'BJK-PB', status: 'active', host_participant_id: 'me' }] });
+      expect((await client.fetchTableHost()).getOrThrow().getOrElse('')).toBe('me');
+      responder = () => jsonResponse({ items: [{ id: 't1', session_code: 'BJK-PB', status: 'active' }] });
+      expect((await client.fetchTableHost()).getOrThrow().isNone()).toBe(true);
+      responder = () => jsonResponse({ items: [] });
+      expect((await client.fetchTableHost()).getOrThrow().isNone()).toBe(true);
+      responder = () => jsonResponse({}, 500);
+      expect((await client.fetchTableHost()).isFailure()).toBe(true);
+      expect((await new ArcadeRealtimeClient({ baseUrl: '', sessionCode: 'BJK-LOC', participantId: 'me' }).fetchTableHost()).getOrThrow().isNone()).toBe(true);
+    });
+
     it('hydrates a late joiner from the server-kept table snapshot', async () => {
       const client = remote();
       const received: any[] = [];

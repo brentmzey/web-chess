@@ -3563,16 +3563,43 @@ function main(): void {
       activeArcadeSync.map(sync => seatLiveParticipant(sync, arcadeParticipantId, playerName));
     }
     // Join first: on the local server the join creates the table, and its event stream 404s until then
-    void client.claimSeat(playerName).then(res => {
+    void client.claimSeat(playerName).then(async res => {
       res.match({
         Ok: () => undefined,
         Err: err => ui.showTemporaryBanner(`Could not join live table ${sessionCode}: ${err}`, 4500)
       });
       if (activeArcadeClient === client) {
+        await adoptServerHostRole(client, playerName);
+      }
+      if (activeArcadeClient === client) {
         client.connect();
       }
     });
   };
+
+  /**
+   * The server records the first player at a table as its host. That record wins over how this browser
+   * arrived, so the first person to open a shared link runs the table instead of waiting for a host.
+   */
+  const adoptServerHostRole = async (client: ArcadeRealtimeClient,
+                                     playerName: string): Promise<void> =>
+    (await client.fetchTableHost()).match({
+      Ok: hostId => {
+        hostId.map(id => id === arcadeParticipantId)
+          .filter(isHost => isHost !== isLocalPlayerHost)
+          .map(isHost => {
+            isLocalPlayerHost = isHost;
+            if (isHost) {
+              activeArcadeSync.map(sync => seatLiveParticipant(sync, arcadeParticipantId, playerName));
+              ui.showTemporaryBanner('You are hosting this table.', 2200);
+            }
+            scheduleArcadeResumeSave();
+          });
+      },
+      Err: err => {
+        logger.warn('[ARCADE_REALTIME] Could not look up the table host:', err);
+      }
+    });
 
   /**
    * Opens a live arcade table. On PocketHost the browser first signs in as its guest player, whose id
