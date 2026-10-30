@@ -408,17 +408,18 @@ describe('Cathedral Solitaire Engine - Pure Functional Klondike & Spectator Logi
     (engine.state as any).tableau[1] = [];
     expect(engine.moveTableauToTableau(1, 0, 1).isFailure()).toBe(true);
 
-    // moveTableauToTableau invalid cardCount (<=0 or >col.length)
+    // moveTableauToTableau invalid cardIndex (<0 or >=col.length)
     (engine.state as any).tableau[0] = [{ suit: CardSuitEnum.Hearts, value: CardValueEnum.Ace, faceUp: true }];
-    expect(engine.moveTableauToTableau(0, 1, 0).isFailure()).toBe(true);
+    expect(engine.moveTableauToTableau(0, -1, 1).isFailure()).toBe(true);
     expect(engine.moveTableauToTableau(0, 1, 5).isFailure()).toBe(true);
+    expect(engine.moveTableauToTableau(0, 5, 1).isFailure()).toBe(true);
 
-    // moveTableauToTableau moving face-down card
+    // moveTableauToTableau moving face-down card (cardIndex 0 is faceUp: false)
     (engine.state as any).tableau[0] = [
       { suit: CardSuitEnum.Hearts, value: CardValueEnum.King, faceUp: false },
       { suit: CardSuitEnum.Spades, value: CardValueEnum.Queen, faceUp: true }
     ];
-    expect(engine.moveTableauToTableau(0, 1, 2).isFailure()).toBe(true);
+    expect(engine.moveTableauToTableau(0, 0, 1).isFailure()).toBe(true);
 
     // moveFoundationToTableau invalid target column
     expect(engine.moveFoundationToTableau(CardSuitEnum.Hearts, 7).isFailure()).toBe(true);
