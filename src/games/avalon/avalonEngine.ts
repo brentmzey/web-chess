@@ -44,6 +44,7 @@ export interface AvalonQuest {
   proposedTeam: string[]; // player IDs
   votes: Record<string, boolean>; // player ID -> approve/reject
   questCards: boolean[]; // true = success, false = fail
+  castBy?: string[]; // player IDs who already cast a quest card (one card each)
   outcome: Option<'success' | 'fail'>;
 }
 
@@ -296,6 +297,10 @@ export class AvalonEngine {
     if (!quest.proposedTeam.includes(playerId)) {
       return failure('Only knights selected for the quest may cast quest cards.');
     }
+    const castBy = quest.castBy ?? [];
+    if (castBy.includes(playerId)) {
+      return failure('This knight has already cast a quest card.');
+    }
 
     const player = this.state.players.find(p => p.id === playerId);
     if (player && player.alignment === 'good' && !successCard) {
@@ -303,6 +308,7 @@ export class AvalonEngine {
     }
 
     quest.questCards.push(successCard);
+    quest.castBy = [...castBy, playerId];
 
     if (quest.questCards.length === quest.teamSize) {
       const fails = quest.questCards.filter(c => !c).length;

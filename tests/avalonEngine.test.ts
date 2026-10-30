@@ -170,4 +170,21 @@ describe('The Resistance: Avalon Engine - 5 to 10 Player Capacity & Hidden Roles
     expect(engine.state.players[1]!.isBot).toBe(true);
     expect(engine.vacatePlayerSeat('unknown').isFailure()).toBe(true);
   });
+
+  it('accepts exactly one quest card per knight on the team', () => {
+    const engine = new AvalonEngine('Percival', 5);
+    const team = engine.state.players.slice(0, engine.getCurrentQuest().teamSize).map(p => p.id);
+    expect(engine.proposeTeam(team).isSuccess()).toBe(true);
+    engine.state.players.forEach(p => engine.castVote(p.id, true));
+    expect(engine.state.stage).toBe('quest-execution');
+
+    const first = team[0]!;
+    expect(engine.castQuestCard(first, true).isSuccess()).toBe(true);
+    const again = engine.castQuestCard(first, true);
+    expect(again.isFailure()).toBe(true);
+    expect(again.match({ Ok: () => '', Err: e => e })).toBe('This knight has already cast a quest card.');
+    expect(engine.getCurrentQuest().questCards.length).toBe(1);
+    expect(engine.getCurrentQuest().castBy).toEqual([first]);
+  });
 });
+

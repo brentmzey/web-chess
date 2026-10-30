@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.47] - 2026-10-30
+### Fixed (found by end-to-end testing of every arcade game on production with two browsers)
+- **Solitaire spectators saw an unrelated board** until the player's next move: Solitaire boards are now sent as the standard `state_sync` table snapshot, published as soon as the table goes live and again whenever a spectator joins. PocketHost keeps them, so late spectators load the current board even if the player is away. Only spectators apply incoming boards.
+- **Avalon accepted more than one quest card per knight**: the engine now records who has cast (`castBy`) and rejects a second card.
+- **Avalon quests with no human on the team could stall**, because only a human's Pass/Fail click played the bots' cards. The bot-driving browser now plays bot quest cards on its own at the configured bot pace.
+- **Avalon showed quest buttons to knights not on the quest**, where clicks silently did nothing: Pass/Fail now appears only for team members, and quest errors are shown.
+- **Avalon kept a stale team selection across quests and failed proposals silently**: the selection resets when the quest, leader or stage changes, and a rejected proposal shows why (e.g. "Quest 3 requires exactly 2 knights.").
+
 ## [1.2.0-rc.46] - 2026-10-29
 ### Fixed
 - **Arcade live tables on PocketHost (`src/realtime/arcadeRealtimeClient.ts`)**: every arcade realtime write was rejected with `400 validation_missing_rel_records` because arcade codes were posted into `session_events.session`, a relation to chess `game_sessions`, and the client discarded the error. Arcade events now go to a dedicated `tbl_arcade_events` collection, and publish failures surface as `Err` results with PocketBase field details.

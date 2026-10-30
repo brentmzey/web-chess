@@ -3306,6 +3306,9 @@ function main(): void {
 
     client.on('seat_claimed', (evt: any) => {
       ui.showTemporaryBanner(`${String(evt?.displayName ?? 'A player')} joined the table.`, 2200);
+      if (game === ArcadeGameEnum.Solitaire) {
+        broadcastSolitaireIfLive();
+      }
       // Bring the newcomer up to date with the current table
       activeArcadeSync.map(() => {
         lastSyncedSnapshotJson = '';
@@ -4823,6 +4826,8 @@ function main(): void {
   let avalonEngine = new AvalonEngine('Percival', 5);
   let avalonLiveCode = generateArcadeCode(GameCodePrefixEnum.Avalon);
   let selectedAvalonKnights: string[] = [];
+  // A new quest or leader starts a fresh team selection
+  let avalonSelectionRound = '';
 
   /** The knight the local player controls (seat owner at a live table, the first knight against AI). */
   const avalonLocalId = (): Option<string> => localSeatKeyFor('p1');
@@ -4839,21 +4844,43 @@ function main(): void {
     }
   };
 
-  /** Bots on the quest play to their alignment; only the bot-driving browser plays their cards. */
+  /** Bots on the quest play to their alignment, once each; only the bot-driving browser plays their cards. */
+  const castAvalonBotQuestCards = (): boolean => {
+    if (!canDriveArcadeBots() || avalonEngine.state.stage !== 'quest-execution') return false;
+    const quest = avalonEngine.getCurrentQuest();
+    const pending = avalonBots().filter(bot => quest.proposedTeam.includes(bot.id) && !(quest.castBy ?? []).includes(bot.id));
+    pending.forEach(bot => avalonEngine.castQuestCard(bot.id, bot.alignment === 'good'));
+    return pending.length > 0;
+  };
+
   const castAvalonQuestCard = (pass: boolean): void => {
-    avalonLocalId().map(id => avalonEngine.castQuestCard(id, pass));
-    if (canDriveArcadeBots()) {
-      const botIds = new Set(avalonBots().map(bot => bot.id));
-      avalonEngine.getCurrentQuest().proposedTeam.filter(id => botIds.has(id)).forEach(id => {
-        const bot = avalonEngine.state.players.find(p => p.id === id);
-        avalonEngine.castQuestCard(id, bot?.alignment === 'good');
-      });
-    }
+    avalonLocalId().map(id => avalonEngine.castQuestCard(id, pass)).map(res =>
+      res.match({
+        Ok: () => undefined,
+        Err: err => ui.showTemporaryBanner(err, 2500)
+      })
+    );
+    castAvalonBotQuestCards();
+  };
+
+  let avalonBotTimer: Option<ReturnType<typeof setTimeout>> = none();
+  /** Lets bot knights finish a quest on their own, e.g. when no human is on the team. */
+  const scheduleAvalonBotQuestCards = (): void => {
+    if (avalonBotTimer.isSome() || !canDriveArcadeBots() || avalonEngine.state.stage !== 'quest-execution') return;
+    avalonBotTimer = some(setTimeout(() => {
+      avalonBotTimer = none();
+      if (castAvalonBotQuestCards()) renderAvalonTable();
+    }, arcadeBotTurnDelayMs()));
   };
 
   const renderAvalonTable = () => {
     scheduleArcadeStateSync();
     const s = avalonEngine.state;
+    const selectionRound = `${s.currentQuestIndex}:${s.currentLeaderIndex}:${s.stage}`;
+    if (selectionRound !== avalonSelectionRound) {
+      avalonSelectionRound = selectionRound;
+      selectedAvalonKnights = [];
+    }
     // Each player only ever sees their own role
     const humanPlayer = avalonLocalId()
       .flatMap(id => fromNullable(s.players.find(p => p.id === id)))
@@ -4955,10 +4982,15 @@ function main(): void {
       if (s.stage === 'team-building' || s.stage === 'voting') el.classList.remove('hidden');
       else el.classList.add('hidden');
     });
+    // Only knights on the quest team play quest cards
+    const isOnQuestTeam = avalonLocalId()
+      .map(id => avalonEngine.getCurrentQuest().proposedTeam.includes(id))
+      .getOrElse(false);
     fromNullable(document.getElementById('avalon-quest-controls')).map(el => {
-      if (s.stage === 'quest-execution') el.classList.remove('hidden');
+      if (s.stage === 'quest-execution' && isOnQuestTeam) el.classList.remove('hidden');
       else el.classList.add('hidden');
     });
+    scheduleAvalonBotQuestCards();
     fromNullable(document.getElementById('avalon-assassin-controls')).map(el => {
       if (s.stage === 'assassination') el.classList.remove('hidden');
       else el.classList.add('hidden');
@@ -5031,6 +5063,10 @@ function main(): void {
         return;
       }
       const res = avalonEngine.proposeTeam(selectedAvalonKnights);
+      res.match({
+        Ok: () => undefined,
+        Err: err => ui.showTemporaryBanner(err, 2800)
+      });
       if (res.isSuccess()) {
         soundFX.playCathedralOrganAndBell();
         if (activeArcadeClient) {
@@ -5458,12 +5494,16 @@ function main(): void {
         solitaireLiveCode,
         asSpectator ? 'Spectator Observer' : verifiedPlayerName.getOrElse('Solitary Pilgrim'),
         (actionType, payload) => {
-          if (actionType === 'solitaire_state_update' && payload) {
+          // Spectators mirror the player's board; the player keeps their own
+          const isBoardUpdate = actionType === 'state_sync' || actionType === 'solitaire_state_update';
+          if (isBoardUpdate && payload && solitaireIsSpectator) {
             solitaireEngine.importSnapshot(payload);
             renderSolitaireBoard();
           }
         }
       );
+      // Publish the board right away so spectators (and the server-kept table snapshot) start in sync
+      broadcastSolitaireIfLive();
     } else {
       disconnectActiveArcade();
       if (typeof window !== 'undefined' && window.location.search) {
@@ -5475,7 +5515,8 @@ function main(): void {
 
   const broadcastSolitaireIfLive = (): void => {
     if (solitaireIsLive && activeArcadeClient && !solitaireIsSpectator) {
-      void activeArcadeClient.sendAction('solitaire_state_update', solitaireEngine.exportSnapshot() as any);
+      // Sent as the standard table snapshot, so PocketHost keeps it for spectators who join later
+      void activeArcadeClient.sendAction('state_sync', solitaireEngine.exportSnapshot() as any);
     }
   };
 
