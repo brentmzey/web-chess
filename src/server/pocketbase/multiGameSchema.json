@@ -681,7 +681,7 @@
       "type": "base",
       "listRule": "",
       "viewRule": "",
-      "createRule": "session_code ~ \"-\" && participant_id != \"\" && event_type != \"\" && event_seq > 0",
+      "createRule": "@request.auth.id != \"\" && participant_id = @request.auth.id && session_code ~ \"-\" && event_type != \"\" && event_seq > 0",
       "updateRule": null,
       "deleteRule": null,
       "fields": [
@@ -701,6 +701,53 @@
         "CREATE INDEX `idx_arcade_events_session_seq` ON `tbl_arcade_events` (`session_code`, `event_seq`)",
         "CREATE INDEX `idx_arcade_events_session_type` ON `tbl_arcade_events` (`session_code`, `event_type`)",
         "CREATE INDEX `idx_arcade_events_cleanup_composite` ON `tbl_arcade_events` (`do_not_delete`, `updated`, `event_type`)"
+      ]
+    },
+    {
+      "name": "tbl_arcade_players",
+      "type": "auth",
+      "listRule": "id = @request.auth.id",
+      "viewRule": "id = @request.auth.id",
+      "createRule": "",
+      "updateRule": "id = @request.auth.id",
+      "deleteRule": "id = @request.auth.id",
+      "authRule": "",
+      "passwordAuth": { "enabled": true, "identityFields": ["email"] },
+      "fields": [
+        { "name": "password", "type": "password", "system": true, "required": true, "hidden": true, "min": 8, "max": 0, "cost": 0 },
+        { "name": "tokenKey", "type": "text", "system": true, "required": true, "hidden": true, "min": 30, "max": 60, "autogeneratePattern": "[a-zA-Z0-9]{50}" },
+        { "name": "email", "type": "email", "system": true, "required": true },
+        { "name": "emailVisibility", "type": "bool", "system": true },
+        { "name": "verified", "type": "bool", "system": true },
+        { "name": "txt_display_name", "type": "text", "required": false, "max": 40 },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_arcade_players_updated` ON `tbl_arcade_players` (`updated`)"
+      ]
+    },
+    {
+      "name": "tbl_arcade_private",
+      "type": "base",
+      "listRule": "owner = @request.auth.id",
+      "viewRule": "owner = @request.auth.id",
+      "createRule": "@request.auth.id != \"\" && table.host_participant_id = @request.auth.id",
+      "updateRule": "@request.auth.id != \"\" && table.host_participant_id = @request.auth.id",
+      "deleteRule": null,
+      "fields": [
+        { "name": "table", "type": "relation", "required": true, "collectionId": "tbl_arcade_tables", "cascadeDelete": true, "maxSelect": 1 },
+        { "name": "owner", "type": "relation", "required": true, "collectionId": "tbl_arcade_players", "cascadeDelete": true, "maxSelect": 1 },
+        { "name": "session_code", "type": "text", "required": true, "max": 32 },
+        { "name": "seat_key", "type": "text", "required": true, "max": 16 },
+        { "name": "int_state_seq", "type": "number", "required": false, "onlyInt": true, "min": 0 },
+        { "name": "json_secrets", "type": "json", "required": false, "maxSize": 262144 },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_arcade_private_table_owner` ON `tbl_arcade_private` (`table`, `owner`)",
+        "CREATE INDEX `idx_arcade_private_session` ON `tbl_arcade_private` (`session_code`)"
       ]
     },
     {

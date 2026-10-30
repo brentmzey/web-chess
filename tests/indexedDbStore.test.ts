@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
 import {
+  ARCADE_PLAYER_KEY,
+  loadArcadePlayerCredentials,
+  saveArcadePlayerCredentials,
   ARCADE_RESUME_KEY,
   clearArcadeResumeState,
   loadArcadeResumeState,
@@ -866,3 +869,23 @@ describe('Encrypted arcade table resume record', () => {
     expect((await loadArcadeResumeState()).isNone()).toBe(true);
   });
 });
+
+describe('Encrypted arcade player credentials', () => {
+  beforeEach(() => {
+    setupMockIndexedDB();
+    clearCachedCryptoKey();
+  });
+
+  it('stores guest player credentials encrypted under their own record context', async () => {
+    expect((await loadArcadePlayerCredentials()).isNone()).toBe(true);
+    const credentials = { email: 'guest-abc@players.sanctuary.invalid', password: 'f'.repeat(48) };
+    expect((await saveArcadePlayerCredentials(credentials)).isSuccess()).toBe(true);
+
+    const raw = activeMockDb.getRawRecord(STORE_NAME, ARCADE_PLAYER_KEY);
+    expect(isEncryptedEnvelope(raw.envelope)).toBe(true);
+    expect(JSON.stringify(raw)).not.toContain('players.sanctuary.invalid');
+    expect((await loadArcadePlayerCredentials()).getOrThrow()).toEqual(credentials);
+    expect((await decryptPayload(raw.envelope, ARCADE_RESUME_KEY)).isFailure()).toBe(true);
+  });
+});
+

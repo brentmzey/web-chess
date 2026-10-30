@@ -1,9 +1,10 @@
-import { tryCatch, tryCatchAsync, fromNullable, fromResult, none, some, matchBool, type Option, type Result } from '../utils/fp';
+import { failure, success, tryCatch, tryCatchAsync, fromNullable, fromResult, none, some, matchBool, type Option, type Result } from '../utils/fp';
 import { logger } from '../utils/logger';
 import { currentEpochMs } from '../utils/dateTime';
 import type { ArcadeGameEnum } from '../constants/gameEnums';
 import {
   ArcadeEventRecordSchema,
+  ArcadePrivateRecordSchema,
   ArcadeTableRecordSchema,
   ListResponseSchema,
   RealtimeRecordMessageSchema,
@@ -14,6 +15,7 @@ import {
 export const POCKETHOST_URL = 'https://web-chess.pockethost.io';
 export const ARCADE_EVENTS_COLLECTION = 'tbl_arcade_events';
 export const ARCADE_TABLES_COLLECTION = 'tbl_arcade_tables';
+export const ARCADE_PRIVATE_COLLECTION = 'tbl_arcade_private';
 export const RECONNECT_BASE_DELAY_MS = 1000;
 export const RECONNECT_MAX_DELAY_MS = 30000;
 const EVENT_SOURCE_CLOSED = 2;
@@ -34,6 +36,8 @@ export interface ArcadeRealtimeConfig {
   readonly onOpen?: () => void;
   readonly onError?: (err: unknown) => void;
   readonly onStatusChange?: (status: ArcadeConnectionStatus) => void;
+  /** PocketBase auth token of this browser's guest player; required for writes and private records. */
+  readonly authToken?: string;
 }
 
 const toMessage = (err: unknown): string => (err instanceof Error ? err.message : String(err));
@@ -46,6 +50,31 @@ const parseJson = (raw: string): unknown => tryCatch(() => JSON.parse(raw) as un
  */
 export const arcadeSubscriptionTopic = (sessionCode: string): string =>
   `${ARCADE_EVENTS_COLLECTION}?options=${encodeURIComponent(JSON.stringify({ query: { filter: `session_code="${sessionCode}"` } }))}`;
+
+/**
+ * Filtered realtime topic for this table's private records. PocketBase only streams the records the
+ * subscriber may view (`owner = @request.auth.id`), so each player receives only their own secrets.
+ */
+export const arcadePrivateTopic = (sessionCode: string): string =>
+  `${ARCADE_PRIVATE_COLLECTION}?options=${encodeURIComponent(JSON.stringify({ query: { filter: `session_code="${sessionCode}"` } }))}`;
+
+/**
+ * Deterministic 15-character PocketBase record id for one player's private record at one table, so the
+ * host updates a single record per player instead of appending.
+ */
+export const privateRecordId = (sessionCode: string,
+                                ownerId: string): string => {
+  const hash = (seed: number): number =>
+    [...`${sessionCode}|${ownerId}`].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0, seed);
+  return (hash(2166136261).toString(36) + hash(0x811c9dc5 ^ 0x5bd1e995).toString(36) + 'p'.repeat(15)).slice(0, 15);
+};
+
+/** One seat's secrets as delivered to its owner. */
+export interface PrivateSeatState {
+  readonly seatKey: string;
+  readonly stateSeq: number;
+  readonly secrets: Readonly<Record<string, unknown>>;
+}
 
 /**
  * Reads a failed response into a readable message, preferring PocketBase field validation details.
@@ -78,6 +107,7 @@ export class ArcadeRealtimeClient {
   private reconnectAttempts: number = 0;
   private reconnectTimer: Option<ReturnType<typeof setTimeout>> = none();
   private isClosedByUser: boolean = false;
+  private cachedTableId: Option<string> = none();
   private readonly seenRecordIds: Set<string> = new Set();
   private readonly eventHandlers: Map<string, Set<ArcadeRealtimeEventHandler>> = new Map();
 
@@ -109,6 +139,13 @@ export class ArcadeRealtimeClient {
 
   public getClientId(): Option<string> {
     return this.clientId;
+  }
+
+  private jsonHeaders(): Record<string, string> {
+    return fromNullable(this.config.authToken)
+      .filter(token => token.length > 0)
+      .map((token): Record<string, string> => ({ 'Content-Type': 'application/json', Authorization: token }))
+      .getOrElse({ 'Content-Type': 'application/json' });
   }
 
   public getIsConnected(): boolean {
@@ -249,9 +286,94 @@ export class ArcadeRealtimeClient {
     }, toMessage);
   }
 
+  /** Validates one private record and delivers it to this player as `private_state`. */
+  public ingestPrivateRecord(raw: unknown): void {
+    parseWith(ArcadePrivateRecordSchema, raw, 'private seat record')
+      .flatMap(rec => rec.session_code === this.config.sessionCode && rec.owner === this.config.participantId
+        ? success<typeof rec, string>(rec)
+        : failure<typeof rec, string>('Ignoring a private record for another table or player.'))
+      .match({
+        Ok: rec => this.dispatchEvent<PrivateSeatState>('private_state', {
+          seatKey: rec.seat_key,
+          stateSeq: rec.int_state_seq,
+          secrets: rec.json_secrets
+        }, rec.int_state_seq),
+        Err: err => {
+          logger.warn(`[ARCADE_REALTIME] ${err}`);
+        }
+      });
+  }
+
+  /** Loads this player's own secrets at this table (e.g. after a reload). Only PocketHost has private records. */
+  public async hydratePrivateState(): Promise<Result<boolean, string>> {
+    if (!this.isPocketBaseMode() || !this.config.authToken) return success(false);
+    const filter = `session_code="${this.config.sessionCode}"`;
+    return tryCatchAsync(async () => {
+      const res = await fetch(
+        `${this.getBaseUrl()}/api/collections/${ARCADE_PRIVATE_COLLECTION}/records?perPage=1&filter=${encodeURIComponent(filter)}`,
+        { headers: this.jsonHeaders() }
+      );
+      if (!res.ok) {
+        throw new Error(await describeHttpFailure(res, 'Failed to load private seat state'));
+      }
+      const items = parseWith(ListResponseSchema, await res.json(), 'private list').map(list => list.items).getOrElse([]);
+      items.forEach(item => this.ingestPrivateRecord(item));
+      return items.length > 0;
+    }, toMessage);
+  }
+
+  private async tableRecordId(): Promise<string> {
+    return this.cachedTableId.match({
+      Some: async id => id,
+      None: async () => {
+        const filter = `session_code="${this.config.sessionCode}"`;
+        const res = await fetch(
+          `${this.getBaseUrl()}/api/collections/${ARCADE_TABLES_COLLECTION}/records?perPage=1&fields=id,session_code,status&filter=${encodeURIComponent(filter)}`
+        );
+        if (!res.ok) throw new Error(await describeHttpFailure(res, 'Failed to find table'));
+        const items = parseWith(ListResponseSchema, await res.json(), 'table list').map(list => list.items).getOrElse([]);
+        const id = fromNullable(items[0] as { id?: unknown } | undefined)
+          .flatMap(item => fromNullable(typeof item.id === 'string' ? item.id : undefined))
+          .getOrThrow('This live table is not registered yet.');
+        this.cachedTableId = some(id);
+        return id;
+      }
+    });
+  }
+
+  /**
+   * Host only: writes one player's secrets to their private record (created on first use, then updated).
+   * PocketBase rules let only the table's host write it and only its owner read it.
+   */
+  public async publishPrivate(ownerId: string,
+                              seatKey: string,
+                              stateSeq: number,
+                              secrets: Readonly<Record<string, unknown>>): Promise<Result<void, string>> {
+    if (!this.isPocketBaseMode()) return success(undefined);
+    return tryCatchAsync(async () => {
+      const id = privateRecordId(this.config.sessionCode, ownerId);
+      const body = { seat_key: seatKey, int_state_seq: stateSeq, json_secrets: secrets };
+      const base = `${this.getBaseUrl()}/api/collections/${ARCADE_PRIVATE_COLLECTION}/records`;
+      const updated = await fetch(`${base}/${id}`, { method: 'PATCH', headers: this.jsonHeaders(), body: JSON.stringify(body) });
+      if (updated.ok) return;
+      if (updated.status !== 404) {
+        throw new Error(await describeHttpFailure(updated, 'Failed to update private seat state'));
+      }
+      const created = await fetch(base, {
+        method: 'POST',
+        headers: this.jsonHeaders(),
+        body: JSON.stringify({ id, table: await this.tableRecordId(), owner: ownerId, session_code: this.config.sessionCode, ...body })
+      });
+      if (!created.ok) {
+        throw new Error(await describeHttpFailure(created, 'Failed to create private seat state'));
+      }
+    }, toMessage);
+  }
+
   private connectPocketBase(): void {
     const baseUrl = this.getBaseUrl();
     const topic = arcadeSubscriptionTopic(this.config.sessionCode);
+    const privateTopic = arcadePrivateTopic(this.config.sessionCode);
     const es = new EventSource(`${baseUrl}/api/realtime`);
     this.eventSource = some(es);
 
@@ -263,8 +385,8 @@ export class ArcadeRealtimeClient {
 
         const subRes = await fetch(`${baseUrl}/api/realtime`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientId: data.clientId, subscriptions: [topic] })
+          headers: this.jsonHeaders(),
+          body: JSON.stringify({ clientId: data.clientId, subscriptions: [topic, privateTopic] })
         });
         if (!subRes.ok) {
           throw new Error(await describeHttpFailure(subRes, 'Realtime subscription rejected'));
@@ -282,6 +404,10 @@ export class ArcadeRealtimeClient {
             Err: err => logger.warn('[ARCADE_REALTIME] Table snapshot unavailable:', err)
           });
         }
+        (await this.hydratePrivateState()).match({
+          Ok: () => undefined,
+          Err: err => logger.warn('[ARCADE_REALTIME] Private seat state unavailable:', err)
+        });
         if (isReconnect) {
           (await this.replayMissedEvents()).match({
             Ok: count => count > 0 && logger.info(`[ARCADE_REALTIME] Replayed ${count} missed table events.`),
@@ -297,6 +423,17 @@ export class ArcadeRealtimeClient {
           }
         })
       );
+    });
+
+    es.addEventListener(privateTopic, (e: MessageEvent) => {
+      parseWith(RealtimeRecordMessageSchema, parseJson(e.data), 'realtime message').match({
+        Ok: msg => {
+          if (msg.action !== 'delete') this.ingestPrivateRecord(msg.record);
+        },
+        Err: () => {
+          logger.warn('[ARCADE_REALTIME] Ignoring malformed private seat message.');
+        }
+      });
     });
 
     es.addEventListener(topic, (e: MessageEvent) => {
@@ -408,7 +545,7 @@ export class ArcadeRealtimeClient {
                                   payload: Record<string, unknown>): Promise<void> {
     const res = await fetch(`${this.getBaseUrl()}/api/collections/${ARCADE_EVENTS_COLLECTION}/records`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.jsonHeaders(),
       body: JSON.stringify({
         session_code: this.config.sessionCode,
         game_key: fromNullable(this.config.game).getOrElse('' as ArcadeGameEnum),

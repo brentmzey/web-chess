@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.4.0-rc.1] - 2026-10-30
+### Security
+- **Hidden information stays hidden at live arcade tables (PocketHost)**: cards and roles no longer reach other players' browsers.
+  - **Guest identity**: each browser signs in silently as a guest player in the new `tbl_arcade_players` auth collection (`src/realtime/playerIdentity.ts`). Credentials are random, stored AES-GCM encrypted in IndexedDB (`ARCADE_PLAYER_KEY`), and the player id becomes the realtime participant id.
+  - **Redacted public table**: the host publishes the table with every secret replaced by same-sized placeholders (`src/games/multiplayer/hiddenInfo.ts`): Uno, Skip-Bo and Phase 10 hands, draw piles and the Skip-Bo stockpile below its top card; Poker hole cards and shoe until showdown; the Blackjack dealer hole card and shoe; Avalon roles until the game ends and individual votes while voting is open; the SET deck order. The server-kept table snapshot is redacted too.
+  - **Private seat records**: each guest's own hand or role goes to `tbl_arcade_private`, which PocketBase lets only that player read and only the table's host write (`owner = @request.auth.id`, `table.host_participant_id = @request.auth.id`). Realtime follows the same rules, so each player is streamed only their own secrets.
+  - **Guests send intents, the host decides**: guest moves travel as zod-validated intents (`src/validation/arcadeIntents.ts`); the host applies them only to the sender's own seat and only on their turn. SET claims name cards by id so a claim against a slightly older table still resolves.
+  - **No impersonation**: arcade events now require a signed-in player whose id matches `participant_id`.
+- On the local Bun dev server tables stay unredacted (development only).
+
 ## [1.3.1] - 2026-10-30
 ### Fixed (found during 1.3.0 release verification of live chess in two browsers)
 - **Live chess lost move records after joining or reconnecting mid-game**: the move's ply came from the local move history, which a FEN load clears, so the next move reused a ply (e.g. 1...e5 sent as ply 1) and its `game_moves` row collided with the unique `(session, ply)` index and was dropped. Ply is now derived from the FEN (`plyFromFen`), so move records and the session's `ply` stay correct. The board was never affected (it syncs by FEN).

@@ -6,6 +6,10 @@ import {
   TABLE_SNAPSHOT_SENDER,
   POCKETHOST_URL,
   arcadeSubscriptionTopic,
+  arcadePrivateTopic,
+  privateRecordId,
+  ARCADE_PRIVATE_COLLECTION,
+  type PrivateSeatState,
   type ArcadeConnectionStatus
 } from '../src/realtime/arcadeRealtimeClient';
 import { ArcadeGameEnum } from '../src/constants/gameEnums';
@@ -49,6 +53,7 @@ describe('ArcadeRealtimeClient', () => {
   const originalES = (globalThis as any).EventSource;
   const originalWindow = (globalThis as any).window;
   let calls: FetchCall[] = [];
+  let lastHeaders: Record<string, string> = {};
   let responder: (url: string, body: any) => Response = () => jsonResponse({});
 
   beforeEach(() => {
@@ -56,6 +61,7 @@ describe('ArcadeRealtimeClient', () => {
     responder = () => jsonResponse({});
     globalThis.fetch = mock(async (url: string, init?: any) => {
       const body = init?.body ? JSON.parse(init.body) : undefined;
+      lastHeaders = init?.headers ?? {};
       calls.push({ url: String(url), body });
       return responder(String(url), body);
     }) as any;
@@ -287,7 +293,7 @@ describe('ArcadeRealtimeClient', () => {
 
       es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c1' }) });
       await flush();
-      expect(calls[0]!.body).toEqual({ clientId: 'c1', subscriptions: [topic] });
+      expect(calls[0]!.body).toEqual({ clientId: 'c1', subscriptions: [topic, arcadePrivateTopic('BJK-PB')] });
       expect(client.getClientId().getOrElse('')).toBe('c1');
       expect(statuses).toEqual(['connecting', 'live']);
       // First connect also loads the server-kept table snapshot (none yet)
@@ -435,4 +441,104 @@ describe('ArcadeRealtimeClient', () => {
       expect((await client.sendAction('x', {})).isFailure()).toBe(true);
     });
   });
+
+  describe('private seat state (PocketHost)', () => {
+    const authed = (extra: Record<string, unknown> = {}) =>
+      new ArcadeRealtimeClient({ baseUrl: POCKETHOST_URL, sessionCode: 'UNO-PRV', participantId: 'usr_me', authToken: 'tok_me', ...extra });
+    const privateRecord = (over: Record<string, unknown> = {}) => ({
+      id: 'abc', session_code: 'UNO-PRV', owner: 'usr_me', seat_key: 'p2', int_state_seq: 3, json_secrets: { hand: ['R7'] }, ...over
+    });
+
+    it('derives a stable 15-character record id per table and player', () => {
+      const id = privateRecordId('UNO-PRV', 'usr_me');
+      expect(id).toMatch(/^[a-z0-9]{15}$/);
+      expect(privateRecordId('UNO-PRV', 'usr_me')).toBe(id);
+      expect(privateRecordId('UNO-PRV', 'usr_you')).not.toBe(id);
+      expect(privateRecordId('UNO-OTHER', 'usr_me')).not.toBe(id);
+    });
+
+    it('sends the auth token, subscribes to the private topic, and delivers only own secrets', async () => {
+      const client = authed();
+      const got: PrivateSeatState[] = [];
+      client.on<PrivateSeatState>('private_state', d => got.push(d));
+      responder = url => (url.includes(ARCADE_PRIVATE_COLLECTION) ? jsonResponse({ items: [privateRecord({ int_state_seq: 1 })] }) : jsonResponse({}));
+      client.connect();
+      const es = MockEventSource.last!;
+      es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c1' }) });
+      await flush();
+      await flush();
+      const sub = calls.find(c => c.url.endsWith('/api/realtime'))!;
+      expect(sub.body.subscriptions).toContain(arcadePrivateTopic('UNO-PRV'));
+      expect(got[0]).toEqual({ seatKey: 'p2', stateSeq: 1, secrets: { hand: ['R7'] } });
+
+      const privTopic = arcadePrivateTopic('UNO-PRV');
+      es.emit(privTopic, { data: JSON.stringify({ action: 'update', record: privateRecord({ int_state_seq: 4, json_secrets: null }) }) });
+      es.emit(privTopic, { data: JSON.stringify({ action: 'update', record: privateRecord({ owner: 'usr_other' }) }) });
+      es.emit(privTopic, { data: JSON.stringify({ action: 'update', record: privateRecord({ session_code: 'UNO-ELSE' }) }) });
+      es.emit(privTopic, { data: JSON.stringify({ action: 'delete', record: privateRecord() }) });
+      es.emit(privTopic, { data: 'garbage' });
+      client.ingestPrivateRecord({ nope: true });
+      expect(got.map(g => g.stateSeq)).toEqual([1, 4]);
+      expect(got[1]!.secrets).toEqual({});
+
+      await client.sendAction('uno_draw', {});
+      expect(lastHeaders.Authorization).toBe('tok_me');
+    });
+
+    it('skips private hydration without a token or outside PocketHost, and reports failures', async () => {
+      expect((await new ArcadeRealtimeClient({ baseUrl: POCKETHOST_URL, sessionCode: 'UNO-PRV', participantId: 'x' }).hydratePrivateState()).getOrThrow()).toBe(false);
+      expect((await authed({ baseUrl: '' }).hydratePrivateState()).getOrThrow()).toBe(false);
+      responder = () => jsonResponse({}, 500);
+      expect((await authed().hydratePrivateState()).isFailure()).toBe(true);
+      responder = () => jsonResponse({ items: [] });
+      expect((await authed().hydratePrivateState()).getOrThrow()).toBe(false);
+    });
+
+    it('updates the private record in place, creating it with the table relation on first use', async () => {
+      const client = authed();
+      const id = privateRecordId('UNO-PRV', 'usr_guest');
+      let exists = false;
+      responder = (url, body) => {
+        if (url.endsWith(`/${id}`)) return exists ? jsonResponse({ id }) : jsonResponse({ message: 'Not found.' }, 404);
+        if (url.includes('tbl_arcade_tables')) return jsonResponse({ items: [{ id: 'tbl_123', session_code: 'UNO-PRV', status: 'active' }] });
+        if (url.endsWith(`/${ARCADE_PRIVATE_COLLECTION}/records`)) {
+          exists = true;
+          return jsonResponse({ id: body.id });
+        }
+        return jsonResponse({});
+      };
+      expect((await client.publishPrivate('usr_guest', 'p2', 5, { hand: ['B2'] })).isSuccess()).toBe(true);
+      const create = calls.find(c => c.url.endsWith(`/${ARCADE_PRIVATE_COLLECTION}/records`))!;
+      expect(create.body).toEqual({ id, table: 'tbl_123', owner: 'usr_guest', session_code: 'UNO-PRV', seat_key: 'p2', int_state_seq: 5, json_secrets: { hand: ['B2'] } });
+
+      calls = [];
+      expect((await client.publishPrivate('usr_guest', 'p2', 6, { hand: [] })).isSuccess()).toBe(true);
+      expect(calls.length).toBe(1);
+      expect(calls[0]!.body).toEqual({ seat_key: 'p2', int_state_seq: 6, json_secrets: { hand: [] } });
+
+      // The table id is cached after the first lookup
+      exists = false;
+      calls = [];
+      await client.publishPrivate('usr_third', 'p3', 7, {});
+      expect(calls.some(c => c.url.includes('tbl_arcade_tables'))).toBe(false);
+    });
+
+    it('reports private publish failures and is a no-op on the local server', async () => {
+      expect((await authed({ baseUrl: '' }).publishPrivate('u', 'p1', 1, {})).isSuccess()).toBe(true);
+      expect(calls.length).toBe(0);
+
+      responder = () => jsonResponse({ message: 'Forbidden.' }, 403);
+      expect((await authed().publishPrivate('u', 'p1', 1, {})).match({ Ok: () => '', Err: e => e })).toBe('Forbidden.');
+
+      responder = url => (url.includes('tbl_arcade_tables') ? jsonResponse({ items: [] }) : jsonResponse({}, 404));
+      expect((await authed().publishPrivate('u', 'p1', 1, {})).match({ Ok: () => '', Err: e => e })).toBe('This live table is not registered yet.');
+
+      responder = url => (url.includes('tbl_arcade_tables') ? jsonResponse({}, 500) : jsonResponse({}, 404));
+      expect((await authed().publishPrivate('u', 'p1', 1, {})).isFailure()).toBe(true);
+
+      responder = (url, body) => (url.includes('tbl_arcade_tables') ? jsonResponse({ items: [{ id: 't1' }] }) : body?.id ? jsonResponse({ message: 'Bad.' }, 400) : jsonResponse({}, 404));
+      expect((await authed().publishPrivate('u', 'p1', 1, {})).match({ Ok: () => '', Err: e => e })).toBe('Bad.');
+    });
+  });
 });
+

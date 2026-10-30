@@ -33,6 +33,17 @@ export const ArcadeTableRecordSchema = z.object({
 });
 export type ArcadeTableRecord = z.infer<typeof ArcadeTableRecordSchema>;
 
+/** A `tbl_arcade_private` record: one seat's secrets, readable only by its owner. */
+export const ArcadePrivateRecordSchema = z.object({
+  id: z.string(),
+  session_code: z.string().min(1),
+  owner: z.string().min(1),
+  seat_key: z.string().min(1),
+  int_state_seq: z.number().optional().default(0),
+  json_secrets: z.record(z.string(), z.unknown()).nullable().optional().transform(v => v ?? {})
+});
+export type ArcadePrivateRecord = z.infer<typeof ArcadePrivateRecordSchema>;
+
 /** The envelope PocketBase sends for every realtime record change. */
 export const RealtimeRecordMessageSchema = z.object({
   action: z.enum(['create', 'update', 'delete']),

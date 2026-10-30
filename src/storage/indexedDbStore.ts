@@ -29,6 +29,7 @@ export const STORE_NAME = 'sanctuary_sessions';
 export const SESSION_KEY = 'active_session';
 export const PREFERENCE_KEY = 'persistence_preference';
 export const ARCADE_RESUME_KEY = 'active_arcade_table';
+export const ARCADE_PLAYER_KEY = 'arcade_player_identity';
 export const CRYPTO_KEY_RECORD_ID = '__origin_bound_non_extractable_key__' as const;
 export const ENCRYPTION_ALGORITHM = 'AES-GCM-256' as const;
 export const ENCRYPTION_KEY_BITS = 256 as const;
@@ -593,6 +594,57 @@ export async function clearArcadeResumeState(): Promise<Result<void, string>> {
       err => (err as Error).message
     )
   );
+}
+
+/**
+ * Encrypts and stores one value under its own record key (AES-GCM-256, AAD bound to `key`).
+ */
+async function saveEncryptedValue<T>(key: string,
+                                     value: T): Promise<Result<void, string>> {
+  const dbResult = await openSessionDatabase();
+  return dbResult.flatMapAsync(db =>
+    encryptPayload(value, key).then(envResult =>
+      envResult.flatMapAsync(envelope =>
+        writeEncryptedRecord(db, {
+          id: key,
+          envelope,
+          updatedAt: currentEpochMs()
+        })
+      )
+    )
+  );
+}
+
+/**
+ * Loads and decrypts the value stored under `key`, if present and readable.
+ */
+async function loadEncryptedValue<T>(key: string): Promise<Option<T>> {
+  const dbResult = await openSessionDatabase();
+  const decrypted = await dbResult
+    .flatMapAsync(db => readEncryptedRecord(db, key))
+    .then(recResult =>
+      recResult.flatMapAsync(recordOpt =>
+        recordOpt.fold(
+          async () => toResult(none<T>(), () => `No record stored under ${key}`),
+          record => decryptPayload<T>(record.envelope, key)
+        )
+      )
+    );
+  return fromResult(decrypted);
+}
+
+/** Credentials of this browser's guest arcade player account (tbl_arcade_players). */
+export interface ArcadePlayerCredentials {
+  readonly email: string;
+  readonly password: string;
+}
+
+export async function saveArcadePlayerCredentials(credentials: ArcadePlayerCredentials): Promise<Result<void, string>> {
+  return saveEncryptedValue(ARCADE_PLAYER_KEY, credentials);
+}
+
+export async function loadArcadePlayerCredentials(): Promise<Option<ArcadePlayerCredentials>> {
+  return loadEncryptedValue<ArcadePlayerCredentials>(ARCADE_PLAYER_KEY);
 }
 
 /**

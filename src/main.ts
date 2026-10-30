@@ -91,7 +91,8 @@ import {
   defaultPokerPlayerData
 } from './validation/gameSchemas';
 import {
-  SkipBoEngine
+  SkipBoEngine,
+  type SkipBoCard
 } from './games/skipbo/skipboEngine';
 import {
   Phase10Engine,
@@ -111,8 +112,11 @@ import {
 import {
   CathedralSolitaireEngine
 } from './games/solitaire/solitaireEngine';
-import { ArcadeRealtimeClient, type ArcadeConnectionStatus } from './realtime/arcadeRealtimeClient';
+import { ArcadeRealtimeClient, POCKETHOST_URL, type ArcadeConnectionStatus, type PrivateSeatState } from './realtime/arcadeRealtimeClient';
 import { exportTableSnapshot, importTableSnapshot, type ArcadeTableSnapshot, type SnapshotableEngine } from './games/multiplayer/tableSnapshot';
+import { HIDDEN_INFO_POLICIES, type HiddenInfoPolicy, type SeatSecrets } from './games/multiplayer/hiddenInfo';
+import { parseArcadeIntent, type ArcadeIntent, type ArcadeIntentPayload, type ArcadeIntentType } from './validation/arcadeIntents';
+import { ensureArcadePlayer } from './realtime/playerIdentity';
 import type { TableSeatManager } from './games/multiplayer/tableSeatManager';
 import {
   claimLiveSeat,
@@ -2077,7 +2081,7 @@ function main(): void {
     readonly importExtras?: (extras: unknown) => void;
     /** Seats humans can own at a live table, keyed by engine player id or seat number. */
     readonly seats?: () => readonly LiveSeatView[];
-    readonly claimSeat?: (key: string, playerName: string) => void;
+    readonly claimSeat?: (key: string, playerName: string, participantId: string) => void;
     readonly releaseSeat?: (key: string) => void;
   }
 
@@ -2085,7 +2089,8 @@ function main(): void {
 
   // Which human owns which seat at the live table; travels inside every table snapshot
   let liveSeatOwners: SeatOwners = {};
-  let hasReceivedTableState = false;
+  // Host only: display names of participants who joined, for re-seating them after a table reset
+  const liveParticipantNames = new Map<string, string>();
 
   const exportSyncedSnapshot = (sync: ArcadeTableSync): ArcadeTableSnapshot =>
     exportTableSnapshot(sync.engine, { owners: liveSeatOwners, game: sync.exportExtras?.() ?? null });
@@ -2104,21 +2109,65 @@ function main(): void {
   // Assigned once the arcade engines exist; renders may call it earlier as a no-op
   let scheduleArcadeResumeSave: () => void = () => undefined;
 
+  // --- Hidden information: on PocketHost the host publishes a redacted table plus each guest's own secrets ---
+  let activeArcadeGame: Option<ArcadeGameEnum> = none();
+  let arcadeStateSeq = 0;
+  const lastPrivateJsonByOwner = new Map<string, string>();
+  // A guest's view is the latest public table with their own secrets put back
+  let lastPublicSnapshot: Option<ArcadeTableSnapshot> = none();
+  let lastOwnSecrets: SeatSecrets = {};
+
+  const hiddenInfoPolicy = (): Option<HiddenInfoPolicy> =>
+    zipOptions(fromNullable(activeArcadeClient), activeArcadeGame)
+      .filter(([client]) => client.isPocketBaseMode())
+      .flatMap(([, game]) => fromNullable(HIDDEN_INFO_POLICIES[game]));
+
+  /** Writes each guest's secrets to their private record, skipping unchanged ones. */
+  const publishGuestSecrets = (client: ArcadeRealtimeClient,
+                               policy: HiddenInfoPolicy,
+                               full: ArcadeTableSnapshot,
+                               seq: number): Promise<unknown> =>
+    Promise.all(Object.entries(liveSeatOwners)
+      .filter(([, owner]) => owner !== client.getParticipantId())
+      .map(([seatKey, owner]) => {
+        const secrets = policy.secretsFor(full, seatKey);
+        const secretsJson = JSON.stringify([seatKey, secrets]);
+        if (lastPrivateJsonByOwner.get(owner) === secretsJson) return Promise.resolve();
+        lastPrivateJsonByOwner.set(owner, secretsJson);
+        return client.publishPrivate(owner, seatKey, seq, secrets).then(res =>
+          res.match({
+            Ok: () => undefined,
+            Err: err => {
+              lastPrivateJsonByOwner.delete(owner);
+              logger.warn('[ARCADE_REALTIME] Private seat update failed:', err);
+            }
+          })
+        );
+      }));
+
   const publishArcadeStateIfChanged = (): void => {
     zipOptions(fromNullable(activeArcadeClient), activeArcadeSync).map(([client, sync]) => {
-      const snapshot = exportSyncedSnapshot(sync);
-      const json = JSON.stringify(snapshot);
+      const full = exportSyncedSnapshot(sync);
+      const json = JSON.stringify(full);
       if (json === lastSyncedSnapshotJson) return;
       lastSyncedSnapshotJson = json;
-      void client.sendAction('state_sync', snapshot as unknown as Record<string, unknown>).then(res =>
-        res.match({
-          Ok: () => undefined,
-          Err: err => {
-            logger.warn('[ARCADE_REALTIME] Table sync failed:', err);
-            ui.showTemporaryBanner('Live table sync failed. Your last move may not have reached other players.', 3500);
-          }
-        })
-      );
+      arcadeStateSeq += 1;
+      const seq = arcadeStateSeq;
+      const policy = hiddenInfoPolicy();
+      // Secrets first, so a guest's new hand is already there when the public table arrives
+      const secretsSent = policy.map(p => publishGuestSecrets(client, p, full, seq)).getOrElse(Promise.resolve());
+      const publicSnapshot = policy.map(p => p.redact(full)).getOrElse(full);
+      void secretsSent
+        .then(() => client.sendAction('state_sync', publicSnapshot as unknown as Record<string, unknown>))
+        .then(res =>
+          res.match({
+            Ok: () => undefined,
+            Err: err => {
+              logger.warn('[ARCADE_REALTIME] Table sync failed:', err);
+              ui.showTemporaryBanner('Live table sync failed. Your last move may not have reached other players.', 3500);
+            }
+          })
+        );
     });
   };
 
@@ -2126,8 +2175,8 @@ function main(): void {
   const scheduleArcadeStateSync = (): void => {
     scheduleArcadeResumeSave();
     if (applyingRemoteSnapshot || activeArcadeSync.isNone()) return;
-    // A guest's fresh local table must never overwrite the host's table before the first sync arrives
-    if (!isLocalPlayerHost && !hasReceivedTableState) return;
+    // The host is the only publisher; guests send intents and render what the host publishes
+    if (!isLocalPlayerHost) return;
     pendingSyncTimer.map(timer => clearTimeout(timer));
     const batchMs = Math.min(2000, Math.max(0, Number(globalConfigClient.getSystemControlValue<number>(SystemControlKeyEnum.ArcadeSyncBatchMs, 150)) || 150));
     pendingSyncTimer = some(setTimeout(() => {
@@ -2143,6 +2192,7 @@ function main(): void {
       activeArcadeClient = null;
     });
     activeArcadeSync = none();
+    activeArcadeGame = none();
   };
 
   modalManager.register(
@@ -2603,6 +2653,10 @@ function main(): void {
     btn.addEventListener('click', () => {
       if (isArcadeLive()) {
         if (!isBjkLocalTurn()) return;
+        if (isLiveGuest()) {
+          sendArcadeIntent('bjk_hit', {});
+          return;
+        }
         bjkMultiEngine.playerHit(bjkLocalSeat());
       } else {
         bjkEngine.hit();
@@ -2619,6 +2673,10 @@ function main(): void {
     btn.addEventListener('click', () => {
       if (isArcadeLive()) {
         if (!isBjkLocalTurn()) return;
+        if (isLiveGuest()) {
+          sendArcadeIntent('bjk_stand', {});
+          return;
+        }
         bjkMultiEngine.playerStand(bjkLocalSeat());
       } else {
         bjkEngine.stand();
@@ -2635,6 +2693,10 @@ function main(): void {
     btn.addEventListener('click', () => {
       if (isArcadeLive()) {
         if (!isBjkLocalTurn()) return;
+        if (isLiveGuest()) {
+          sendArcadeIntent('bjk_double', {});
+          return;
+        }
         bjkMultiEngine.playerDoubleDown(bjkLocalSeat());
       } else {
         bjkEngine.doubleDown();
@@ -2652,6 +2714,10 @@ function main(): void {
       const amt = parseInt(btn.getAttribute('data-bet') || '25', 10);
       if (isArcadeLive()) {
         if (bjkLocalSeat() === 0) return;
+        if (isLiveGuest()) {
+          sendArcadeIntent('bjk_bet', { amount: amt });
+          return;
+        }
         ensureBjkBettingStage();
         bjkMultiEngine.placeBet(bjkLocalSeat(), amt);
       } else {
@@ -2939,12 +3005,13 @@ function main(): void {
    */
   const claimNumberedSeat = (seatManager: TableSeatManager<any>,
                              key: string,
-                             playerName: string): void => {
+                             playerName: string,
+                             participantId: string): void => {
     const seatNumber = Number(key);
     seatManager.getSeat(seatNumber)
-      .filter(seat => seat.isOccupied && !seat.isBot && seat.playerId !== arcadeParticipantId)
+      .filter(seat => seat.isOccupied && !seat.isBot && seat.playerId !== participantId)
       .map(() => seatManager.vacateSeat(seatNumber));
-    seatManager.claimSeat(seatNumber, arcadeParticipantId, playerName);
+    seatManager.claimSeat(seatNumber, participantId, playerName);
   };
 
   /** Seat adapter for engines that model the table as `state.players` with `claimSeatForHuman`. */
@@ -2981,7 +3048,7 @@ function main(): void {
         })),
         rerender: () => renderBlackjackTable(),
         seats: () => bjkMultiEngine.seatManager.getOccupiedSeats().map(seat => ({ key: String(seat.seatNumber), isBot: seat.isBot })),
-        claimSeat: (key, playerName) => claimNumberedSeat(bjkMultiEngine.seatManager, key, playerName),
+        claimSeat: (key, playerName, participantId) => claimNumberedSeat(bjkMultiEngine.seatManager, key, playerName, participantId),
         releaseSeat: key => {
           bjkMultiEngine.seatManager.vacateSeat(Number(key));
         }
@@ -2993,7 +3060,7 @@ function main(): void {
           renderPokerTable();
         },
         seats: () => pokerEngine.seatManager.getOccupiedSeats().map(seat => ({ key: String(seat.seatNumber), isBot: seat.isBot })),
-        claimSeat: (key, playerName) => claimNumberedSeat(pokerEngine.seatManager, key, playerName),
+        claimSeat: (key, playerName, participantId) => claimNumberedSeat(pokerEngine.seatManager, key, playerName, participantId),
         releaseSeat: key => {
           pokerEngine.seatManager.vacateSeat(Number(key));
         },
@@ -3029,6 +3096,22 @@ function main(): void {
   // --- Live seats: every human at a live table acts for their own seat ---
   const isArcadeLive = (): boolean => activeArcadeClient !== null;
 
+  /** A guest at a live table: moves are sent to the host as intents instead of changing the local table. */
+  const isLiveGuest = (): boolean => isArcadeLive() && !isLocalPlayerHost;
+
+  const sendArcadeIntent = <T extends ArcadeIntentType>(type: T,
+                                                        payload: ArcadeIntentPayload<T>): void => {
+    fromNullable(activeArcadeClient).map(client => {
+      void client.sendAction(type, payload as Record<string, unknown>).then(res =>
+        res.match({
+          Ok: () => undefined,
+          Err: err => ui.showTemporaryBanner(`Your move did not reach the table: ${err}`, 3000)
+        })
+      );
+    });
+    soundFX.playSelect();
+  };
+
   /** The seat the local player acts for: `defaultKey` against AI, their owned seat at a live table. */
   const localSeatKeyFor = (defaultKey: string): Option<string> =>
     resolveLocalSeatKey(isArcadeLive(), liveSeatOwners, arcadeParticipantId, defaultKey);
@@ -3040,15 +3123,19 @@ function main(): void {
                              currentSeatKey: string): boolean =>
     isLocalTurn(localSeatKeyFor(defaultKey), currentSeatKey);
 
-  const ensureLocalLiveSeat = (sync: ArcadeTableSync): void => {
-    // Seats are only claimed at live tables; against AI the local player already owns the first seat
-    if (!isArcadeLive()) return;
+  /**
+   * Host only: seats a participant (the host itself or a guest who just joined) on a free seat. Guests
+   * never seat themselves; they see their seat once the host publishes the table.
+   */
+  const seatLiveParticipant = (sync: ArcadeTableSync,
+                               participantId: string,
+                               playerName: string): void => {
+    if (!isArcadeLive() || !isLocalPlayerHost || participantId === '') return;
     zipOptions(fromNullable(sync.seats), fromNullable(sync.claimSeat)).map(([seats, claim]) =>
-      claimLiveSeat(seats(), liveSeatOwners, arcadeParticipantId, isLocalPlayerHost).map(({ key, owners }) => {
+      claimLiveSeat(seats(), liveSeatOwners, participantId, participantId === arcadeParticipantId).map(({ key, owners }) => {
         liveSeatOwners = owners;
-        claim(key, verifiedPlayerName.getOrElse('Cathedral Player'));
+        claim(key, playerName, participantId);
         sync.rerender();
-        ui.showTemporaryBanner('You have a seat at the table.', 2000);
       })
     );
   };
@@ -3088,11 +3175,16 @@ function main(): void {
     return blocked;
   };
 
-  /** After the host deals a fresh table, everyone re-claims a seat on the next sync. */
+  /** After the host deals a fresh table, every human who had a seat is seated again (host first). */
   const reseatAfterHostTableReset = (): void => {
     if (!isArcadeLive()) return;
+    const previous = Object.values(liveSeatOwners);
     liveSeatOwners = {};
-    activeArcadeSync.map(ensureLocalLiveSeat);
+    activeArcadeSync.map(sync =>
+      [arcadeParticipantId, ...previous.filter(id => id !== arcadeParticipantId)].forEach(id =>
+        seatLiveParticipant(sync, id, fromNullable(liveParticipantNames.get(id)).getOrElse('Cathedral Player'))
+      )
+    );
   };
 
   /** Local seat helpers for tables that take turns by `currentTurnIndex` over `state.players`. */
@@ -3256,13 +3348,109 @@ function main(): void {
           Err: err => logger.error('[ARCADE_REALTIME] Failed rendering synced table:', err)
         });
         applyingRemoteSnapshot = false;
-        hasReceivedTableState = true;
-        ensureLocalLiveSeat(sync);
-        // Bots the host played while rendering the received table are published here (no-op if unchanged)
-        scheduleArcadeStateSync();
       },
       Err: (err: string) => {
         logger.warn('[ARCADE_REALTIME] Ignored table snapshot:', err);
+      }
+    });
+  };
+
+  /** The seat the local player owns according to a published table's seat owners. */
+  const ownSeatIn = (snapshot: ArcadeTableSnapshot): Option<string> => {
+    const extras = (typeof snapshot.extras === 'object' && snapshot.extras !== null ? snapshot.extras : {}) as { owners?: unknown };
+    return fromNullable(Object.entries(parseSeatOwners(extras.owners)).find(([, owner]) => owner === arcadeParticipantId))
+      .map(([key]) => key);
+  };
+
+  /** Guest only: renders the latest public table with this player's own secrets put back. */
+  const applyGuestView = (sync: ArcadeTableSync): void => {
+    lastPublicSnapshot.map(publicSnapshot => {
+      const view = zipOptions(hiddenInfoPolicy(), ownSeatIn(publicSnapshot))
+        .map(([policy, seatKey]) => policy.reveal(publicSnapshot, seatKey, lastOwnSecrets))
+        .getOrElse(publicSnapshot);
+      applyRemoteArcadeSnapshot(sync, view);
+    });
+  };
+
+  type IntentHandlers = { readonly [T in ArcadeIntentType]: (payload: ArcadeIntentPayload<T>, seatKey: string) => boolean };
+
+  const playerTurnIs = (players: readonly { readonly id: string }[],
+                        turnIndex: number,
+                        seatKey: string): boolean =>
+    fromNullable(players[turnIndex]).map(player => player.id === seatKey).getOrElse(false);
+
+  const seatTurnIs = (activeSeat: Option<number>,
+                      seatKey: string): boolean =>
+    activeSeat.map(seatNumber => String(seatNumber) === seatKey).getOrElse(false);
+
+  /** Host only: each guest move, applied to the sender's own seat and only on their turn. */
+  const intentHandlers: IntentHandlers = {
+    uno_play: (p, seat) => playerTurnIs(unoEngine.state.players, unoEngine.state.currentTurnIndex, seat) &&
+      unoEngine.playCard(p.handIndex, p.wildColor).isSuccess(),
+    uno_draw: (_p, seat) => playerTurnIs(unoEngine.state.players, unoEngine.state.currentTurnIndex, seat) &&
+      unoEngine.drawCard().isSuccess(),
+    uno_call: (_p, seat) => unoEngine.callUno(seat).isSuccess(),
+    skipbo_play: (p, seat) => playerTurnIs(skipboEngine.state.players, skipboEngine.state.currentTurnIndex, seat) &&
+      skipboEngine.playToBuilding(p.source as SkipBoSourcePileEnum, p.sourceIndex, p.buildingIndex).isSuccess(),
+    skipbo_discard: (p, seat) => playerTurnIs(skipboEngine.state.players, skipboEngine.state.currentTurnIndex, seat) &&
+      skipboEngine.discardAndEndTurn(p.handIndex, p.targetIndex).isSuccess(),
+    p10_draw: (p, seat) => playerTurnIs(phase10Engine.state.players, phase10Engine.state.currentTurnIndex, seat) &&
+      phase10Engine.drawCard(p.fromDiscard).isSuccess(),
+    p10_lay: (p, seat) => playerTurnIs(phase10Engine.state.players, phase10Engine.state.currentTurnIndex, seat) &&
+      phase10Engine.layDownPhase(p.g1, p.g2).isSuccess(),
+    p10_hit: (p, seat) => playerTurnIs(phase10Engine.state.players, phase10Engine.state.currentTurnIndex, seat) &&
+      phase10Engine.hitCard(p.cardIndex, p.targetPlayerId, p.groupIndex).isSuccess(),
+    p10_discard: (p, seat) => playerTurnIs(phase10Engine.state.players, phase10Engine.state.currentTurnIndex, seat) &&
+      phase10Engine.discardAndEndTurn(p.cardIndex).isSuccess(),
+    poker_action: (p, seat) => seatTurnIs(pokerEngine.state.activeSeatTurn, seat) &&
+      pokerEngine.playerAction(Number(seat), p.action as PokerActionEnum, p.amount).isSuccess(),
+    poker_draw: (p, seat) => pokerEngine.drawCardsFiveCardDraw(Number(seat), p.discardIndices).isSuccess(),
+    bjk_bet: (p, seat) => {
+      ensureBjkBettingStage();
+      return bjkMultiEngine.placeBet(Number(seat), p.amount).isSuccess();
+    },
+    bjk_hit: (_p, seat) => seatTurnIs(bjkMultiEngine.state.activeSeatTurn, seat) && bjkMultiEngine.playerHit(Number(seat)).isSuccess(),
+    bjk_stand: (_p, seat) => seatTurnIs(bjkMultiEngine.state.activeSeatTurn, seat) && bjkMultiEngine.playerStand(Number(seat)).isSuccess(),
+    bjk_double: (_p, seat) => seatTurnIs(bjkMultiEngine.state.activeSeatTurn, seat) && bjkMultiEngine.playerDoubleDown(Number(seat)).isSuccess(),
+    avalon_propose: (p, seat) => avalonEngine.getCurrentLeader().id === seat && avalonEngine.proposeTeam(p.team).isSuccess(),
+    avalon_vote: (p, seat) => avalonEngine.castVote(seat, p.approve).isSuccess(),
+    avalon_assassinate: (p, seat) =>
+      fromNullable(avalonEngine.state.players.find(player => player.id === seat)).map(player => player.role === 'Assassin').getOrElse(false) &&
+      avalonEngine.assassinateMerlin(p.targetId).isSuccess(),
+    avalon_quest: (p, seat) => {
+      const cast = avalonEngine.castQuestCard(seat, p.pass).isSuccess();
+      castAvalonBotQuestCards();
+      return cast;
+    },
+    set_claim: (p, seat) => {
+      // Cards are named by id, so a claim made against a slightly older table still finds the right cards
+      const indices = p.cardIds.map(id => setEngine.state.tableCards.findIndex(card => card.id === id));
+      return indices.every(i => i >= 0) &&
+        setEngine.claimSet(seat, [indices[0]!, indices[1]!, indices[2]!]).isSuccess();
+    }
+  };
+
+  const applyArcadeIntent = (senderId: string,
+                             actionType: string,
+                             payload: unknown): void => {
+    parseArcadeIntent(actionType, payload).match({
+      Ok: (intent: ArcadeIntent) => {
+        fromNullable(Object.entries(liveSeatOwners).find(([, owner]) => owner === senderId))
+          .map(([seatKey]) => seatKey)
+          .match({
+            Some: seatKey => {
+              const handler = intentHandlers[intent.type] as (p: unknown, seat: string) => boolean;
+              if (handler(intent.payload, seatKey)) {
+                activeArcadeSync.map(sync => sync.rerender());
+              }
+            },
+            None: () => {
+              logger.warn(`[ARCADE_REALTIME] Ignored ${actionType} from a participant without a seat.`);
+            }
+          });
+      },
+      Err: err => {
+        logger.warn('[ARCADE_REALTIME] Ignored intent:', err);
       }
     });
   };
@@ -3276,17 +3464,24 @@ function main(): void {
     });
   };
 
-  const setupArcadeRealtimeSession = (game: ArcadeGameEnum,
-                                      sessionCode: string,
-                                      playerName: string = 'Cathedral Player',
-                                      onAction?: (actionType: string, payload: unknown) => void): ArcadeRealtimeClient => {
-    disconnectActiveArcade();
+  // Guards against a slow sign-in finishing after the player already switched tables
+  let arcadeSessionGeneration = 0;
 
+  /** Whether live tables on this page talk to PocketHost (anything but localhost). */
+  const usesPocketHost = (): boolean =>
+    new ArcadeRealtimeClient({ sessionCode: 'probe', participantId: 'probe' }).isPocketBaseMode();
+
+  const startArcadeRealtimeSession = (game: ArcadeGameEnum,
+                                      sessionCode: string,
+                                      playerName: string,
+                                      onAction: ((actionType: string, payload: unknown) => void) | undefined,
+                                      authToken: string | undefined): void => {
     let hasBeenLive = false;
     const client = new ArcadeRealtimeClient({
       sessionCode,
       participantId: arcadeParticipantId,
       game,
+      authToken,
       onStatusChange: status => {
         if (status === 'live' && hasBeenLive) {
           ui.showTemporaryBanner('Reconnected to the live table.', 2000);
@@ -3296,10 +3491,15 @@ function main(): void {
       }
     });
     activeArcadeClient = client;
+    activeArcadeGame = some(game);
     activeArcadeSync = arcadeTableSyncFor(game);
     lastSyncedSnapshotJson = '';
     liveSeatOwners = {};
-    hasReceivedTableState = false;
+    liveParticipantNames.clear();
+    lastPrivateJsonByOwner.clear();
+    lastPublicSnapshot = none();
+    lastOwnSecrets = {};
+    liveParticipantNames.set(arcadeParticipantId, playerName);
 
     client.on('player_kicked', (evt: any) => {
       if (evt?.targetParticipantId === client.getParticipantId()) {
@@ -3315,12 +3515,17 @@ function main(): void {
     });
 
     client.on('seat_claimed', (evt: any) => {
-      ui.showTemporaryBanner(`${String(evt?.displayName ?? 'A player')} joined the table.`, 2200);
+      const joinerId = String(evt?.participantId ?? '');
+      const joinerName = String(evt?.displayName ?? 'A player');
+      ui.showTemporaryBanner(`${joinerName} joined the table.`, 2200);
       if (game === ArcadeGameEnum.Solitaire) {
         broadcastSolitaireIfLive();
       }
-      // Bring the newcomer up to date with the current table
-      activeArcadeSync.map(() => {
+      // The host seats the newcomer and re-sends the table (and their secrets) so they start in sync
+      activeArcadeSync.map(sync => {
+        liveParticipantNames.set(joinerId, joinerName.slice(0, 40));
+        lastPrivateJsonByOwner.delete(joinerId);
+        seatLiveParticipant(sync, joinerId, joinerName.slice(0, 40));
         lastSyncedSnapshotJson = '';
         scheduleArcadeStateSync();
       });
@@ -3330,8 +3535,14 @@ function main(): void {
       const actionType = String(evt?.actionType ?? '');
       activeArcadeSync.match({
         Some: tableSync => {
-          // Snapshot-synced tables ignore raw action replays, which would reshuffle differently per client
-          if (actionType === 'state_sync') applyRemoteArcadeSnapshot(tableSync, evt.payload);
+          if (actionType === 'state_sync') {
+            // The host is the authority and never takes a published (possibly redacted) table back
+            if (isLocalPlayerHost) return;
+            lastPublicSnapshot = some(evt.payload as ArcadeTableSnapshot);
+            applyGuestView(tableSync);
+          } else if (isLocalPlayerHost) {
+            applyArcadeIntent(String(evt?.participantId ?? ''), actionType, evt?.payload);
+          }
         },
         None: () => {
           if (onAction) onAction(actionType, evt?.payload);
@@ -3339,12 +3550,17 @@ function main(): void {
       });
     });
 
+    client.on<PrivateSeatState>('private_state', state => {
+      lastOwnSecrets = state.secrets;
+      activeArcadeSync.filter(() => !isLocalPlayerHost).map(applyGuestView);
+    });
+
     // Departed humans hand their seat back to a bot (PocketHost: seat_left, local server: bot_restored)
     client.on('seat_left', (evt: any) => releaseLiveParticipant(String(evt?.participantId ?? '')));
     client.on('bot_restored', (evt: any) => releaseLiveParticipant(String(evt?.vacatedPlayerId ?? '')));
 
     if (isLocalPlayerHost) {
-      activeArcadeSync.map(ensureLocalLiveSeat);
+      activeArcadeSync.map(sync => seatLiveParticipant(sync, arcadeParticipantId, playerName));
     }
     // Join first: on the local server the join creates the table, and its event stream 404s until then
     void client.claimSeat(playerName).then(res => {
@@ -3356,8 +3572,33 @@ function main(): void {
         client.connect();
       }
     });
+  };
 
-    return client;
+  /**
+   * Opens a live arcade table. On PocketHost the browser first signs in as its guest player, whose id
+   * becomes the participant id and whose token lets PocketBase deliver this player's secrets only.
+   */
+  const setupArcadeRealtimeSession = (game: ArcadeGameEnum,
+                                      sessionCode: string,
+                                      playerName: string = 'Cathedral Player',
+                                      onAction?: (actionType: string, payload: unknown) => void): void => {
+    disconnectActiveArcade();
+    arcadeSessionGeneration += 1;
+    const generation = arcadeSessionGeneration;
+    if (!usesPocketHost()) {
+      startArcadeRealtimeSession(game, sessionCode, playerName, onAction, undefined);
+      return;
+    }
+    void ensureArcadePlayer(POCKETHOST_URL, playerName).then(res =>
+      res.match({
+        Ok: player => {
+          if (generation !== arcadeSessionGeneration) return;
+          arcadeParticipantId = player.id;
+          startArcadeRealtimeSession(game, sessionCode, playerName, onAction, player.token);
+        },
+        Err: err => ui.showTemporaryBanner(`Could not sign in to live tables: ${err}`, 4500)
+      })
+    );
   };
 
   // --- Gothic Blackjack Mode Switcher ---
@@ -3733,6 +3974,10 @@ function main(): void {
   fromNullable(document.getElementById('poker-btn-check')).map(b =>
     b.addEventListener('click', () => {
       if (!isPokerLocalTurn()) return;
+      if (isLiveGuest()) {
+        sendArcadeIntent('poker_action', { action: PokerActionEnum.Check });
+        return;
+      }
       pokerEngine.playerAction(pokerLocalSeat(), PokerActionEnum.Check);
       runPokerBots();
       soundFX.playSelect();
@@ -3746,6 +3991,10 @@ function main(): void {
   fromNullable(document.getElementById('poker-btn-call')).map(b =>
     b.addEventListener('click', () => {
       if (!isPokerLocalTurn()) return;
+      if (isLiveGuest()) {
+        sendArcadeIntent('poker_action', { action: PokerActionEnum.Call });
+        return;
+      }
       pokerEngine.playerAction(pokerLocalSeat(), PokerActionEnum.Call);
       runPokerBots();
       soundFX.playSelect();
@@ -3760,6 +4009,10 @@ function main(): void {
     b.addEventListener('click', () => {
       if (!isPokerLocalTurn()) return;
       const raiseAmt = pokerEngine.state.currentBet + 20;
+      if (isLiveGuest()) {
+        sendArcadeIntent('poker_action', { action: PokerActionEnum.Raise, amount: raiseAmt });
+        return;
+      }
       pokerEngine.playerAction(pokerLocalSeat(), PokerActionEnum.Raise, raiseAmt);
       runPokerBots();
       soundFX.playCathedralOrganAndBell();
@@ -3773,6 +4026,10 @@ function main(): void {
   fromNullable(document.getElementById('poker-btn-fold')).map(b =>
     b.addEventListener('click', () => {
       if (!isPokerLocalTurn()) return;
+      if (isLiveGuest()) {
+        sendArcadeIntent('poker_action', { action: PokerActionEnum.Fold });
+        return;
+      }
       pokerEngine.playerAction(pokerLocalSeat(), PokerActionEnum.Fold);
       runPokerBots();
       soundFX.playSelect();
@@ -3808,6 +4065,10 @@ function main(): void {
   fromNullable(document.getElementById('poker-btn-draw-exchange')).map(b =>
     b.addEventListener('click', () => {
       if (pokerLocalSeat() === 0) return;
+      if (isLiveGuest()) {
+        sendArcadeIntent('poker_draw', { discardIndices: [0, 1] });
+        return;
+      }
       pokerEngine.drawCardsFiveCardDraw(pokerLocalSeat(), [0, 1]);
       soundFX.playSelect();
       renderPokerTable();
@@ -3823,6 +4084,15 @@ function main(): void {
   let selectedSkipBoIndex: number = 0;
 
   const skipboSeat = turnTableSeat(() => skipboEngine.state.players, () => skipboEngine.state.currentTurnIndex);
+  /** The card currently selected from the local player's own hand, stockpile top, or a discard pile top. */
+  const skipboSelectedCard = (): Option<SkipBoCard> => {
+    const me = skipboEngine.getCurrentPlayer();
+    return match<SkipBoSourcePileEnum, Option<SkipBoCard>>(selectedSkipBoSource, {
+      [SkipBoSourcePileEnum.Stockpile]: () => fromNullable(me.stockpile[me.stockpile.length - 1]),
+      [SkipBoSourcePileEnum.Hand]: () => fromNullable(me.hand[selectedSkipBoIndex]),
+      [SkipBoSourcePileEnum.Discard]: () => fromNullable(me.discardPiles[selectedSkipBoIndex]).flatMap(pile => fromNullable(pile[pile.length - 1]))
+    });
+  };
   const runSkipBoBots = createBotDriver(() => skipboEngine.state.isGameOver,
                                         () => skipboSeat.isBotTurn(),
                                         () => {
@@ -3911,6 +4181,10 @@ function main(): void {
         pileEl.addEventListener('click', () => {
           if (!skipboSeat.isLocalTurn()) return;
           const targetPile = parseInt(pileEl.getAttribute('data-skipbo-building') || '0', 10);
+          if (isLiveGuest()) {
+            sendArcadeIntent('skipbo_play', { source: selectedSkipBoSource, sourceIndex: selectedSkipBoIndex, buildingIndex: targetPile });
+            return;
+          }
           skipboEngine.playToBuilding(selectedSkipBoSource, selectedSkipBoIndex, targetPile);
           soundFX.playSelect();
           renderSkipBoTable();
@@ -3985,6 +4259,10 @@ function main(): void {
           // If hand card selected -> discard to this pile and end turn
           if (selectedSkipBoSource === SkipBoSourcePileEnum.Hand) {
             if (!skipboSeat.isLocalTurn()) return;
+            if (isLiveGuest()) {
+              sendArcadeIntent('skipbo_discard', { handIndex: selectedSkipBoIndex, targetIndex: discIdx });
+              return;
+            }
             skipboEngine.discardAndEndTurn(selectedSkipBoIndex, discIdx);
             soundFX.playCathedralOrganAndBell();
             if (skipboIsLive && activeArcadeClient) {
@@ -4066,6 +4344,16 @@ function main(): void {
   fromNullable(document.getElementById('skipbo-btn-play-selected')).map(b =>
     b.addEventListener('click', () => {
       if (!skipboSeat.isLocalTurn()) return;
+      if (isLiveGuest()) {
+        // Pick the lowest legal pile from this player's own view, then let the host play it
+        skipboSelectedCard()
+          .flatMap(card => fromNullable([0, 1, 2, 3].find(pile => skipboEngine.canPlayOnBuilding(card, pile))))
+          .match({
+            Some: pile => sendArcadeIntent('skipbo_play', { source: selectedSkipBoSource, sourceIndex: selectedSkipBoIndex, buildingIndex: pile }),
+            None: () => ui.showTemporaryBanner('That card cannot be played on any building pile.', 2000)
+          });
+        return;
+      }
       // Find lowest legal building pile
       let played = false;
       for (let p = 0; p < 4; p++) {
@@ -4093,6 +4381,10 @@ function main(): void {
   fromNullable(document.getElementById('skipbo-btn-discard-selected')).map(b =>
     b.addEventListener('click', () => {
       if (selectedSkipBoSource === SkipBoSourcePileEnum.Hand && skipboSeat.isLocalTurn()) {
+        if (isLiveGuest()) {
+          sendArcadeIntent('skipbo_discard', { handIndex: selectedSkipBoIndex, targetIndex: 0 });
+          return;
+        }
         skipboEngine.discardAndEndTurn(selectedSkipBoIndex, 0);
         soundFX.playSelect();
         renderSkipBoTable();
@@ -4394,6 +4686,10 @@ function main(): void {
   fromNullable(document.getElementById('phase10-btn-draw-deck')).map(b =>
     b.addEventListener('click', () => {
       if (!phase10Seat.isLocalTurn()) return;
+      if (isLiveGuest()) {
+        sendArcadeIntent('p10_draw', { fromDiscard: false });
+        return;
+      }
       phase10Engine.drawCard(false);
       soundFX.playSelect();
       if (phase10IsLive && activeArcadeClient) {
@@ -4406,6 +4702,10 @@ function main(): void {
   fromNullable(document.getElementById('phase10-discard-pile-btn')).map(b =>
     b.addEventListener('click', () => {
       if (!phase10Engine.state.hasDrawnThisTurn && phase10Seat.isLocalTurn()) {
+        if (isLiveGuest()) {
+          sendArcadeIntent('p10_draw', { fromDiscard: true });
+          return;
+        }
         phase10Engine.drawCard(true);
         soundFX.playSelect();
         if (phase10IsLive && activeArcadeClient) {
@@ -4422,6 +4722,11 @@ function main(): void {
       const half = Math.floor(selectedPhase10Indices.length / 2);
       const g1 = selectedPhase10Indices.slice(0, half);
       const g2 = selectedPhase10Indices.slice(half);
+      if (isLiveGuest()) {
+        sendArcadeIntent('p10_lay', { g1, g2 });
+        selectedPhase10Indices = [];
+        return;
+      }
       const res = phase10Engine.layDownPhase(g1, g2);
       if (res.isSuccess()) {
         selectedPhase10Indices = [];
@@ -4438,6 +4743,11 @@ function main(): void {
     b.addEventListener('click', () => {
       if (selectedPhase10Indices.length === 1 && phase10Seat.isLocalTurn()) {
         const hitIdx = selectedPhase10Indices[0]!;
+        if (isLiveGuest()) {
+          sendArcadeIntent('p10_hit', { cardIndex: hitIdx, groupIndex: 0, targetPlayerId: phase10LocalPlayerId() });
+          selectedPhase10Indices = [];
+          return;
+        }
         phase10Engine.hitCard(hitIdx, phase10LocalPlayerId(), 0);
         selectedPhase10Indices = [];
         soundFX.playSelect();
@@ -4457,6 +4767,11 @@ function main(): void {
     b.addEventListener('click', () => {
       if (selectedPhase10Indices.length === 1 && phase10Seat.isLocalTurn()) {
         const discIdx = selectedPhase10Indices[0]!;
+        if (isLiveGuest()) {
+          sendArcadeIntent('p10_discard', { cardIndex: discIdx });
+          selectedPhase10Indices = [];
+          return;
+        }
         phase10Engine.discardAndEndTurn(discIdx);
         selectedPhase10Indices = [];
         soundFX.playCathedralOrganAndBell();
@@ -4654,6 +4969,10 @@ function main(): void {
             return;
           }
 
+          if (isLiveGuest()) {
+            sendArcadeIntent('uno_play', { handIndex: idx });
+            return;
+          }
           const res = unoEngine.playCard(idx);
           if (res.isSuccess()) {
             soundFX.playCathedralOrganAndBell();
@@ -4750,7 +5069,9 @@ function main(): void {
 
   fromNullable(document.getElementById('uno-draw-deck-btn')).map(b =>
     b.addEventListener('click', () => {
-      if (isUnoLocalTurn()) {
+      if (isUnoLocalTurn() && isLiveGuest()) {
+        sendArcadeIntent('uno_draw', {});
+      } else if (isUnoLocalTurn()) {
         unoEngine.drawCard();
         soundFX.playSelect();
         if (activeArcadeClient) {
@@ -4764,7 +5085,9 @@ function main(): void {
 
   fromNullable(document.getElementById('uno-btn-draw')).map(b =>
     b.addEventListener('click', () => {
-      if (isUnoLocalTurn()) {
+      if (isUnoLocalTurn() && isLiveGuest()) {
+        sendArcadeIntent('uno_draw', {});
+      } else if (isUnoLocalTurn()) {
         unoEngine.drawCard();
         soundFX.playSelect();
         if (activeArcadeClient) {
@@ -4778,6 +5101,10 @@ function main(): void {
 
   fromNullable(document.getElementById('uno-btn-call-uno')).map(b =>
     b.addEventListener('click', () => {
+      if (isLiveGuest()) {
+        sendArcadeIntent('uno_call', {});
+        return;
+      }
       const res = unoLocalPlayerId().match({
         Some: playerId => unoEngine.callUno(playerId),
         None: () => failure<string, string>('You do not have a seat at this table.')
@@ -4818,6 +5145,12 @@ function main(): void {
   ['red', 'blue', 'green', 'yellow'].forEach(c => {
     fromNullable(document.getElementById(`uno-pick-${c}`)).map(b => {
       b.addEventListener('click', () => {
+        if (pendingWildCardIndex !== null && isLiveGuest()) {
+          sendArcadeIntent('uno_play', { handIndex: pendingWildCardIndex, wildColor: c as 'red' | 'blue' | 'green' | 'yellow' });
+          pendingWildCardIndex = null;
+          fromNullable(document.getElementById('uno-color-picker')).map(cp => cp.classList.add('hidden'));
+          return;
+        }
         if (pendingWildCardIndex !== null) {
           unoEngine.playCard(pendingWildCardIndex, c as UnoColor);
           pendingWildCardIndex = null;
@@ -5072,6 +5405,11 @@ function main(): void {
         ui.showTemporaryBanner(`${avalonEngine.getCurrentLeader().name} leads this quest and proposes the team.`, 2500);
         return;
       }
+      if (isLiveGuest()) {
+        sendArcadeIntent('avalon_propose', { team: [...selectedAvalonKnights] });
+        selectedAvalonKnights = [];
+        return;
+      }
       const res = avalonEngine.proposeTeam(selectedAvalonKnights);
       res.match({
         Ok: () => undefined,
@@ -5090,6 +5428,10 @@ function main(): void {
 
   fromNullable(document.getElementById('avalon-btn-vote-approve')).map(b =>
     b.addEventListener('click', () => {
+      if (isLiveGuest()) {
+        sendArcadeIntent('avalon_vote', { approve: true });
+        return;
+      }
       castAvalonVote(true);
       soundFX.playSelect();
       if (activeArcadeClient) {
@@ -5101,6 +5443,10 @@ function main(): void {
 
   fromNullable(document.getElementById('avalon-btn-vote-reject')).map(b =>
     b.addEventListener('click', () => {
+      if (isLiveGuest()) {
+        sendArcadeIntent('avalon_vote', { approve: false });
+        return;
+      }
       castAvalonVote(false);
       soundFX.playSelect();
       if (activeArcadeClient) {
@@ -5112,6 +5458,10 @@ function main(): void {
 
   fromNullable(document.getElementById('avalon-btn-quest-pass')).map(b =>
     b.addEventListener('click', () => {
+      if (isLiveGuest()) {
+        sendArcadeIntent('avalon_quest', { pass: true });
+        return;
+      }
       castAvalonQuestCard(true);
       soundFX.playCathedralOrganAndBell();
       if (activeArcadeClient) {
@@ -5123,6 +5473,10 @@ function main(): void {
 
   fromNullable(document.getElementById('avalon-btn-quest-fail')).map(b =>
     b.addEventListener('click', () => {
+      if (isLiveGuest()) {
+        sendArcadeIntent('avalon_quest', { pass: false });
+        return;
+      }
       castAvalonQuestCard(false);
       soundFX.playSelect();
       if (activeArcadeClient) {
@@ -5134,6 +5488,11 @@ function main(): void {
 
   fromNullable(document.getElementById('avalon-btn-assassinate')).map(b =>
     b.addEventListener('click', () => {
+      if (selectedAvalonKnights.length === 1 && isLiveGuest()) {
+        sendArcadeIntent('avalon_assassinate', { targetId: selectedAvalonKnights[0]! });
+        selectedAvalonKnights = [];
+        return;
+      }
       if (selectedAvalonKnights.length === 1) {
         avalonEngine.assassinateMerlin(selectedAvalonKnights[0]!);
         selectedAvalonKnights = [];
@@ -5363,6 +5722,15 @@ function main(): void {
   fromNullable(document.getElementById('set-btn-claim')).map(b =>
     b.addEventListener('click', () => {
       const setLocalId = localSeatKeyFor('p1');
+      if (selectedSetIndices.length === 3 && setLocalId.isSome() && isLiveGuest()) {
+        // Cards are sent by id so the host finds them even if the table shifted meanwhile
+        const cardIds = selectedSetIndices.map(i => fromNullable(setEngine.state.tableCards[i]).map(card => card.id).getOrElse(''));
+        sendArcadeIntent('set_claim', { cardIds });
+        selectedSetIndices = [];
+        setHintIndex = null;
+        renderSetTable();
+        return;
+      }
       if (selectedSetIndices.length === 3 && setLocalId.isSome()) {
         const res = setEngine.claimSet(setLocalId.getOrElse(''), [
           selectedSetIndices[0]!,
@@ -5389,6 +5757,7 @@ function main(): void {
 
   fromNullable(document.getElementById('set-btn-deal-more')).map(b =>
     b.addEventListener('click', () => {
+      if (blockGuestTableReset()) return;
       setEngine.dealThreeMoreCards();
       soundFX.playSelect();
       renderSetTable();
