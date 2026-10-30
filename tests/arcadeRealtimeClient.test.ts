@@ -1,417 +1,354 @@
-import { describe, expect, it, mock } from 'bun:test';
-import { ArcadeRealtimeClient } from '../src/realtime/arcadeRealtimeClient';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
+import {
+  ArcadeRealtimeClient,
+  ARCADE_EVENTS_COLLECTION,
+  POCKETHOST_URL,
+  arcadeSubscriptionTopic,
+  type ArcadeConnectionStatus
+} from '../src/realtime/arcadeRealtimeClient';
+import { ArcadeGameEnum } from '../src/constants/gameEnums';
 
-describe('ArcadeRealtimeClient - Universal Client-Side Real-Time Adapter', () => {
-  it('manages event handlers and unsubscription', () => {
-    const client = new ArcadeRealtimeClient({
-      sessionCode: 'BJK-TEST',
-      participantId: 'p_test_1'
-    });
+class MockEventSource {
+  public static last: MockEventSource | null = null;
+  public listeners: Record<string, ((e: any) => void)[]> = {};
+  public onopen: (() => void) | null = null;
+  public onerror: ((err: any) => void) | null = null;
+  public closed = false;
+  constructor(public url: string) {
+    MockEventSource.last = this;
+  }
+  public addEventListener(evt: string,
+                          fn: (e: any) => void) {
+    this.listeners[evt] = this.listeners[evt] || [];
+    this.listeners[evt]!.push(fn);
+  }
+  public emit(evt: string,
+              e: any) {
+    (this.listeners[evt] || []).forEach(fn => fn(e));
+  }
+  public close() {
+    this.closed = true;
+  }
+}
 
-    let eventCalled = 0;
-    const unsub = client.on('seat_claimed', () => {
-      eventCalled += 1;
-    });
+interface FetchCall {
+  readonly url: string;
+  readonly body: any;
+}
 
-    expect(client.getBaseUrl()).toBe('');
-    expect(client.getIsConnected()).toBe(false);
-    expect(client.getLastEventSeq()).toBe(0);
+const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
-    unsub();
-  });
+const jsonResponse = (body: unknown,
+                      status: number = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-  it('claims a seat via HTTP endpoint', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mock(async () => {
-      return new Response(JSON.stringify({ seatNumber: 3, sessionCode: 'POKER-TEST' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
+describe('ArcadeRealtimeClient', () => {
+  const originalFetch = globalThis.fetch;
+  const originalES = (globalThis as any).EventSource;
+  const originalWindow = (globalThis as any).window;
+  let calls: FetchCall[] = [];
+  let responder: (url: string, body: any) => Response = () => jsonResponse({});
+
+  beforeEach(() => {
+    calls = [];
+    responder = () => jsonResponse({});
+    globalThis.fetch = mock(async (url: string, init?: any) => {
+      const body = init?.body ? JSON.parse(init.body) : undefined;
+      calls.push({ url: String(url), body });
+      return responder(String(url), body);
     }) as any;
-
-    try {
-      const client = new ArcadeRealtimeClient({
-        sessionCode: 'POKER-TEST',
-        participantId: 'usr_p3'
-      });
-
-      const res = await client.claimSeat('Ace Player');
-      expect(res.isSuccess()).toBe(true);
-      expect(res.getOrThrow().seatNumber).toBe(3);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('leaves a seat and restores bot', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mock(async () => {
-      return new Response(JSON.stringify({ message: 'Participant vacated' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }) as any;
-
-    try {
-      const client = new ArcadeRealtimeClient({
-        sessionCode: 'SKIP-TEST',
-        participantId: 'usr_p2'
-      });
-
-      const res = await client.leaveSeat();
-      expect(res.isSuccess()).toBe(true);
-      expect(res.getOrThrow().message).toBe('Participant vacated');
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('sends real-time actions across players', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mock(async () => {
-      return new Response(JSON.stringify({ event: { id: 1, actionType: 'play_card' } }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }) as any;
-
-    try {
-      const client = new ArcadeRealtimeClient({
-        sessionCode: 'P10-TEST',
-        participantId: 'usr_p1'
-      });
-
-      const res = await client.sendAction('play_card', { cardId: 'c1' });
-      expect(res.isSuccess()).toBe(true);
-
-      const dispatchRes = await client.dispatchAction('play_card', { cardId: 'c1' });
-      expect(dispatchRes.isSuccess()).toBe(true);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('handles HTTP error responses gracefully', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mock(async () => {
-      return new Response(JSON.stringify({ error: 'Server error' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }) as any;
-
-    try {
-      const client = new ArcadeRealtimeClient({
-        sessionCode: 'ERR-TEST',
-        participantId: 'usr_p1'
-      });
-
-      const claimRes = await client.claimSeat('Bob');
-      expect(claimRes.isFailure()).toBe(true);
-
-      const leaveRes = await client.leaveSeat();
-      expect(leaveRes.isFailure()).toBe(true);
-
-      const actRes = await client.sendAction('bet', {});
-      expect(actRes.isFailure()).toBe(true);
-
-      const kickRes = await client.kickPlayer('bad_p1', 'Spamming');
-      expect(kickRes.isFailure()).toBe(true);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('kicks a player when invoked by match host', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mock(async () => {
-      return new Response(JSON.stringify({ success: true, kickedParticipantId: 'bad_usr', seatNumber: 2 }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }) as any;
-
-    try {
-      const client = new ArcadeRealtimeClient({
-        sessionCode: 'POKER-HOST',
-        participantId: 'host_usr'
-      });
-
-      const res = await client.kickPlayer('bad_usr', 'Inappropriate behavior');
-      expect(res.isSuccess()).toBe(true);
-      expect(res.getOrThrow().kickedParticipantId).toBe('bad_usr');
-      expect(res.getOrThrow().seatNumber).toBe(2);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('connects to EventSource, listens to messages, and disconnects', () => {
-    class MockEventSource {
-      public listeners: Record<string, ((e: any) => void)[]> = {};
-      public onopen: (() => void) | null = null;
-      public onerror: ((err: any) => void) | null = null;
-      constructor(public url: string) {}
-      public addEventListener(evt: string, fn: (e: any) => void) {
-        this.listeners[evt] = this.listeners[evt] || [];
-        this.listeners[evt]!.push(fn);
-      }
-      public close() {}
-    }
-
-    const originalES = (globalThis as any).EventSource;
     (globalThis as any).EventSource = MockEventSource;
+    MockEventSource.last = null;
+  });
 
-    try {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    (globalThis as any).EventSource = originalES;
+    (globalThis as any).window = originalWindow;
+  });
+
+  describe('environment resolution', () => {
+    it('uses explicit base url, empty base without a window, and localhost detection', () => {
+      (globalThis as any).window = undefined;
+      expect(new ArcadeRealtimeClient({ sessionCode: 'BJK-A', participantId: 'p' }).getBaseUrl()).toBe('');
+
+      const custom = new ArcadeRealtimeClient({ baseUrl: 'https://x.pockethost.io', sessionCode: 'BJK-A', participantId: 'p' });
+      expect(custom.getBaseUrl()).toBe('https://x.pockethost.io');
+      expect(custom.isPocketBaseMode()).toBe(true);
+
+      (globalThis as any).window = { location: { hostname: 'localhost' } };
+      expect(new ArcadeRealtimeClient({ sessionCode: 'BJK-A', participantId: 'p' }).getBaseUrl()).toBe('');
+      (globalThis as any).window = { location: { hostname: '127.0.0.1' } };
+      expect(new ArcadeRealtimeClient({ sessionCode: 'BJK-A', participantId: 'p' }).isPocketBaseMode()).toBe(false);
+
+      (globalThis as any).window = { location: { hostname: 'web-chess.netlify.app' } };
+      const remote = new ArcadeRealtimeClient({ sessionCode: 'BJK-A', participantId: 'p' });
+      expect(remote.getBaseUrl()).toBe(POCKETHOST_URL);
+      expect(new ArcadeRealtimeClient({ baseUrl: '/api/realtime', sessionCode: 'X-1', participantId: 'p' }).isPocketBaseMode()).toBe(true);
+    });
+
+    it('exposes identity accessors', () => {
+      const client = new ArcadeRealtimeClient({ sessionCode: 'UNO-ID', participantId: 'usr_1' });
+      expect(client.getParticipantId()).toBe('usr_1');
+      expect(client.getSessionCode()).toBe('UNO-ID');
+      expect(client.getClientId().isNone()).toBe(true);
+      expect(client.getIsConnected()).toBe(false);
+      expect(client.getLastEventSeq()).toBe(0);
+    });
+
+    it('builds a filtered PocketBase topic for one table', () => {
+      const topic = arcadeSubscriptionTopic('BJK-T1');
+      expect(topic.startsWith(`${ARCADE_EVENTS_COLLECTION}?options=`)).toBe(true);
+      expect(JSON.parse(decodeURIComponent(topic.split('options=')[1]!))).toEqual({ query: { filter: 'session_code="BJK-T1"' } });
+    });
+  });
+
+  describe('handlers', () => {
+    it('dispatches to handlers, survives throwing handlers, and unsubscribes', () => {
+      const client = new ArcadeRealtimeClient({ sessionCode: 'BJK-H', participantId: 'p' });
+      const seen: unknown[] = [];
+      const unsub = client.on('evt', d => seen.push(d));
+      client.on('evt', () => {
+        throw new Error('boom');
+      });
+      client.dispatchEvent('evt', 1, 1);
+      client.dispatchEvent('nobody-listens', 1, 1);
+      unsub();
+      client.dispatchEvent('evt', 2, 2);
+      expect(seen).toEqual([1]);
+    });
+  });
+
+  describe('local Bun server mode', () => {
+    const local = (extra: Record<string, unknown> = {}) =>
+      new ArcadeRealtimeClient({ baseUrl: '', sessionCode: 'BJK-LOC', participantId: 'me', ...extra });
+
+    it('connects, reports status, delivers peer events, and drops own echoes', () => {
+      const statuses: ArcadeConnectionStatus[] = [];
       let opened = false;
-      let errorOccurred = false;
-      let receivedData: any = null;
-
-      const client = new ArcadeRealtimeClient({
-        sessionCode: 'BJK-EVT',
-        participantId: 'p1',
+      let errors = 0;
+      const client = local({
         onOpen: () => { opened = true; },
-        onError: () => { errorOccurred = true; }
+        onError: () => { errors += 1; },
+        onStatusChange: (s: ArcadeConnectionStatus) => statuses.push(s)
       });
-
-      client.on('game_action', (data) => {
-        receivedData = data;
-      });
+      const received: unknown[] = [];
+      client.on('action_dispatched', d => received.push(d));
 
       client.connect();
-      expect(client.getIsConnected()).toBe(false);
+      const es = MockEventSource.last!;
+      expect(es.url).toBe('/api/arcade/sessions/BJK-LOC/events?participantId=me');
 
-      const es = (client as any).eventSource as MockEventSource;
-      expect(es).toBeDefined();
-
-      // Trigger onopen
+      es.onerror?.({});
+      expect(statuses).toEqual(['connecting', 'offline']);
       es.onopen?.();
-      expect(client.getIsConnected()).toBe(true);
       expect(opened).toBe(true);
+      expect(client.getIsConnected()).toBe(true);
 
-      // Trigger incoming event
-      const handler = es.listeners['game_action']?.[0];
-      expect(handler).toBeDefined();
-      handler?.({ lastEventId: '5', data: JSON.stringify({ action: 'hit' }) });
-
-      expect(receivedData).toEqual({ action: 'hit' });
+      es.emit('action_dispatched', { lastEventId: '4', data: JSON.stringify({ participantId: 'peer', actionType: 'hit' }) });
+      es.emit('action_dispatched', { lastEventId: '5', data: JSON.stringify({ participantId: 'me', actionType: 'hit' }) });
+      es.emit('action_dispatched', { lastEventId: 'x', data: 'plain text' });
+      expect(received).toEqual([{ participantId: 'peer', actionType: 'hit' }, 'plain text']);
       expect(client.getLastEventSeq()).toBe(5);
 
-      // Register listener after connected
-      let postConnectData: any = null;
-      client.on('seat_claimed', (d) => {
-        postConnectData = d;
-      });
-      const seatHandler = es.listeners['seat_claimed']?.[0];
-      expect(seatHandler).toBeDefined();
+      // Listeners registered after connecting are wired to the open stream
+      const late: unknown[] = [];
+      client.on('seat_claimed', d => late.push(d));
+      es.emit('seat_claimed', { lastEventId: '6', data: 'null' });
+      expect(late).toEqual([null]);
 
-      // Non-JSON plain text data
-      seatHandler?.({ lastEventId: '6', data: 'plain text data' });
-      expect(postConnectData).toBe('plain text data');
+      es.onerror?.({});
+      expect(statuses.at(-1)).toBe('reconnecting');
+      expect(errors).toBe(2);
 
-      // Throwing listener does not crash client
-      client.on('seat_claimed', () => {
-        throw new Error('Exploding event handler');
-      });
-      seatHandler?.({ lastEventId: '7', data: JSON.stringify({ ok: true }) });
-
-      // Calling connect while already connected reconnects
+      // Reconnect resumes from the last seen event id
       client.connect();
-
-      // Trigger error
-      es.onerror?.({ message: 'connection dropped' });
-      expect(client.getIsConnected()).toBe(false);
-      expect(errorOccurred).toBe(true);
-
-      // Disconnect
+      expect(es.closed).toBe(true);
+      expect(MockEventSource.last!.url).toContain('lastEventId=6');
       client.disconnect();
-      expect((client as any).eventSource).toBeNull();
+      expect(client.getIsConnected()).toBe(false);
+    });
 
-      // Constructor throwing is caught safely
-      (globalThis as any).EventSource = class BrokenEventSource {
+    it('reports offline when the EventSource cannot be created', () => {
+      (globalThis as any).EventSource = class {
         constructor() {
-          throw new Error('Network permission denied');
+          throw new Error('blocked');
         }
       };
-      let brokenErrorHandled = false;
-      const brokenClient = new ArcadeRealtimeClient({
-        sessionCode: 'BJK-ERR',
-        participantId: 'p_err',
-        onError: () => { brokenErrorHandled = true; }
-      });
-      brokenClient.connect();
-      expect(brokenErrorHandled).toBe(true);
-    } finally {
-      (globalThis as any).EventSource = originalES;
-    }
+      const statuses: ArcadeConnectionStatus[] = [];
+      let errored = false;
+      const client = local({ onError: () => { errored = true; }, onStatusChange: (s: ArcadeConnectionStatus) => statuses.push(s) });
+      client.connect();
+      expect(errored).toBe(true);
+      expect(statuses).toEqual(['connecting', 'offline']);
+    });
+
+    it('posts seat, kick, and action requests and passes the game for table creation', async () => {
+      responder = url =>
+        url.endsWith('/join') ? jsonResponse({ seatNumber: 2, sessionCode: 'BJK-LOC' }) : jsonResponse({ message: 'ok', event: {} });
+
+      const withGame = local({ game: ArcadeGameEnum.Blackjack });
+      expect((await withGame.claimSeat('Ana')).getOrThrow().seatNumber).toBe(2);
+      expect(calls[0]!.body).toEqual({ sessionCode: 'BJK-LOC', participantId: 'me', displayName: 'Ana', game: 'blackjack' });
+
+      const withoutGame = local();
+      await withoutGame.claimSeat('Bo');
+      expect(calls[1]!.body.game).toBeUndefined();
+
+      expect((await withoutGame.leaveSeat()).isSuccess()).toBe(true);
+      await withoutGame.kickPlayer('peer');
+      expect(calls[3]!.body).toEqual({ sessionCode: 'BJK-LOC', hostParticipantId: 'me', targetParticipantId: 'peer', reason: 'Removed by match host' });
+      await withoutGame.kickPlayer('peer', 'Rude');
+      expect(calls[4]!.body.reason).toBe('Rude');
+      expect((await withoutGame.dispatchAction('hit')).isSuccess()).toBe(true);
+      expect(calls[5]!.url).toBe('/api/arcade/sessions/action');
+      expect(calls[5]!.body.payload).toEqual({});
+    });
+
+    it('surfaces server errors, PocketBase validation details, and bare HTTP failures', async () => {
+      const client = local();
+      responder = () => jsonResponse({ error: 'Table is full' }, 400);
+      expect((await client.claimSeat('A')).isFailure()).toBe(true);
+      expect((await client.claimSeat('A')).match({ Ok: () => '', Err: e => e })).toBe('Table is full');
+
+      responder = () => jsonResponse({ message: 'Failed.', data: { session_code: { message: 'Cannot be blank.' }, other: {} } }, 400);
+      expect((await client.leaveSeat()).match({ Ok: () => '', Err: e => e })).toBe('Failed. session_code: Cannot be blank., other: invalid');
+
+      responder = () => new Response('not json', { status: 503 });
+      expect((await client.kickPlayer('x')).match({ Ok: () => '', Err: e => e })).toBe('Failed to kick player: HTTP 503');
+      expect((await client.sendAction('a', {})).match({ Ok: () => '', Err: e => e })).toBe('Failed to send action: HTTP 503');
+
+      globalThis.fetch = mock(async () => {
+        throw 'socket closed';
+      }) as any;
+      expect((await client.sendAction('a', {})).match({ Ok: () => '', Err: e => e })).toBe('socket closed');
+    });
   });
 
-  it('operates in PocketBase mode on remote environments and handles SSE pub/sub', async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalFetch = globalThis.fetch;
-    const originalES = (globalThis as any).EventSource;
+  describe('PocketHost mode', () => {
+    const remote = (extra: Record<string, unknown> = {}) =>
+      new ArcadeRealtimeClient({ baseUrl: POCKETHOST_URL, sessionCode: 'BJK-PB', participantId: 'me', ...extra });
+    const topic = arcadeSubscriptionTopic('BJK-PB');
+    const record = (over: Record<string, unknown>) => ({
+      data: JSON.stringify({ action: 'create', record: { session_code: 'BJK-PB', participant_id: 'peer', event_type: 'action_dispatched', ...over } })
+    });
 
-    const postedEvents: any[] = [];
-    globalThis.fetch = mock(async (url: string, init?: any) => {
-      if (url.includes('/records')) {
-        const body = JSON.parse(init?.body || '{}');
-        postedEvents.push(body);
-        return new Response(JSON.stringify({ id: 'rec_123', ...body }), { status: 200 });
-      }
-      if (url.includes('/api/realtime')) {
-        return new Response(JSON.stringify({ status: 'subscribed' }), { status: 200 });
-      }
-      return new Response(JSON.stringify({}), { status: 200 });
-    }) as any;
+    it('subscribes to the filtered topic on connect and replays missed events on reconnect', async () => {
+      const statuses: ArcadeConnectionStatus[] = [];
+      let opens = 0;
+      const client = remote({ onOpen: () => { opens += 1; }, onStatusChange: (s: ArcadeConnectionStatus) => statuses.push(s) });
+      const received: any[] = [];
+      client.on('action_dispatched', d => received.push(d));
 
-    let mockESInstance: any = null;
-    (globalThis as any).EventSource = class MockPocketBaseEventSource {
-      public listeners: Record<string, ((e: any) => void)[]> = {};
-      public onerror: ((err: any) => void) | null = null;
-      constructor(public url: string) {
-        mockESInstance = this;
-      }
-      public addEventListener(type: string, cb: (e: any) => void) {
-        this.listeners[type] = this.listeners[type] || [];
-        this.listeners[type].push(cb);
-      }
-      public close() {}
-    };
-
-    (globalThis as any).window = {
-      location: { hostname: 'web-chess-app.netlify.app' }
-    };
-
-    try {
-      const client = new ArcadeRealtimeClient({
-        sessionCode: 'BJK-PBRUN',
-        participantId: 'usr_pb1'
-      });
-
-      expect(client.getBaseUrl()).toBe('https://web-chess.pockethost.io');
-      expect(client.isPocketBaseMode()).toBe(true);
-
-      // Connect to PocketBase SSE
-      let opened = false;
-      let errorFired = false;
-      (client as any).config.onOpen = () => { opened = true; };
-      (client as any).config.onError = () => { errorFired = true; };
       client.connect();
+      const es = MockEventSource.last!;
+      expect(es.url).toBe(`${POCKETHOST_URL}/api/realtime`);
 
-      expect(mockESInstance).not.toBeNull();
-      expect(mockESInstance.url).toBe('https://web-chess.pockethost.io/api/realtime');
+      es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c1' }) });
+      await flush();
+      expect(calls[0]!.body).toEqual({ clientId: 'c1', subscriptions: [topic] });
+      expect(client.getClientId().getOrElse('')).toBe('c1');
+      expect(statuses).toEqual(['connecting', 'live']);
+      expect(calls.length).toBe(1);
 
-      // Simulate PB_CONNECT greeting
-      const pbConnectCb = mockESInstance.listeners['PB_CONNECT']?.[0];
-      expect(pbConnectCb).toBeDefined();
-      await pbConnectCb({ data: JSON.stringify({ clientId: 'cid_pb999' }) });
-      expect(client.getClientId()).toBe('cid_pb999');
-      expect(client.getIsConnected()).toBe(true);
-      expect(opened).toBe(true);
+      es.emit(topic, record({ id: 'r1', event_seq: 10, payload: { n: 1 } }));
+      expect(received).toEqual([{ n: 1 }]);
 
-      // Claim seat in PocketBase mode
-      const claimRes = await client.claimSeat('Pilgrim PB');
-      expect(claimRes.isSuccess()).toBe(true);
-      expect(claimRes.getOrThrow().sessionCode).toBe('BJK-PBRUN');
+      es.onerror?.({});
+      expect(statuses.at(-1)).toBe('reconnecting');
 
-      // Send action in PocketBase mode
-      const actRes = await client.sendAction('bjk_deal', { deckCount: 6 });
-      expect(actRes.isSuccess()).toBe(true);
+      responder = url =>
+        url.includes('/records')
+          ? jsonResponse({ items: [{ id: 'r1', session_code: 'BJK-PB', participant_id: 'peer', event_type: 'action_dispatched', event_seq: 10, payload: { n: 1 } },
+                                   { id: 'r2', session_code: 'BJK-PB', participant_id: 'peer', event_type: 'action_dispatched', event_seq: 11, payload: '{"n":2}' }] })
+          : jsonResponse({});
+      es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c2' }) });
+      await flush();
+      await flush();
+      const replayCall = calls.find(c => c.url.includes('/records'))!;
+      expect(decodeURIComponent(replayCall.url)).toContain('session_code="BJK-PB" && event_seq > 10');
+      expect(received).toEqual([{ n: 1 }, { n: 2 }]);
+      expect(opens).toBe(2);
 
-      // Kick player in PocketBase mode
-      const kickRes = await client.kickPlayer('bad_player_1', 'Disruptive');
-      expect(kickRes.isSuccess()).toBe(true);
+      // Reconnect with no missed events
+      responder = url => (url.includes('/records') ? jsonResponse({}) : jsonResponse({}));
+      es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c3' }) });
+      await flush();
+      await flush();
+      expect(received.length).toBe(2);
+    });
 
-      // Leave seat in PocketBase mode
-      const leaveRes = await client.leaveSeat();
-      expect(leaveRes.isSuccess()).toBe(true);
+    it('filters duplicates, other tables, own echoes, deletes, and malformed messages', () => {
+      const client = remote();
+      const received: unknown[] = [];
+      client.on('action_dispatched', d => received.push(d));
+      client.connect();
+      const es = MockEventSource.last!;
 
-      // Verify records sent to PocketBase session_events
-      expect(postedEvents.length).toBeGreaterThanOrEqual(4);
-      expect(postedEvents.some(p => p.event_type === 'seat_claimed')).toBe(true);
-      expect(postedEvents.some(p => p.event_type === 'action_dispatched')).toBe(true);
-      expect(postedEvents.some(p => p.event_type === 'player_kicked')).toBe(true);
-      expect(postedEvents.some(p => p.event_type === 'seat_left')).toBe(true);
+      es.emit(topic, record({ id: 'a', event_seq: 5, payload: 1 }));
+      es.emit(topic, record({ id: 'a', event_seq: 5, payload: 1 }));
+      es.emit(topic, record({ id: 'b', session_code: 'OTHER-1', event_seq: 6, payload: 2 }));
+      es.emit(topic, record({ id: 'c', participant_id: 'me', event_seq: 7, payload: 3 }));
+      es.emit(topic, record({ payload: 4 }));
+      es.emit(topic, { data: JSON.stringify({ action: 'delete', record: { session_code: 'BJK-PB' } }) });
+      es.emit(topic, { data: 'garbage' });
+      es.emit(topic, { data: JSON.stringify({ action: 'create' }) });
 
-      // Simulate receiving a broadcasted session event
-      let dispatchedAction: any = null;
-      client.on('action_dispatched', data => {
-        dispatchedAction = data;
-      });
+      expect(received).toEqual([1, 4]);
+      expect(client.getLastEventSeq()).toBe(8);
+    });
 
-      const sseHandler = mockESInstance.listeners['session_events']?.[0];
-      expect(sseHandler).toBeDefined();
-      sseHandler({
-        data: JSON.stringify({
-          record: {
-            session: 'BJK-PBRUN',
-            event_type: 'action_dispatched',
-            event_seq: 10,
-            payload: { actionType: 'bjk_deal', payload: { ok: true } }
-          }
-        })
-      });
-      expect(dispatchedAction).toEqual({ actionType: 'bjk_deal', payload: { ok: true } });
-      expect(client.getLastEventSeq()).toBe(10);
+    it('reports subscription rejections, bad handshakes, and replay failures', async () => {
+      const errors: unknown[] = [];
+      const client = remote({ onError: (e: unknown) => errors.push(e) });
+      client.connect();
+      const es = MockEventSource.last!;
 
-      // Test error callback
-      mockESInstance.onerror({ message: 'network down' });
-      expect(client.getIsConnected()).toBe(false);
-      expect(errorFired).toBe(true);
+      responder = () => jsonResponse({ message: 'Forbidden.' }, 403);
+      es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c1' }) });
+      await flush();
+      expect(errors).toEqual(['Forbidden.']);
 
-      // Disconnect
-      client.disconnect();
-      expect(client.getIsConnected()).toBe(false);
+      es.emit('PB_CONNECT', { data: 'not json' });
+      await flush();
+      expect(errors.length).toBe(2);
 
-      // Explicit baseUrl overrides environment
-      const customClient = new ArcadeRealtimeClient({
-        baseUrl: 'https://custom.pockethost.io',
-        sessionCode: 'BJK-PBRUN',
-        participantId: 'usr_custom'
-      });
-      expect(customClient.getBaseUrl()).toBe('https://custom.pockethost.io');
-      expect(customClient.getParticipantId()).toBe('usr_custom');
+      responder = () => jsonResponse({});
+      es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c2' }) });
+      await flush();
+      responder = url => (url.includes('/records') ? jsonResponse({}, 500) : jsonResponse({}));
+      es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c3' }) });
+      await flush();
+      await flush();
+      expect(errors.length).toBe(2);
+      expect((await client.replayMissedEvents()).match({ Ok: () => '', Err: e => e })).toBe('Failed to replay missed events: HTTP 500');
+    });
 
-      // Localhost hostname returns empty string
-      (globalThis as any).window.location.hostname = 'localhost';
-      const localClient = new ArcadeRealtimeClient({
-        sessionCode: 'BJK-PBRUN',
-        participantId: 'usr_local'
-      });
-      expect(localClient.getBaseUrl()).toBe('');
+    it('publishes seat, kick, and action events as tbl_arcade_events records', async () => {
+      const client = remote({ game: ArcadeGameEnum.Poker });
+      expect((await client.claimSeat('Ana')).getOrThrow().seatNumber).toBe(1);
+      expect((await client.leaveSeat()).getOrThrow().message).toBe('Participant vacated');
+      expect((await client.kickPlayer('peer')).getOrThrow().kickedParticipantId).toBe('peer');
+      await client.kickPlayer('peer', 'Rude');
+      expect((await client.sendAction('poker_deal', { a: 1 })).isSuccess()).toBe(true);
 
-      // Test PB_CONNECT parse warning catch
-      (globalThis as any).window.location.hostname = 'web-chess-app.netlify.app';
-      const warnClient = new ArcadeRealtimeClient({
-        sessionCode: 'BJK-PBRUN',
-        participantId: 'usr_warn'
-      });
-      warnClient.connect();
-      const warnCb = mockESInstance.listeners['PB_CONNECT']?.[0];
-      warnCb({ data: 'invalid-json' });
+      expect(calls.every(c => c.url === `${POCKETHOST_URL}/api/collections/${ARCADE_EVENTS_COLLECTION}/records`)).toBe(true);
+      expect(calls.map(c => c.body.event_type)).toEqual(['seat_claimed', 'seat_left', 'player_kicked', 'player_kicked', 'action_dispatched']);
+      expect(calls[0]!.body).toMatchObject({ session_code: 'BJK-PB', game_key: 'poker', participant_id: 'me', payload: { participantId: 'me', displayName: 'Ana' } });
+      expect(calls[2]!.body.payload.reason).toBe('Removed by match host');
+      expect(calls[3]!.body.payload.reason).toBe('Rude');
+      const seqs = calls.map(c => c.body.event_seq as number);
+      expect(seqs.every((seq, i) => i === 0 || seq > seqs[i - 1]!)).toBe(true);
 
-      // Test handleSessionEvent parse warning catch
-      const sseWarnHandler = mockESInstance.listeners['session_events']?.[0];
-      sseWarnHandler({ data: 'invalid-json' });
+      const noGame = remote();
+      await noGame.sendAction('x', {});
+      expect(calls.at(-1)!.body.game_key).toBe('');
 
-      // Test PocketBase EventSource creation failure catch
-      (globalThis as any).EventSource = class BrokenPocketBaseES {
-        constructor() {
-          throw new Error('PocketBase stream blocked');
-        }
-      };
-      let pbErrHandled = false;
-      const brokenPbClient = new ArcadeRealtimeClient({
-        sessionCode: 'BJK-PBRUN',
-        participantId: 'usr_pb_broken',
-        onError: () => { pbErrHandled = true; }
-      });
-      brokenPbClient.connect();
-      expect(pbErrHandled).toBe(true);
-    } finally {
-      (globalThis as any).window = originalWindow;
-      globalThis.fetch = originalFetch;
-      (globalThis as any).EventSource = originalES;
-    }
+      responder = () => jsonResponse({ message: 'Failed to create record.', data: { session_code: { message: 'Invalid' } } }, 400);
+      expect((await client.claimSeat('Ana')).match({ Ok: () => '', Err: e => e })).toBe('Failed to create record. session_code: Invalid');
+      expect((await client.leaveSeat()).isFailure()).toBe(true);
+      expect((await client.kickPlayer('peer')).isFailure()).toBe(true);
+      expect((await client.sendAction('x', {})).isFailure()).toBe(true);
+    });
   });
 });

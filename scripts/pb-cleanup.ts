@@ -37,6 +37,7 @@ async function main(): Promise<void> {
       console.log('--- PocketBase Cascade Cleanup Report ---');
       console.log(`Cutoff Date:           ${report.cutoffTimestamp}`);
       console.log(`Deleted Game Sessions: ${report.deletedSessionsCount}`);
+      console.log(`Deleted Arcade Events: ${report.deletedArcadeEventsCount}`);
       console.log(`Session Codes:         ${report.sessionCodes.join(', ') || 'None'}`);
       console.log(`Duration:              ${report.durationMs}ms`);
       process.exit(0);

@@ -28,6 +28,7 @@ export const DB_VERSION = 1;
 export const STORE_NAME = 'sanctuary_sessions';
 export const SESSION_KEY = 'active_session';
 export const PREFERENCE_KEY = 'persistence_preference';
+export const ARCADE_RESUME_KEY = 'active_arcade_table';
 export const CRYPTO_KEY_RECORD_ID = '__origin_bound_non_extractable_key__' as const;
 export const ENCRYPTION_ALGORITHM = 'AES-GCM-256' as const;
 export const ENCRYPTION_KEY_BITS = 256 as const;
@@ -521,6 +522,77 @@ export async function loadSessionOutcome(): Promise<StorageLoadOutcome> {
           })
       })
   });
+}
+
+/**
+ * The arcade table a player was in, so a refresh returns them to the same game on this device.
+ */
+export interface ArcadeResumeState {
+  readonly game: string;
+  readonly isLive: boolean;
+  readonly sessionCode: string;
+  readonly isHost: boolean;
+  readonly participantId: string;
+  readonly playerName: string;
+  readonly snapshot: unknown;
+  readonly savedAt: number;
+}
+
+/**
+ * Encrypts and persists the active arcade table (AES-GCM-256, AAD bound to `ARCADE_RESUME_KEY`).
+ */
+export async function saveArcadeResumeState(state: ArcadeResumeState): Promise<Result<void, string>> {
+  const dbResult = await openSessionDatabase();
+  return dbResult.flatMapAsync(db =>
+    encryptPayload(state, ARCADE_RESUME_KEY).then(envResult =>
+      envResult.flatMapAsync(envelope =>
+        writeEncryptedRecord(db, {
+          id: ARCADE_RESUME_KEY,
+          envelope,
+          updatedAt: currentEpochMs()
+        })
+      )
+    )
+  );
+}
+
+/**
+ * Loads and decrypts the active arcade table, if one was saved and is still readable.
+ */
+export async function loadArcadeResumeState(): Promise<Option<ArcadeResumeState>> {
+  const dbResult = await openSessionDatabase();
+  const decrypted = await dbResult
+    .flatMapAsync(db => readEncryptedRecord(db, ARCADE_RESUME_KEY))
+    .then(recResult =>
+      recResult.flatMapAsync(recordOpt =>
+        recordOpt.fold(
+          async () => toResult(none<ArcadeResumeState>(), () => 'No arcade table saved'),
+          record => decryptPayload<ArcadeResumeState>(record.envelope, ARCADE_RESUME_KEY)
+        )
+      )
+    );
+  return fromResult(decrypted);
+}
+
+/**
+ * Forgets the active arcade table (the player left it on purpose).
+ */
+export async function clearArcadeResumeState(): Promise<Result<void, string>> {
+  const dbResult = await openSessionDatabase();
+  return dbResult.flatMapAsync(db =>
+    tryCatchAsync(
+      async () =>
+        new Promise<void>((resolve, reject) => {
+          const request = db
+            .transaction([STORE_NAME], 'readwrite')
+            .objectStore(STORE_NAME)
+            .delete(ARCADE_RESUME_KEY);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(new Error(request.error?.message ?? 'Delete error'));
+        }),
+      err => (err as Error).message
+    )
+  );
 }
 
 /**

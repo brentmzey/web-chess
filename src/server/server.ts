@@ -339,7 +339,8 @@ export class SanctuaryRealtimeServer {
           return badRequest('Missing sessionCode, participantId, or displayName');
         }
 
-        const res = this.arcadeService.joinSession(sessionCode, participantId, displayName);
+        const game = typeof body.game === 'string' ? (body.game as ArcadeGameEnum) : undefined;
+        const res = this.arcadeService.joinSession(sessionCode, participantId, displayName, game);
         return res.match({
           Ok: data => json({ seatNumber: data.seatNumber, sessionCode: data.session.sessionCode, maxSeats: data.session.maxSeats }, 200),
           Err: badRequest

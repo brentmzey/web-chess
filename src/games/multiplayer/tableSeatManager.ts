@@ -71,6 +71,22 @@ export class TableSeatManager<TPlayerData = Record<string, unknown>> {
     return Array.from(this.seats.values());
   }
 
+  /**
+   * Returns a detached copy of every seat, for table state synchronization.
+   */
+  public exportSeats(): readonly TableSeat<TPlayerData>[] {
+    return this.getAllSeats().map(seat => ({ ...seat }));
+  }
+
+  /**
+   * Replaces seats from a synchronized snapshot. Seat numbers outside this table's capacity are ignored.
+   */
+  public importSeats(seats: readonly TableSeat<TPlayerData>[]): void {
+    seats
+      .filter(seat => seat.seatNumber >= 1 && seat.seatNumber <= this.maxSeats)
+      .forEach(seat => this.seats.set(seat.seatNumber, { ...seat }));
+  }
+
   public getOccupiedSeats(): TableSeat<TPlayerData>[] {
     return this.getAllSeats().filter(s => s.isOccupied);
   }

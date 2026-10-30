@@ -12,7 +12,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('runs schema migration updating existing collections and creating missing collections (including 28 multi-game and 4 config tables)', async () => {
+  it('runs schema migration updating existing collections and creating missing collections (including 28 multi-game tables, the arcade event stream, and config tables)', async () => {
     globalThis.fetch = mock(async (url: any, init?: any) => {
       const u = String(url);
       if (u.includes('_superusers/auth-with-password')) {
@@ -39,7 +39,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password');
     expect(res.success).toBe(true);
-    expect(res.applied.length).toBe(39);
+    expect(res.applied.length).toBe(40);
     expect(res.errors.length).toBe(0);
   });
 
@@ -135,7 +135,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
     const res = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'password', true);
     expect(res.success).toBe(true);
     // 39 collections created + 9 games seeded + 11 controls seeded = 59
-    expect(res.applied.length).toBe(59);
+    expect(res.applied.length).toBe(60);
     expect(res.applied).toContain('seeded: chess');
     expect(res.applied).toContain('seeded: blackjack');
     expect(res.applied).toContain('seeded: solitaire');
@@ -165,7 +165,7 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const resFailRecord = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'pass', true);
     expect(resFailRecord.success).toBe(true);
-    expect(resFailRecord.applied.length).toBe(39); // Only collections, no seeded records added
+    expect(resFailRecord.applied.length).toBe(40); // Only collections, no seeded records added
 
     // 2. Network error during seed check triggers catch (seedErr)
     globalThis.fetch = mock(async (url: any) => {
@@ -184,6 +184,6 @@ describe('PocketBase Schema Migration Runner (scripts/pb-migrate.ts)', () => {
 
     const resThrow = await runPocketBaseMigration('https://web-chess.pockethost.io', 'admin@example.com', 'pass', true);
     expect(resThrow.success).toBe(true);
-    expect(resThrow.applied.length).toBe(39);
+    expect(resThrow.applied.length).toBe(40);
   });
 });

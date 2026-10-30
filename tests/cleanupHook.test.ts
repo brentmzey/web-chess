@@ -316,6 +316,71 @@ describe('PocketBase Goja JavaScript Cron Hook (pb_hooks/cleanup.pb.js)', () => 
     expect(deletedRecords).toContain(mockSetStale);
   });
 
+  it('sweeps stale Solitaire sessions and prunes idle arcade realtime events', () => {
+    let registeredCallback: Function | null = null;
+    const deletedRecords: any[] = [];
+    const queriedCollections: string[] = [];
+
+    const solStale = new MockRecord({ id: 'col_sol', name: 'tbl_sol_sessions' });
+    solStale.set('session_code', 'SOL-STALE1');
+    const staleEvent = new MockRecord({ id: 'col_evt', name: 'tbl_arcade_events' });
+
+    const mockApp = {
+      findRecordsByFilter: (colName: string, filter: string) => {
+        queriedCollections.push(colName);
+        if (colName === 'tbl_sol_sessions') return [solStale];
+        if (colName === 'tbl_arcade_events') {
+          expect(filter).toBe('updated < {:cutoff} && do_not_delete != true');
+          return [staleEvent];
+        }
+        return [];
+      },
+      findCollectionByNameOrId: (name: string) => ({ id: `id_${name}`, name }),
+      save: () => {},
+      delete: (rec: any) => { deletedRecords.push(rec); }
+    };
+
+    vm.runInNewContext(hookSource, {
+      cronAdd: (_name: string, _cron: string, cb: Function) => {
+        registeredCallback = cb;
+      },
+      $app: mockApp,
+      Record: MockRecord,
+      console: { log: () => {}, error: () => {}, warn: () => {} },
+      Date,
+      Math
+    });
+    registeredCallback!();
+
+    expect(queriedCollections).toContain('tbl_sol_sessions');
+    expect(deletedRecords).toContain(solStale);
+    expect(deletedRecords).toContain(staleEvent);
+  });
+
+  it('keeps cleaning up when the arcade event collection is unavailable', () => {
+    let registeredCallback: Function | null = null;
+    const mockApp = {
+      findRecordsByFilter: (colName: string) => {
+        if (colName === 'tbl_arcade_events') throw new Error('missing collection');
+        return [];
+      },
+      findCollectionByNameOrId: (name: string) => ({ id: `id_${name}`, name }),
+      save: () => {},
+      delete: () => {}
+    };
+    vm.runInNewContext(hookSource, {
+      cronAdd: (_name: string, _cron: string, cb: Function) => {
+        registeredCallback = cb;
+      },
+      $app: mockApp,
+      Record: MockRecord,
+      console: { log: () => {}, error: () => {}, warn: () => {} },
+      Date,
+      Math
+    });
+    expect(() => registeredCallback!()).not.toThrow();
+  });
+
   it('triggers opportunistic wakeup cleanup onRecordAfterCreateSuccess when no audit log exists within 12 hours', () => {
     let recordHookCallback: Function | null = null;
     const deletedRecords: any[] = [];

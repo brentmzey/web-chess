@@ -50,6 +50,14 @@ export interface PocketBaseRealtimeMessage {
  * Connects to PocketHost SSE (`/api/realtime`) and performs REST mutations
  * against canonical PocketBase collections (`game_sessions`, `session_events`, `game_moves`).
  */
+/**
+ * Filtered realtime topic for one chess session's events. PocketBase only delivers collection
+ * events for `<collection>/*`, `<collection>/<id>` or an options-filtered topic, and names the
+ * SSE event after the exact topic string.
+ */
+export const sessionEventsTopic = (sessionId: string): string =>
+  `session_events?options=${encodeURIComponent(JSON.stringify({ query: { filter: `session="${sessionId}"` } }))}`;
+
 export class PocketBaseChessClient {
   private eventSource: EventSource | null = null;
   private clientId: string | null = null;
@@ -145,7 +153,7 @@ export class PocketBaseChessClient {
             body: JSON.stringify({
               clientId: data.clientId,
               subscriptions: [
-                'session_events',
+                sessionEventsTopic(this.config.sessionId),
                 `game_sessions/${this.config.sessionId}`
               ]
             })
@@ -188,8 +196,7 @@ export class PocketBaseChessClient {
         }
       };
 
-      es.addEventListener('session_events', handleSessionEvent);
-      es.addEventListener('session_events/*', handleSessionEvent);
+      es.addEventListener(sessionEventsTopic(this.config.sessionId), handleSessionEvent);
 
       const handleGameSessionUpdate = (e: MessageEvent) => {
         try {

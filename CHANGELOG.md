@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.2.0-rc.46] - 2026-10-29
+### Fixed
+- **Arcade live tables on PocketHost (`src/realtime/arcadeRealtimeClient.ts`)**: every arcade realtime write was rejected with `400 validation_missing_rel_records` because arcade codes were posted into `session_events.session`, a relation to chess `game_sessions`, and the client discarded the error. Arcade events now go to a dedicated `tbl_arcade_events` collection, and publish failures surface as `Err` results with PocketBase field details.
+- **Realtime subscriptions delivered nothing**: PocketBase only emits collection events for `<collection>/*`, `<collection>/<id>` or an options-filtered topic, so the bare `session_events` subscription received no events. Chess (`sessionEventsTopic`) and arcade (`arcadeSubscriptionTopic`) clients now subscribe to server-side filtered per-session topics, so clients only receive their own table's traffic.
+- **Self-echo double moves**: clients no longer apply their own actions twice when the server echoes them back.
+- **Local Bun server protocol**: the server emitted `game_action` while clients listened for `action_dispatched`, and joining never created the table. Actions are now broadcast as `action_dispatched` with the sender id. The first participant to join an unknown code opens the table as its host, and re-joining is idempotent.
+- **Player names from other browsers were rendered unescaped** in seat strips and score badges; they are now HTML-escaped.
+
+### Added
+- **`tbl_arcade_events` collection** (`multiGameSchema.json`): `session_code`, `game_key`, `participant_id`, `event_type`, `event_seq`, `payload`, `do_not_delete`, with `(session_code, event_seq)` and `(do_not_delete, updated, event_type)` cleanup indexes. Migrated to PocketHost together with the previously missing `tbl_sol_*` Solitaire tables and the `idx_sol_cleanup_composite` index.
+- **Table state sync (`src/games/multiplayer/tableSnapshot.ts`)**: Blackjack, Poker, Skip-Bo, Phase 10, Uno, Avalon and SET tables broadcast a full `state_sync` snapshot after local changes (batched, deduplicated). Peers adopt it instead of replaying actions with their own shuffles, so every client sees the same cards. Snapshots preserve `Option` and `Map` values; `TableSeatManager.exportSeats/importSeats` and `CathedralPokerEngine.exportShoe/importShoe` support it.
+- **Reconnect catch-up and connection feedback**: on reconnect the arcade client replays missed events from `tbl_arcade_events`. Players see banners for lost and restored connections, failed joins, failed syncs, and arrivals at the table.
+- **Stay in your arcade game on refresh**: the active arcade table (game, AI/live mode, live code, host status, participant id, player name and a full table snapshot) is saved encrypted in IndexedDB (`ARCADE_RESUME_KEY`, AES-GCM-256 with record-bound AAD) and mirrored in the URL (`?game=…&session=…`). Reloading returns the player to the same game and table state on that device, and rejoins live tables as the same participant without the join prompt. Closing a table, returning to the hub, choosing chess, being kicked, or **Wipe & Start Over** forgets it. Saving follows the existing session persistence preference. An invite link to a different table takes precedence over the saved one.
+- **Cleanup coverage**: the `cleanup.pb.js` cron hook and `bun run pb:cleanup` now sweep `tbl_sol_sessions` and prune `tbl_arcade_events` idle for 3+ days (`do_not_delete != true`). Redeployed to PocketHost.
+
 ## [1.2.0-rc.45] - 2026-10-29
 ### Added
 - **Dual-Mode PocketBase & Local SSE Realtime Engine (`src/realtime/arcadeRealtimeClient.ts`, `tests/arcadeRealtimeClient.test.ts`)**:

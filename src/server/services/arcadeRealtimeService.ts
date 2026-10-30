@@ -4,7 +4,9 @@ import {
   success,
   failure,
   tryCatch,
-  fromNullable
+  fromNullable,
+  fromResult,
+  some
 } from '../../utils/fp';
 import { RealtimeError } from '../../errors/sanctuaryError';
 import {
@@ -45,7 +47,8 @@ export class ArcadeRealtimeService {
   public createSession(game: ArcadeGameEnum,
                        sessionCode: string,
                        requestedSeats?: number,
-                       creatorName: string = 'Host Player'): Result<ArcadeSessionState, RealtimeError> {
+                       creatorName: string = 'Host Player',
+                       creatorParticipantId: string = 'host_' + generateUuidV4().slice(0, 8)): Result<ArcadeSessionState, RealtimeError> {
     return tryCatch(
       () => {
         const capacity = REAL_LIFE_GAME_CAPACITIES[game];
@@ -59,8 +62,8 @@ export class ArcadeRealtimeService {
           seatManager.fillEmptySeatsWithBots('micro-neural', `${game.toUpperCase()}_Bot`);
         }
 
-        // Creator claims seat 1
-        const creatorId = 'host_' + generateUuidV4().slice(0, 8);
+        // Creator claims seat 1 and becomes the match host
+        const creatorId = creatorParticipantId;
         seatManager.claimSeat(1, creatorId, creatorName, undefined, true);
 
         const now = currentEpochMs();
@@ -96,8 +99,13 @@ export class ArcadeRealtimeService {
 
   public joinSession(sessionCode: string,
                      participantId: string,
-                     displayName: string): Result<{ seatNumber: number; session: ArcadeSessionState }, RealtimeError> {
-    const sessionOpt = this.getSession(sessionCode);
+                     displayName: string,
+                     game?: ArcadeGameEnum): Result<{ seatNumber: number; session: ArcadeSessionState }, RealtimeError> {
+    // The first participant to join an unknown code opens the table and becomes its host
+    const sessionOpt = this.getSession(sessionCode).fold(
+      () => fromNullable(game).flatMap(g => fromResult(this.createSession(g, sessionCode, undefined, displayName, participantId))),
+      s => some(s)
+    );
     if (!sessionOpt.isSome()) {
       return failure(new RealtimeError('ERR_SESSION_NOT_FOUND', `Arcade session '${sessionCode}' not found.`, {
         sessionCode,
@@ -120,6 +128,12 @@ export class ArcadeRealtimeService {
         });
         return success({ seatNumber: 0, session });
       }
+    }
+
+    // Idempotent rejoin: a participant already seated (table creator, reconnect) keeps their seat
+    const existingSeat = session.seatManager.getOccupiedSeats().find(seat => seat.playerId === participantId);
+    if (existingSeat) {
+      return success({ seatNumber: existingSeat.seatNumber, session });
     }
 
     const claimRes = session.seatManager.claimAnyAvailableSeat(participantId, displayName);
@@ -252,7 +266,8 @@ export class ArcadeRealtimeService {
       }, { traceId: generateTraceId() }));
     }
 
-    const event = this.broadcast(sessionCode, 'game_action', participantId, {
+    const event = this.broadcast(sessionCode, 'action_dispatched', participantId, {
+      participantId,
       actionType,
       payload,
       timestamp: currentEpochMs()

@@ -1,6 +1,6 @@
 {
   "$schema": "https://pocketbase.io/schema/collections.json",
-  "description": "Multi-Game Sanctuary Arcade Hungarian Schema: Blackjack, Avalon/Resistance, Uno, Phase 10, Poker, Skip-Bo, and SET with dedicated tables, snapshots, and history partitions.",
+  "description": "Multi-Game Sanctuary Arcade Hungarian Schema: Blackjack, Avalon/Resistance, Uno, Phase 10, Poker, Skip-Bo, SET, and Solitaire with dedicated tables, the shared tbl_arcade_events realtime stream, snapshots, and history partitions.",
   "collections": [
     {
       "name": "tbl_bjk_sessions",
@@ -603,7 +603,8 @@
         "CREATE UNIQUE INDEX `idx_sol_session_code` ON `tbl_sol_sessions` (`session_code`)",
         "CREATE INDEX `idx_sol_status` ON `tbl_sol_sessions` (`status`)",
         "CREATE INDEX `idx_sol_do_not_delete` ON `tbl_sol_sessions` (`do_not_delete`)",
-        "CREATE INDEX `idx_sol_updated` ON `tbl_sol_sessions` (`updated`)"
+        "CREATE INDEX `idx_sol_updated` ON `tbl_sol_sessions` (`updated`)",
+        "CREATE INDEX `idx_sol_cleanup_composite` ON `tbl_sol_sessions` (`do_not_delete`, `updated`, `status`)"
       ]
     },
     {
@@ -650,6 +651,31 @@
       "indexes": [
         "CREATE INDEX `idx_hist_snap_sol_code` ON `tbl_archived_sol_snapshots_history` (`txt_session_code`)",
         "CREATE INDEX `idx_hist_snap_sol_created` ON `tbl_archived_sol_snapshots_history` (`created`)"
+      ]
+    },
+    {
+      "name": "tbl_arcade_events",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": "session_code ~ \"-\" && participant_id != \"\" && event_type != \"\" && event_seq > 0",
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "session_code", "type": "text", "required": true, "max": 64 },
+        { "name": "game_key", "type": "text", "required": false, "max": 32 },
+        { "name": "participant_id", "type": "text", "required": true, "max": 64 },
+        { "name": "event_type", "type": "text", "required": true, "max": 64 },
+        { "name": "event_seq", "type": "number", "required": true },
+        { "name": "payload", "type": "json", "required": false, "maxSize": 262144 },
+        { "name": "do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_arcade_events_session_seq` ON `tbl_arcade_events` (`session_code`, `event_seq`)",
+        "CREATE INDEX `idx_arcade_events_session_type` ON `tbl_arcade_events` (`session_code`, `event_type`)",
+        "CREATE INDEX `idx_arcade_events_cleanup_composite` ON `tbl_arcade_events` (`do_not_delete`, `updated`, `event_type`)"
       ]
     },
     {

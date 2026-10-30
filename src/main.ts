@@ -36,7 +36,10 @@ import { CameraController } from './interaction/camera';
 import { PocketBaseChessClient } from './realtime/pocketbaseClient';
 import { globalConfigClient } from './realtime/configClient';
 import {
-  auditEncryptedStorage
+  auditEncryptedStorage,
+  clearArcadeResumeState,
+  loadArcadeResumeState,
+  saveArcadeResumeState
 } from './storage/indexedDbStore';
 import { chessStore, INITIAL_BOARD_FEN } from './store/chessStore';
 import {
@@ -55,7 +58,7 @@ import {
   type PieceType,
   type SavedCamState
 } from './types';
-import { UIController } from './ui/uiController';
+import { UIController, escapeHtml } from './ui/uiController';
 import {
   ModalManager,
   PregameModal,
@@ -108,7 +111,10 @@ import {
 import {
   CathedralSolitaireEngine
 } from './games/solitaire/solitaireEngine';
-import { ArcadeRealtimeClient } from './realtime/arcadeRealtimeClient';
+import { ArcadeRealtimeClient, type ArcadeConnectionStatus } from './realtime/arcadeRealtimeClient';
+import { exportTableSnapshot, importTableSnapshot, type SnapshotableEngine } from './games/multiplayer/tableSnapshot';
+import { generateUuidV4 } from './utils/uuid';
+import { currentEpochMs } from './utils/dateTime';
 import {
   ArcadeGameEnum,
   CardSuitEnum,
@@ -123,9 +129,11 @@ import {
 } from './constants/gameEnums';
 import {
   ARCADE_GAMES,
+  buildArcadeGameUrl,
   extractSessionCodeOrUrl,
   resolveRoute,
-  type ArcadeGameType
+  type ArcadeGameType,
+  type RouteResolution
 } from './routing/sessionRouter';
 import {
   domById,
@@ -134,6 +142,9 @@ import {
   matchBool,
   none,
   some,
+  tryCatch,
+  tryCatchAsync,
+  zipOptions,
   type Option
 } from './utils/fp';
 import { logExecutionContext, logger } from './utils/logger';
@@ -2029,18 +2040,69 @@ function main(): void {
 
   // Active Arcade Real-Time Client for live multiplayer synchronization across arcade theaters
   let activeArcadeClient: ArcadeRealtimeClient | null = null;
+
+  /**
+   * Keeps every client at a live table on the same state: local changes publish a full table snapshot
+   * as a `state_sync` action, and remote snapshots replace the local engine state.
+   */
+  interface ArcadeTableSync {
+    readonly engine: SnapshotableEngine;
+    readonly rerender: () => void;
+    readonly exportExtras?: () => unknown;
+    readonly importExtras?: (extras: unknown) => void;
+  }
+
+  let activeArcadeSync: Option<ArcadeTableSync> = none();
+  let applyingRemoteSnapshot = false;
+  let lastSyncedSnapshotJson = '';
+  let pendingSyncTimer: Option<ReturnType<typeof setTimeout>> = none();
+
+  // Assigned once the arcade engines exist; renders may call it earlier as a no-op
+  let scheduleArcadeResumeSave: () => void = () => undefined;
+
+  const publishArcadeStateIfChanged = (): void => {
+    zipOptions(fromNullable(activeArcadeClient), activeArcadeSync).map(([client, sync]) => {
+      const snapshot = exportTableSnapshot(sync.engine, sync.exportExtras?.() ?? null);
+      const json = JSON.stringify(snapshot);
+      if (json === lastSyncedSnapshotJson) return;
+      lastSyncedSnapshotJson = json;
+      void client.sendAction('state_sync', snapshot as unknown as Record<string, unknown>).then(res =>
+        res.match({
+          Ok: () => undefined,
+          Err: err => {
+            logger.warn('[ARCADE_REALTIME] Table sync failed:', err);
+            ui.showTemporaryBanner('Live table sync failed. Your last move may not have reached other players.', 3500);
+          }
+        })
+      );
+    });
+  };
+
+  /** Called by every arcade table render; batches rapid state changes into one snapshot. */
+  const scheduleArcadeStateSync = (): void => {
+    scheduleArcadeResumeSave();
+    if (applyingRemoteSnapshot || activeArcadeSync.isNone()) return;
+    pendingSyncTimer.map(timer => clearTimeout(timer));
+    pendingSyncTimer = some(setTimeout(() => {
+      pendingSyncTimer = none();
+      publishArcadeStateIfChanged();
+    }, 150));
+  };
+
   const disconnectActiveArcade = (): void => {
     fromNullable(activeArcadeClient).map(client => {
       void client.leaveSeat();
       client.disconnect();
       activeArcadeClient = null;
     });
+    activeArcadeSync = none();
   };
 
   modalManager.register(
     new ArcadeTheaterModal('blackjack-modal', ['#btn-close-blackjack', '#btn-close-blackjack-x'])
   ).onClose(() => {
     disconnectActiveArcade();
+    forgetArcadeResume();
     ui.hideBlackjack();
   });
 
@@ -2048,6 +2110,7 @@ function main(): void {
     new ArcadeTheaterModal('poker-modal', ['#btn-close-poker', '#btn-close-poker-x'])
   ).onClose(() => {
     disconnectActiveArcade();
+    forgetArcadeResume();
     ui.hidePoker();
   });
 
@@ -2055,6 +2118,7 @@ function main(): void {
     new ArcadeTheaterModal('skipbo-modal', ['#btn-close-skipbo', '#btn-close-skipbo-x'])
   ).onClose(() => {
     disconnectActiveArcade();
+    forgetArcadeResume();
     ui.hideSkipBo();
   });
 
@@ -2062,6 +2126,7 @@ function main(): void {
     new ArcadeTheaterModal('phase10-modal', ['#btn-close-phase10', '#btn-close-phase10-x'])
   ).onClose(() => {
     disconnectActiveArcade();
+    forgetArcadeResume();
     ui.hidePhase10();
   });
 
@@ -2069,6 +2134,7 @@ function main(): void {
     new ArcadeTheaterModal('uno-modal', ['#btn-close-uno', '#btn-close-uno-x'])
   ).onClose(() => {
     disconnectActiveArcade();
+    forgetArcadeResume();
     ui.hideUno();
   });
 
@@ -2076,6 +2142,7 @@ function main(): void {
     new ArcadeTheaterModal('avalon-modal', ['#btn-close-avalon', '#btn-close-avalon-x'])
   ).onClose(() => {
     disconnectActiveArcade();
+    forgetArcadeResume();
     ui.hideAvalon();
   });
 
@@ -2083,6 +2150,7 @@ function main(): void {
     new ArcadeTheaterModal('set-modal', ['#btn-close-set', '#btn-close-set-x'])
   ).onClose(() => {
     disconnectActiveArcade();
+    forgetArcadeResume();
     ui.hideSet();
   });
 
@@ -2251,6 +2319,7 @@ function main(): void {
   bjkMultiEngine.populateBotOpponents();
 
   const renderBlackjackTable = () => {
+    scheduleArcadeStateSync();
     const s = bjkEngine.state;
     domById('bjk-seats-track').map((track: HTMLElement) => {
       const occupied = bjkMultiEngine.seatManager.getOccupiedSeats();
@@ -2263,14 +2332,14 @@ function main(): void {
               isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-purple-500/40'
             } flex items-center gap-2.5 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
               <div class="w-2.5 h-2.5 rounded-full ${seat.isBot ? 'bg-purple-400' : 'bg-emerald-400'}"></div>
-              <span class="font-bold text-stone-100">S${seat.seatNumber}: ${seat.playerName}</span>
+              <span class="font-bold text-stone-100">S${seat.seatNumber}: ${escapeHtml(seat.playerName)}</span>
               <span class="text-amber-300 font-mono font-bold">${seat.extraData?.chipBank ?? 500}🪙</span>
               <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
                 seat.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
               }">${seat.isBot ? 'AI' : 'Human'}</span>
               ${
                 canKick
-                  ? `<button type="button" data-kick-participant="${seat.playerId}" data-kick-name="${seat.playerName}" class="ml-1 px-1.5 py-0.5 rounded-md bg-red-950/90 hover:bg-red-900 text-red-300 border border-red-500/40 text-[10px] font-bold transition" title="Kick Player from Table">Kick</button>`
+                  ? `<button type="button" data-kick-participant="${escapeHtml(seat.playerId)}" data-kick-name="${escapeHtml(seat.playerName)}" class="ml-1 px-1.5 py-0.5 rounded-md bg-red-950/90 hover:bg-red-900 text-red-300 border border-red-500/40 text-[10px] font-bold transition" title="Kick Player from Table">Kick</button>`
                   : ''
               }
             </div>
@@ -2524,9 +2593,11 @@ function main(): void {
     }
     if (targetGame === 'hub') {
       disconnectActiveArcade();
+      forgetArcadeResume();
       ui.showArcadeHub();
     } else if (targetGame === 'chess') {
       disconnectActiveArcade();
+      forgetArcadeResume();
       syncBoardPiecesWithChessState();
       updateHighlights();
     } else if (targetGame === 'blackjack') {
@@ -2585,6 +2656,7 @@ function main(): void {
     soundFX.playSelect();
 
     if (game === 'chess') {
+      forgetArcadeResume();
       ui.showLiveSessionModal();
       ui.switchLiveSessionTab('join');
       domById<HTMLInputElement>('live-join-code').map(joinCodeInput => {
@@ -2718,21 +2790,223 @@ function main(): void {
     });
   };
 
-  const setupArcadeRealtimeSession = (_game: ArcadeGameEnum,
+  // One participant id per page load, so reconnects and table switches keep the same identity
+  let arcadeParticipantId = 'usr_' + generateUuidV4().slice(0, 12);
+
+  /** Live view of an engine variable that is reassigned when a new game starts. */
+  const engineRef = (getEngine: () => SnapshotableEngine): SnapshotableEngine => ({
+    get state() {
+      return getEngine().state;
+    },
+    set state(value: unknown) {
+      getEngine().state = value;
+    },
+    get seatManager() {
+      return getEngine().seatManager;
+    }
+  });
+
+  const arcadeTableSyncFor = (game: ArcadeGameEnum): Option<ArcadeTableSync> =>
+    match<ArcadeGameEnum, Option<ArcadeTableSync>>(game, {
+      [ArcadeGameEnum.Chess]: () => none(),
+      [ArcadeGameEnum.Solitaire]: () => none(),
+      [ArcadeGameEnum.Blackjack]: () => some({
+        engine: engineRef(() => ({
+          get state() {
+            return { single: bjkEngine.state, multi: bjkMultiEngine.state };
+          },
+          set state(value: unknown) {
+            const next = value as { single: typeof bjkEngine.state; multi: typeof bjkMultiEngine.state };
+            bjkEngine.state = next.single;
+            bjkMultiEngine.state = next.multi;
+          },
+          seatManager: bjkMultiEngine.seatManager
+        })),
+        rerender: () => renderBlackjackTable()
+      }),
+      [ArcadeGameEnum.Poker]: () => some({
+        engine: engineRef(() => pokerEngine),
+        rerender: () => renderPokerTable(),
+        exportExtras: () => pokerEngine.exportShoe(),
+        importExtras: extras => {
+          if (Array.isArray(extras)) pokerEngine.importShoe(extras as PlayingCard[]);
+        }
+      }),
+      [ArcadeGameEnum.SkipBo]: () => some({ engine: engineRef(() => skipboEngine), rerender: () => renderSkipBoTable() }),
+      [ArcadeGameEnum.Phase10]: () => some({ engine: engineRef(() => phase10Engine), rerender: () => renderPhase10Table() }),
+      [ArcadeGameEnum.Uno]: () => some({ engine: engineRef(() => unoEngine), rerender: () => renderUnoTable() }),
+      [ArcadeGameEnum.Avalon]: () => some({ engine: engineRef(() => avalonEngine), rerender: () => renderAvalonTable() }),
+      [ArcadeGameEnum.Set]: () => some({ engine: engineRef(() => setEngine), rerender: () => renderSetTable() })
+    });
+
+  // --- Arcade refresh resume: keep a player in their arcade table across reloads on this device ---
+  const visibleArcadeGame = (): Option<ArcadeGameEnum> =>
+    fromNullable(([
+      [ArcadeGameEnum.Blackjack, ui.isBlackjackVisible()],
+      [ArcadeGameEnum.Poker, ui.isPokerVisible()],
+      [ArcadeGameEnum.SkipBo, ui.isSkipBoVisible()],
+      [ArcadeGameEnum.Phase10, ui.isPhase10Visible()],
+      [ArcadeGameEnum.Uno, ui.isUnoVisible()],
+      [ArcadeGameEnum.Avalon, ui.isAvalonVisible()],
+      [ArcadeGameEnum.Set, ui.isSetVisible()],
+      [ArcadeGameEnum.Solitaire, ui.isSolitaireVisible()]
+    ] as const).find(([, visible]) => visible)).map(([game]) => game);
+
+  const arcadeTableSnapshotFor = (game: ArcadeGameEnum): unknown =>
+    matchBool(game === ArcadeGameEnum.Solitaire, {
+      true: (): unknown => solitaireEngine.exportSnapshot(),
+      false: (): unknown => arcadeTableSyncFor(game)
+        .map(sync => exportTableSnapshot(sync.engine, sync.exportExtras?.() ?? null) as unknown)
+        .getOrElse(null)
+    });
+
+  let resumeSaveTimer: Option<ReturnType<typeof setTimeout>> = none();
+
+  const persistArcadeResume = (): void => {
+    visibleArcadeGame().map(game => {
+      const client = fromNullable(activeArcadeClient);
+      const sessionCode = client.map(c => c.getSessionCode()).getOrElse('');
+      const resumeUrl = buildArcadeGameUrl(window.location.pathname, game, client.isSome() ? sessionCode : undefined);
+      if (resumeUrl !== window.location.href) {
+        window.history.replaceState(null, '', resumeUrl);
+      }
+      void saveArcadeResumeState({
+        game,
+        isLive: client.isSome(),
+        sessionCode,
+        isHost: isLocalPlayerHost,
+        participantId: arcadeParticipantId,
+        playerName: verifiedPlayerName.getOrElse(''),
+        snapshot: arcadeTableSnapshotFor(game),
+        savedAt: currentEpochMs()
+      }).then(res =>
+        res.match({
+          Ok: () => undefined,
+          Err: err => {
+            logger.warn('[ARCADE_RESUME] Could not save the active arcade table:', err);
+          }
+        })
+      );
+    });
+  };
+
+  scheduleArcadeResumeSave = (): void => {
+    if (!persistenceEnabled) return;
+    resumeSaveTimer.map(timer => clearTimeout(timer));
+    resumeSaveTimer = some(setTimeout(() => {
+      resumeSaveTimer = none();
+      persistArcadeResume();
+    }, 400));
+  };
+
+  /** The player left the arcade table on purpose: stop restoring it on refresh. */
+  const forgetArcadeResume = (): void => {
+    resumeSaveTimer.map(timer => clearTimeout(timer));
+    resumeSaveTimer = none();
+    void clearArcadeResumeState();
+  };
+
+  const restoreArcadeTableSnapshot = (game: ArcadeGameEnum,
+                                      snapshot: unknown): void => {
+    matchBool(game === ArcadeGameEnum.Solitaire, {
+      true: () => {
+        solitaireEngine.importSnapshot(snapshot).match({
+          Ok: () => renderSolitaireBoard(),
+          Err: err => {
+            logger.warn('[ARCADE_RESUME] Saved Solitaire table was not restored:', err);
+          }
+        });
+      },
+      false: () => {
+        arcadeTableSyncFor(game).map(sync => applyRemoteArcadeSnapshot(sync, snapshot));
+      }
+    });
+  };
+
+  /**
+   * On page load, returns the player to the arcade table they were in. A link to a different live
+   * table, or an explicit hub link, takes precedence over the saved table.
+   */
+  const resumeArcadeTable = async (route: RouteResolution): Promise<boolean> => {
+    if (route.showHub || !persistenceEnabled) return false;
+    const saved = await loadArcadeResumeState();
+    return saved
+      .filter(state => state.game in ARCADE_GAMES && state.game !== ArcadeGameEnum.Chess)
+      .filter(state => route.sessionCode.match({
+        Some: code => state.isLive && code.toUpperCase() === state.sessionCode.toUpperCase(),
+        None: () => route.game === ArcadeGameEnum.Chess || route.game === state.game
+      }))
+      .map(state => {
+        const game = state.game as ArcadeGameEnum;
+        arcadeParticipantId = state.participantId || arcadeParticipantId;
+        verifiedPlayerName = state.playerName ? some(state.playerName) : verifiedPlayerName;
+        isLocalPlayerHost = state.isHost;
+        matchBool(state.isLive, {
+          true: () => joinVerifiedArcadeGame(game, state.sessionCode, state.playerName || 'Cathedral Player'),
+          false: () => switchToArcadeGame(game)
+        });
+        restoreArcadeTableSnapshot(game, state.snapshot);
+        ui.showTemporaryBanner(`Welcome back to ${ARCADE_GAMES[game]?.title ?? 'your table'}.`, 2200);
+        return true;
+      })
+      .getOrElse(false);
+  };
+
+  const applyRemoteArcadeSnapshot = (sync: ArcadeTableSync,
+                                     raw: unknown): void => {
+    importTableSnapshot(sync.engine, raw).match({
+      Ok: extras => {
+        sync.importExtras?.(extras);
+        lastSyncedSnapshotJson = JSON.stringify(exportTableSnapshot(sync.engine, sync.exportExtras?.() ?? null));
+        applyingRemoteSnapshot = true;
+        tryCatch(() => sync.rerender()).match({
+          Ok: () => undefined,
+          Err: err => logger.error('[ARCADE_REALTIME] Failed rendering synced table:', err)
+        });
+        applyingRemoteSnapshot = false;
+      },
+      Err: err => {
+        logger.warn('[ARCADE_REALTIME] Ignored table snapshot:', err);
+      }
+    });
+  };
+
+  const announceArcadeConnectionStatus = (status: ArcadeConnectionStatus): void => {
+    match(status, {
+      connecting: () => undefined,
+      live: () => undefined,
+      reconnecting: () => ui.showTemporaryBanner('Live table connection lost. Reconnecting…', 3000),
+      offline: () => ui.showTemporaryBanner('Could not reach the live table server. Check your connection and try again.', 4500)
+    });
+  };
+
+  const setupArcadeRealtimeSession = (game: ArcadeGameEnum,
                                       sessionCode: string,
                                       playerName: string = 'Cathedral Player',
                                       onAction?: (actionType: string, payload: unknown) => void): ArcadeRealtimeClient => {
     disconnectActiveArcade();
 
+    let hasBeenLive = false;
     const client = new ArcadeRealtimeClient({
       sessionCode,
-      participantId: 'usr_' + Math.random().toString(36).substring(2, 9)
+      participantId: arcadeParticipantId,
+      game,
+      onStatusChange: status => {
+        if (status === 'live' && hasBeenLive) {
+          ui.showTemporaryBanner('Reconnected to the live table.', 2000);
+        }
+        hasBeenLive = hasBeenLive || status === 'live';
+        announceArcadeConnectionStatus(status);
+      }
     });
     activeArcadeClient = client;
+    activeArcadeSync = arcadeTableSyncFor(game);
+    lastSyncedSnapshotJson = '';
 
     client.on('player_kicked', (evt: any) => {
       if (evt?.targetParticipantId === client.getParticipantId()) {
         disconnectActiveArcade();
+        forgetArcadeResume();
         ui.hideAllArcadeModals();
         ui.showArcadeHub();
         ui.setHubQuickJoinFeedback('You have been removed from the table by the match host.', true);
@@ -2742,14 +3016,35 @@ function main(): void {
       }
     });
 
-    if (onAction) {
-      client.on('action_dispatched', (evt: any) => {
-        onAction(evt.actionType, evt.payload);
+    client.on('seat_claimed', (evt: any) => {
+      ui.showTemporaryBanner(`${String(evt?.displayName ?? 'A player')} joined the table.`, 2200);
+      // Bring the newcomer up to date with the current table
+      activeArcadeSync.map(() => {
+        lastSyncedSnapshotJson = '';
+        scheduleArcadeStateSync();
       });
-    }
+    });
+
+    client.on('action_dispatched', (evt: any) => {
+      const actionType = String(evt?.actionType ?? '');
+      activeArcadeSync.match({
+        Some: tableSync => {
+          // Snapshot-synced tables ignore raw action replays, which would reshuffle differently per client
+          if (actionType === 'state_sync') applyRemoteArcadeSnapshot(tableSync, evt.payload);
+        },
+        None: () => {
+          if (onAction) onAction(actionType, evt?.payload);
+        }
+      });
+    });
 
     client.connect();
-    void client.claimSeat(playerName);
+    void client.claimSeat(playerName).then(res =>
+      res.match({
+        Ok: () => undefined,
+        Err: err => ui.showTemporaryBanner(`Could not join live table ${sessionCode}: ${err}`, 4500)
+      })
+    );
 
     return client;
   };
@@ -2854,6 +3149,7 @@ function main(): void {
   };
 
   const renderPokerTable = () => {
+    scheduleArcadeStateSync();
     const s = pokerEngine.state;
     domById('poker-seats-track').map((track: HTMLElement) => {
       const occupied = pokerEngine.seatManager.getOccupiedSeats();
@@ -2867,14 +3163,14 @@ function main(): void {
               isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : seat.extraData.folded ? 'border-white/10 opacity-50' : 'border-amber-500/40'
             } flex items-center gap-2 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
               ${isDealer ? '<span class="px-1.5 py-0.5 rounded-full bg-amber-400 text-stone-950 font-extrabold text-[10px]" title="Dealer Button">D</span>' : ''}
-              <span class="font-bold text-stone-100">S${seat.seatNumber}: ${seat.playerName}</span>
+              <span class="font-bold text-stone-100">S${seat.seatNumber}: ${escapeHtml(seat.playerName)}</span>
               <span class="text-emerald-300 font-mono font-bold">$${seat.extraData.chipBank}</span>
               <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
                 seat.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
               }">${seat.isBot ? 'AI' : 'Human'}</span>
               ${
                 canKick
-                  ? `<button type="button" data-kick-participant="${seat.playerId}" data-kick-name="${seat.playerName}" class="ml-1 px-1.5 py-0.5 rounded-md bg-red-950/90 hover:bg-red-900 text-red-300 border border-red-500/40 text-[10px] font-bold transition" title="Kick Player from Table">Kick</button>`
+                  ? `<button type="button" data-kick-participant="${escapeHtml(seat.playerId)}" data-kick-name="${escapeHtml(seat.playerName)}" class="ml-1 px-1.5 py-0.5 rounded-md bg-red-950/90 hover:bg-red-900 text-red-300 border border-red-500/40 text-[10px] font-bold transition" title="Kick Player from Table">Kick</button>`
                   : ''
               }
             </div>
@@ -3194,6 +3490,7 @@ function main(): void {
   let selectedSkipBoIndex: number = 0;
 
   const renderSkipBoTable = () => {
+    scheduleArcadeStateSync();
     const s = skipboEngine.state;
     const p1 = s.players[0]!;
     const p2 = s.players[1]!;
@@ -3213,7 +3510,7 @@ function main(): void {
               isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-blue-500/40'
             } flex items-center gap-2.5 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
               <div class="w-2.5 h-2.5 rounded-full ${p.isBot ? 'bg-purple-400' : 'bg-emerald-400'}"></div>
-              <span class="font-bold text-stone-100">${p.name}</span>
+              <span class="font-bold text-stone-100">${escapeHtml(p.name)}</span>
               <span class="px-2 py-0.5 rounded-lg bg-amber-950/90 border border-amber-400/40 text-amber-200 font-mono font-extrabold text-xs">Top: ${topLabel} (${p.stockpile.length})</span>
               <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
                 p.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
@@ -3490,6 +3787,7 @@ function main(): void {
   let selectedPhase10Indices: number[] = [];
 
   const renderPhase10Table = () => {
+    scheduleArcadeStateSync();
     const s = phase10Engine.state;
     const p1 = s.players[0]!;
 
@@ -3502,7 +3800,7 @@ function main(): void {
               isTurn ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-emerald-500/40'
             } flex items-center gap-2 text-xs sm:text-sm cursor-pointer hover:border-amber-300 transition shadow-md" title="Click to claim seat as Human User">
               <div class="w-2.5 h-2.5 rounded-full ${p.isBot ? 'bg-purple-400' : 'bg-emerald-400'}"></div>
-              <span class="font-bold text-stone-100">${p.name}</span>
+              <span class="font-bold text-stone-100">${escapeHtml(p.name)}</span>
               <span class="px-2 py-0.5 rounded-lg bg-emerald-950/90 border border-emerald-400/40 text-emerald-200 font-mono font-extrabold text-xs">P${p.currentPhase} • ${p.hand.length}🂠 • ${p.score}pts</span>
               <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
                 p.isBot ? 'bg-purple-950/90 text-purple-200 border border-purple-400/30' : 'bg-emerald-950/90 text-emerald-200 border border-emerald-400/30'
@@ -3834,6 +4132,7 @@ function main(): void {
   let pendingWildCardIndex: number | null = null;
 
   const renderUnoTable = () => {
+    scheduleArcadeStateSync();
     const s = unoEngine.state;
     const humanPlayer = s.players[0]!;
 
@@ -3847,7 +4146,7 @@ function main(): void {
           s.currentTurnIndex === idx + 1 ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-white/15'
         } flex items-center gap-2.5 text-sm shadow-md cursor-pointer hover:border-amber-300 transition" title="Click to claim seat as Human User">
           <div class="w-2.5 h-2.5 rounded-full ${p.isBot ? 'bg-purple-400' : 'bg-sky-400'}"></div>
-          <span class="font-bold text-stone-100">${p.name}</span>
+          <span class="font-bold text-stone-100">${escapeHtml(p.name)}</span>
           <span class="px-2.5 py-0.5 rounded-full bg-red-950/85 border border-red-500/40 text-amber-300 font-mono text-xs sm:text-sm font-extrabold">
             ${p.hand.length} 🂠
           </span>
@@ -4135,6 +4434,7 @@ function main(): void {
   let selectedAvalonKnights: string[] = [];
 
   const renderAvalonTable = () => {
+    scheduleArcadeStateSync();
     const s = avalonEngine.state;
     const humanPlayer = s.players[0]!;
 
@@ -4199,7 +4499,7 @@ function main(): void {
           } flex flex-col items-center gap-1.5 cursor-pointer transition hover:bg-white/10 shadow-lg">
             <div class="flex items-center gap-1.5">
               ${isLeader ? '<span class="text-amber-400 text-base">👑</span>' : ''}
-              <span class="font-bold text-sm sm:text-base text-stone-100">${p.name}</span>
+              <span class="font-bold text-sm sm:text-base text-stone-100">${escapeHtml(p.name)}</span>
             </div>
             <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold ${p.isBot ? 'bg-purple-950/85 text-purple-200 border border-purple-400/40' : 'bg-sky-950/85 text-sky-200 border border-sky-400/40'}">
               ${p.isBot ? 'Bot Knight' : 'Human Knight'}
@@ -4444,6 +4744,7 @@ function main(): void {
   };
 
   const renderSetTable = () => {
+    scheduleArcadeStateSync();
     const s = setEngine.state;
     const validSets = setEngine.getAvailableSets();
 
@@ -4474,7 +4775,7 @@ function main(): void {
               : 'border-white/15 bg-black/55'
           } text-xs sm:text-sm flex items-center gap-2.5 shadow-md cursor-pointer hover:border-amber-300 transition`;
           badge.title = 'Click to claim seat as Human User';
-          badge.innerHTML = `<span class="font-bold text-stone-100">${p.name}</span><span class="text-amber-300 font-mono font-bold">Sets: ${p.score}</span><span class="text-stone-300 font-mono text-xs">(-${p.penalties})</span><span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+          badge.innerHTML = `<span class="font-bold text-stone-100">${escapeHtml(p.name)}</span><span class="text-amber-300 font-mono font-bold">Sets: ${p.score}</span><span class="text-stone-300 font-mono text-xs">(-${p.penalties})</span><span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
             p.isBot ? 'bg-purple-950 text-purple-200' : 'bg-emerald-950 text-emerald-200'
           }">${p.isBot ? 'AI' : 'Human'}</span>`;
           badge.addEventListener('click', () => {
@@ -4786,6 +5087,7 @@ function main(): void {
   };
 
   const renderSolitaireBoard = (): void => {
+    scheduleArcadeResumeSave();
     const s = solitaireEngine.state;
 
     // 1. HUD stats
@@ -5077,6 +5379,7 @@ function main(): void {
   fromNullable(document.getElementById('btn-close-solitaire')).map(btn =>
     btn.addEventListener('click', () => {
       disconnectActiveArcade();
+      forgetArcadeResume();
       ui.hideSolitaire();
     })
   );
@@ -5084,6 +5387,7 @@ function main(): void {
   fromNullable(document.getElementById('btn-close-solitaire-x')).map(btn =>
     btn.addEventListener('click', () => {
       disconnectActiveArcade();
+      forgetArcadeResume();
       ui.hideSolitaire();
     })
   );
@@ -5126,6 +5430,7 @@ function main(): void {
       }
       const targetGame = btn.getAttribute('data-game-ai') as ArcadeGameType | null;
       if (targetGame === 'chess') {
+        forgetArcadeResume();
         ui.hideArcadeHub();
         modalOpenedFromReset = false;
         ui.showPreGameModal();
@@ -5186,6 +5491,7 @@ function main(): void {
       isLocalPlayerHost = true;
       const targetGame = btn.getAttribute('data-game-live') as ArcadeGameType | null;
       if (targetGame === 'chess') {
+        forgetArcadeResume();
         ui.hideArcadeHub();
         ui.showLiveSessionModal();
         ui.switchLiveSessionTab('create');
@@ -5256,6 +5562,7 @@ function main(): void {
       Some: ({ game, code }) => {
         isLocalPlayerHost = false;
         if (game === 'chess') {
+          forgetArcadeResume();
           ui.hideArcadeHub();
           ui.showLiveSessionModal();
           ui.switchLiveSessionTab('join');
@@ -5586,7 +5893,18 @@ function main(): void {
     if (route.showHub) {
       ui.showArcadeHub();
     }
-    route.sessionCode.map(sessionCode => {
+    // Resume must never block the rest of page initialization
+    const resumedArcadeTable = (await tryCatchAsync(() => resumeArcadeTable(route))).match({
+      Ok: resumed => resumed,
+      Err: err => {
+        logger.warn('[ARCADE_RESUME] Could not restore the saved arcade table:', err);
+        return false;
+      }
+    });
+    if (!resumedArcadeTable && route.sessionCode.isNone() && route.game !== 'chess' && route.game in ARCADE_GAMES) {
+      switchToArcadeGame(route.game);
+    }
+    route.sessionCode.filter(() => !resumedArcadeTable).map(sessionCode => {
       if (route.game === 'chess') {
         const activeLiveCode = chessStore.getState().liveSession?.sessionCode;
         if (!activeLiveCode || activeLiveCode.toUpperCase() !== sessionCode.toUpperCase()) {

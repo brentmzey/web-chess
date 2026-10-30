@@ -81,7 +81,7 @@ When operating in this repository, agents must adhere to the following without e
                                      thirdParam: boolean): ReturnType {
      ```
 11. **Multi-Game Sanctuary Arcade Hub, Dynamic Multi-Player Seat Management, Hungarian Database Schema & 3+ Day Stale Session Pruning**:
-   - All 8 Sanctuary Arcade games (**Sanctuary Chess** `SANCT-`, **Gothic Blackjack** `BJK-` `1–7 seats`, **Cathedral Poker** `POKER-` `2–9 seats`, **Ten Rites / Phase 10** `P10-` `2–6 seats`, **Sacred Skip-Bo** `SKIP-` `2–6 seats`, **Cardinal Uno** `UNO-` `2–10 seats`, **The Resistance: Avalon** `AVALON-` `5–10 seats`, and **Sacred Geometry SET** `SET-` `1–20 seats`) must support both **Play vs AI** and **Real-Time Online Multiplayer** with full-screen theater views, real-life player capacities, and dynamic player addition/claiming (`seatManager`, `addPlayer`, `claimSeatForHuman`, `vacatePlayerSeat`).
+   - All Sanctuary Arcade games (**Sanctuary Chess** `SANCT-` `2 players + spectators`, **Gothic Blackjack** `BJK-` `1–7 seats`, **Cathedral Poker** `POKER-` `2–9 seats`, **Ten Rites / Phase 10** `P10-` `2–6 seats`, **Sacred Skip-Bo** `SKIP-` `2–6 seats`, **Cardinal Uno** `UNO-` `2–10 seats`, **The Resistance: Avalon** `AVALON-` `5–10 seats`, **Sacred Geometry SET** `SET-` `1–20 seats`, and **Cathedral Solitaire** `SOL-` `1 player + spectators`) must support both **Play vs AI** and **Real-Time Online Multiplayer** with full-screen theater views, real-life player capacities, and dynamic player addition/claiming (`seatManager`, `addPlayer`, `claimSeatForHuman`, `vacatePlayerSeat`).
    - Maintain Hungarian-prefixed tables (`tbl_<game>_sessions`, `tbl_<game>_seats`, `tbl_<game>_moves`, `tbl_<game>_events`, `tbl_archived_<game>_snapshots`, `tbl_archived_<game>_snapshots_history`), composite cleanup indexes (`(do_not_delete, updated_at, status)`), and universal automated pruning of all stale sessions 3+ days old where `do_not_delete != true`.
 12. **Mandatory ECMAScript `Temporal` API First with `dayjs` Fallback (`src/utils/dateTime.ts`)**:
    - **Always** use the ECMAScript `Temporal` API (`Temporal.Now.instant()`, `Temporal.Instant`, `Temporal.PlainDateTime`, `Temporal.ZonedDateTime`) for all date/time operations in TypeScript/JavaScript, and automatically fall back to `dayjs` (with `utc`, `timezone`, and `advancedFormat` plugins) when `Temporal` is not available in the runtime (modeled after MST Notes UI).
@@ -91,6 +91,32 @@ When operating in this repository, agents must adhere to the following without e
 14. **Mandatory Off-Hours Central Time USA Timestamps on Git Commits**:
    - All git commits **MUST** strictly be authored and committed with `GIT_AUTHOR_DATE` and `GIT_COMMITTER_DATE` outside of standard US Central working hours (Monday through Friday 8:00 AM – 6:00 PM Central Time `-0500` / `-0600`).
    - Always commit using late evening (e.g. 20:00–23:59) or early morning (e.g. 04:00–07:30) Central timestamps (e.g., `GIT_AUTHOR_DATE="2026-10-28T23:58:00-05:00" GIT_COMMITTER_DATE="2026-10-28T23:58:00-05:00"`).
+   - Commits are authored as `Brent Zey <brentmzey4795@gmail.com>`, configured through `~/.gitconfig-personal` (`includeIf gitdir:~/personal/`). Never override this identity.
+15. **Namespaced Error Data Model (`src/errors/sanctuaryError.ts`)**:
+   - Domain operations return `Result<T, SanctuaryError<TData>>`, never primitive string errors. Use the subsystem subclasses (`DatabaseError`, `GameEngineError`, `RealtimeError`, `ValidationError`, `StorageError`, `SessionError`, `NetworkError`, etc.), which carry typed data, unique codes, `currentEpochMs()` timestamps, trace IDs, and causes.
+16. **Branded UUID v4 & Trace IDs (`src/utils/uuid.ts`)**:
+   - Use the nominal `UuidV4` / `TraceId` types and `generateUuidV4()`, `generateTraceId()`, `parseUuidV4()` for identifiers. They stay plain-string compatible with SQLite and PocketBase.
+17. **No Cursor / Jiggler Motion References**:
+   - Strictly zero comments, mentions, or notes about cursor or jiggler motion anywhere in the codebase, changelog, or commits.
+
+---
+
+## 🌐 PocketBase / PocketHost Operations
+
+* **Backend**: `https://web-chess.pockethost.io` (`POCKETBASE_URL`). Credentials come only from `~/.zshrc` (`PB_ADMIN_EMAIL`/`PB_ADMIN_PASSWORD`, or `POCKETBASE_SUPERUSER_EMAIL`/`POCKETBASE_SUPERUSER_PASSWORD`).
+* **`bun run pb:migrate`**: `scripts/pb-migrate.ts` → `src/server/pocketbase/migrator.ts` syncs `src/server/pocketbase/multiGameSchema.json` (all `tbl_<game>_*` collections, composite cleanup indexes, and the `session_events` realtime collection).
+* **`bun run pb:cleanup`**: `scripts/pb-cleanup.ts` → `src/server/pocketbase/pruner.ts` cascades deletion of sessions/seats/moves/events/snapshots older than 3 days where `do_not_delete != true`, and triggers `/api/sanctuary/cron/cleanup`.
+* **`bun run pb:deploy-hooks`**: `scripts/pb-deploy-hooks.ts` uploads `pb_hooks/` over SFTP (`ftp.pockethost.io:2222`, key `~/.ssh/pockethost_ed25519`).
+* **Realtime (`src/realtime/arcadeRealtimeClient.ts`)**: outside `localhost` it uses PocketBase SSE (`/api/realtime`) with a filtered per-table topic (`arcadeSubscriptionTopic`) and publishes to `POST /api/collections/tbl_arcade_events/records`. Local dev and tests use the Bun server SSE endpoints (`/api/arcade/sessions/...`, `bun run server`). Never subscribe to a bare collection name: PocketBase only delivers `<collection>/*`, `<collection>/<id>` or options-filtered topics, under an SSE event named exactly as the topic. Arcade `session_events` is chess-only, because `session` is a relation to `game_sessions`.
+* **Live table state**: multi-seat arcade tables stay consistent by broadcasting `state_sync` snapshots (`src/games/multiplayer/tableSnapshot.ts`), not by replaying actions, since engines shuffle with `Math.random`.
+
+## 📋 Pre-Completion Checklist
+
+- [ ] `bun run test:coverage` passes with 0 failures and 100% line/branch coverage on touched files.
+- [ ] `bun run typecheck` reports 0 errors and `bun run build` succeeds.
+- [ ] `git diff` contains no secrets, tokens, or credentials.
+- [ ] RC# bumped in `package.json` and documented in `CHANGELOG.md` (behavior changes only).
+- [ ] Commit timestamp is off-hours Central Time (Rule 14).
 
 
 

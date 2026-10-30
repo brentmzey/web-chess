@@ -83,6 +83,33 @@ describe('ArcadeRealtimeService - Multi-Game Real-Time Seating & Bot Hot-Swappin
     expect(session.events.length).toBe(2);
   });
 
+  it('broadcasts actions as action_dispatched with the sender id so clients can drop their own echoes', () => {
+    const service = new ArcadeRealtimeService();
+    service.createSession(ArcadeGameEnum.Uno, 'UNO-ECHO', 4, 'Host');
+    const evt = service.dispatchAction('UNO-ECHO', 'usr_a', 'state_sync', { version: 1 }).getOrThrow();
+    expect(evt.eventType).toBe('action_dispatched');
+    expect(evt.data.participantId).toBe('usr_a');
+    expect(evt.data.actionType).toBe('state_sync');
+  });
+
+  it('opens an unknown table on first join with the joiner as host, and rejoins idempotently', () => {
+    const service = new ArcadeRealtimeService();
+    expect(service.joinSession('POKER-NEW', 'usr_host', 'Ana').isFailure()).toBe(true);
+
+    const first = service.joinSession('POKER-NEW', 'usr_host', 'Ana', ArcadeGameEnum.Poker).getOrThrow();
+    expect(first.seatNumber).toBe(1);
+    expect(first.session.hostParticipantId).toBe('usr_host');
+    expect(first.session.seatManager.getHumanCount()).toBe(1);
+
+    const again = service.joinSession('POKER-NEW', 'usr_host', 'Ana', ArcadeGameEnum.Poker).getOrThrow();
+    expect(again.seatNumber).toBe(1);
+    expect(again.session.seatManager.getHumanCount()).toBe(1);
+
+    const guest = service.joinSession('POKER-NEW', 'usr_guest', 'Bo', ArcadeGameEnum.Poker).getOrThrow();
+    expect(guest.seatNumber).not.toBe(1);
+    expect(service.kickPlayer('POKER-NEW', 'usr_host', 'usr_guest').isSuccess()).toBe(true);
+  });
+
   it('handles error paths: unknown sessions and leaving non-existent table seats', () => {
     const service = new ArcadeRealtimeService();
 

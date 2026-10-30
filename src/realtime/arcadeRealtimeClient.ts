@@ -1,40 +1,88 @@
-import { tryCatchAsync, type Result } from '../utils/fp';
+import { tryCatch, tryCatchAsync, fromNullable, none, some, matchBool, type Option, type Result } from '../utils/fp';
 import { logger } from '../utils/logger';
 import { currentEpochMs } from '../utils/dateTime';
+import type { ArcadeGameEnum } from '../constants/gameEnums';
 
 export const POCKETHOST_URL = 'https://web-chess.pockethost.io';
+export const ARCADE_EVENTS_COLLECTION = 'tbl_arcade_events';
 
 export type ArcadeRealtimeEventHandler<T = unknown> = (data: T, eventSeq: number) => void;
 
+export type ArcadeConnectionStatus = 'connecting' | 'live' | 'reconnecting' | 'offline';
+
 export interface ArcadeRealtimeConfig {
-  baseUrl?: string;
-  sessionCode: string;
-  participantId: string;
-  onOpen?: () => void;
-  onError?: (err: unknown) => void;
+  readonly baseUrl?: string;
+  readonly sessionCode: string;
+  readonly participantId: string;
+  readonly game?: ArcadeGameEnum;
+  readonly onOpen?: () => void;
+  readonly onError?: (err: unknown) => void;
+  readonly onStatusChange?: (status: ArcadeConnectionStatus) => void;
 }
 
-export class ArcadeRealtimeClient {
-  private eventSource: EventSource | null = null;
-  private clientId: string | null = null;
-  private lastEventSeq: number = 0;
-  private isConnected: boolean = false;
-  private eventHandlers: Map<string, Set<ArcadeRealtimeEventHandler>> = new Map();
+/** A `tbl_arcade_events` record as delivered by PocketBase REST and realtime. */
+export interface ArcadeEventRecord {
+  readonly id?: string;
+  readonly session_code?: string;
+  readonly participant_id?: string;
+  readonly event_type?: string;
+  readonly event_seq?: number;
+  readonly payload?: unknown;
+}
 
-  constructor(private config: ArcadeRealtimeConfig) {}
+const toMessage = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
+const parseJson = (raw: string): unknown => tryCatch(() => JSON.parse(raw) as unknown).getOrElse(raw);
+
+/**
+ * Builds the filtered PocketBase realtime topic for one arcade table. PocketBase delivers matching
+ * records under an SSE event whose name is exactly this topic string.
+ */
+export const arcadeSubscriptionTopic = (sessionCode: string): string =>
+  `${ARCADE_EVENTS_COLLECTION}?options=${encodeURIComponent(JSON.stringify({ query: { filter: `session_code="${sessionCode}"` } }))}`;
+
+/**
+ * Reads a failed response into a readable message, preferring PocketBase field validation details.
+ */
+const describeHttpFailure = async (res: Response,
+                                   fallback: string): Promise<string> => {
+  const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string; data?: Record<string, { message?: string }> };
+  const fieldErrors = Object.entries(body.data ?? {})
+    .map(([field, detail]) => `${field}: ${detail?.message ?? 'invalid'}`)
+    .join(', ');
+  const detail = [body.message, fieldErrors].filter(Boolean).join(' ').trim();
+  return body.error ?? (detail || `${fallback}: HTTP ${res.status}`);
+};
+
+/**
+ * Client-side adapter for arcade table synchronization.
+ *
+ * Outside localhost it publishes and subscribes through PocketHost (`tbl_arcade_events` with a
+ * per-table filtered realtime topic). On localhost it uses the Bun server's arcade SSE endpoints.
+ * In both modes, events a participant sent themselves are not delivered back to them, and missed
+ * events are replayed after a reconnect.
+ */
+export class ArcadeRealtimeClient {
+  private eventSource: Option<EventSource> = none();
+  private clientId: Option<string> = none();
+  private lastEventSeq: number = 0;
+  private lastSentSeq: number = 0;
+  private isConnected: boolean = false;
+  private hasConnectedOnce: boolean = false;
+  private readonly seenRecordIds: Set<string> = new Set();
+  private readonly eventHandlers: Map<string, Set<ArcadeRealtimeEventHandler>> = new Map();
+
+  constructor(private readonly config: ArcadeRealtimeConfig) {}
 
   public getBaseUrl(): string {
-    if (this.config.baseUrl !== undefined) {
-      return this.config.baseUrl;
-    }
-    if (typeof window !== 'undefined' && window.location) {
-      const host = window.location.hostname;
-      if (host === 'localhost' || host === '127.0.0.1') {
-        return '';
-      }
-      return POCKETHOST_URL;
-    }
-    return '';
+    return fromNullable(this.config.baseUrl).getOrElse(
+      typeof window !== 'undefined' && window.location
+        ? matchBool(['localhost', '127.0.0.1'].includes(window.location.hostname), {
+            true: () => '',
+            false: () => POCKETHOST_URL
+          })
+        : ''
+    );
   }
 
   public isPocketBaseMode(): boolean {
@@ -46,7 +94,11 @@ export class ArcadeRealtimeClient {
     return this.config.participantId;
   }
 
-  public getClientId(): string | null {
+  public getSessionCode(): string {
+    return this.config.sessionCode;
+  }
+
+  public getClientId(): Option<string> {
     return this.clientId;
   }
 
@@ -60,341 +112,304 @@ export class ArcadeRealtimeClient {
 
   public on<T = unknown>(eventType: string,
                          handler: ArcadeRealtimeEventHandler<T>): () => void {
-    let handlers = this.eventHandlers.get(eventType);
-    if (!handlers) {
-      handlers = new Set();
+    const handlers = fromNullable(this.eventHandlers.get(eventType)).getOrElse(new Set());
+    if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, handlers);
-      if (this.eventSource && !this.isPocketBaseMode()) {
-        this.wireEventListener(this.eventSource, eventType);
-      }
+      this.eventSource
+        .filter(() => !this.isPocketBaseMode())
+        .map(es => this.wireLocalEventListener(es, eventType));
     }
     handlers.add(handler as ArcadeRealtimeEventHandler);
 
     return () => {
-      handlers?.delete(handler as ArcadeRealtimeEventHandler);
+      handlers.delete(handler as ArcadeRealtimeEventHandler);
     };
   }
 
   public dispatchEvent<T = unknown>(eventType: string,
                                     data: T,
                                     eventSeq: number): void {
-    const handlers = this.eventHandlers.get(eventType);
-    if (handlers) {
+    fromNullable(this.eventHandlers.get(eventType)).map(handlers =>
       handlers.forEach(h => {
-        try {
-          h(data, eventSeq);
-        } catch (err) {
-          logger.error(`[ARCADE_REALTIME] Error in ${eventType} handler:`, err);
-        }
-      });
-    }
+        tryCatch(() => h(data, eventSeq)).match({
+          Ok: () => undefined,
+          Err: err => logger.error(`[ARCADE_REALTIME] Error in ${eventType} handler:`, err)
+        });
+      })
+    );
   }
 
-  private wireEventListener(es: EventSource,
-                            evtType: string): void {
+  private setStatus(status: ArcadeConnectionStatus): void {
+    this.config.onStatusChange?.(status);
+  }
+
+  private isOwnEvent(senderId: unknown): boolean {
+    return typeof senderId === 'string' && senderId === this.config.participantId;
+  }
+
+  private wireLocalEventListener(es: EventSource,
+                                 evtType: string): void {
     es.addEventListener(evtType, (e: MessageEvent) => {
       const id = parseInt(e.lastEventId, 10) || 0;
-      if (id > this.lastEventSeq) {
-        this.lastEventSeq = id;
-      }
+      this.lastEventSeq = Math.max(this.lastEventSeq, id);
 
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(e.data);
-      } catch {
-        parsed = e.data;
-      }
-
-      this.dispatchEvent(evtType, parsed, id);
+      const parsed = parseJson(e.data);
+      const sender = typeof parsed === 'object' && parsed !== null ? (parsed as { participantId?: unknown }).participantId : undefined;
+      matchBool(this.isOwnEvent(sender), {
+        true: () => undefined,
+        false: () => this.dispatchEvent(evtType, parsed, id)
+      });
     });
   }
 
-  public connect(): void {
-    if (this.eventSource) {
-      this.disconnect();
-    }
+  /**
+   * Delivers one `tbl_arcade_events` record to handlers, skipping duplicates, other tables and own echoes.
+   */
+  public ingestRecord(rec: ArcadeEventRecord): void {
+    const recordId = fromNullable(rec.id).getOrElse('');
+    const isDuplicate = recordId !== '' && this.seenRecordIds.has(recordId);
+    const isOtherTable = rec.session_code !== this.config.sessionCode;
+    if (isDuplicate || isOtherTable) return;
+    if (recordId !== '') this.seenRecordIds.add(recordId);
 
-    if (this.isPocketBaseMode()) {
-      const baseUrl = this.getBaseUrl();
-      const sseUrl = `${baseUrl}/api/realtime`;
+    const eventSeq = Number(rec.event_seq) || this.lastEventSeq + 1;
+    this.lastEventSeq = Math.max(this.lastEventSeq, eventSeq);
+    if (this.isOwnEvent(rec.participant_id)) return;
 
-      try {
-        const es = new EventSource(sseUrl);
-        this.eventSource = es;
+    const payload = typeof rec.payload === 'string' ? parseJson(rec.payload) : rec.payload;
+    this.dispatchEvent(String(rec.event_type), payload, eventSeq);
+  }
 
-        es.addEventListener('PB_CONNECT', async (e: MessageEvent) => {
-          try {
-            const data = JSON.parse(e.data) as { clientId: string };
-            this.clientId = data.clientId;
-            this.isConnected = true;
-            this.config.onOpen?.();
-
-            // Submit subscription for session_events
-            await fetch(`${baseUrl}/api/realtime`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                clientId: data.clientId,
-                subscriptions: ['session_events']
-              })
-            }).catch(() => {});
-          } catch (err) {
-            logger.warn('[ARCADE_REALTIME] PB_CONNECT parse warning:', err);
-          }
-        });
-
-        const handleSessionEvent = (e: MessageEvent) => {
-          try {
-            const msg = JSON.parse(e.data);
-            const rec = msg.record || msg;
-            if (rec && (rec.session === this.config.sessionCode || rec.session_code === this.config.sessionCode)) {
-              const eventType = String(rec.event_type);
-              const eventSeq = Number(rec.event_seq) || ++this.lastEventSeq;
-              if (eventSeq > this.lastEventSeq) {
-                this.lastEventSeq = eventSeq;
-              }
-              const rawPayload = rec.payload || rec.payload_json;
-              const payload = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
-              this.dispatchEvent(eventType, payload, eventSeq);
-            }
-          } catch (err) {
-            logger.warn('[ARCADE_REALTIME] Failed parsing session_events record:', err);
-          }
-        };
-
-        es.addEventListener('session_events', handleSessionEvent);
-        es.addEventListener('session_events/*', handleSessionEvent);
-
-        es.onerror = err => {
-          this.isConnected = false;
-          this.config.onError?.(err);
-        };
-      } catch (err) {
-        logger.error('[ARCADE_REALTIME] PocketBase SSE connection failed:', err);
-        this.config.onError?.(err);
+  /**
+   * Fetches events published while this client was disconnected and replays them in order.
+   */
+  public async replayMissedEvents(): Promise<Result<number, string>> {
+    const base = this.getBaseUrl();
+    const filter = `session_code="${this.config.sessionCode}" && event_seq > ${this.lastEventSeq}`;
+    return tryCatchAsync(async () => {
+      const res = await fetch(
+        `${base}/api/collections/${ARCADE_EVENTS_COLLECTION}/records?perPage=200&sort=event_seq&filter=${encodeURIComponent(filter)}`
+      );
+      if (!res.ok) {
+        throw new Error(await describeHttpFailure(res, 'Failed to replay missed events'));
       }
-      return;
-    }
+      const body = (await res.json()) as { items?: ArcadeEventRecord[] };
+      const items = fromNullable(body.items).getOrElse([]);
+      items.forEach(rec => this.ingestRecord(rec));
+      return items.length;
+    }, toMessage);
+  }
 
+  private connectPocketBase(): void {
+    const baseUrl = this.getBaseUrl();
+    const topic = arcadeSubscriptionTopic(this.config.sessionCode);
+    const es = new EventSource(`${baseUrl}/api/realtime`);
+    this.eventSource = some(es);
+
+    // PocketBase issues a new clientId on every (re)connect, so the subscription must be re-sent each time
+    es.addEventListener('PB_CONNECT', (e: MessageEvent) => {
+      void tryCatchAsync(async () => {
+        const data = JSON.parse(e.data) as { clientId: string };
+        this.clientId = some(data.clientId);
+
+        const subRes = await fetch(`${baseUrl}/api/realtime`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId: data.clientId, subscriptions: [topic] })
+        });
+        if (!subRes.ok) {
+          throw new Error(await describeHttpFailure(subRes, 'Realtime subscription rejected'));
+        }
+
+        const isReconnect = this.hasConnectedOnce;
+        this.hasConnectedOnce = true;
+        this.isConnected = true;
+        this.setStatus('live');
+        this.config.onOpen?.();
+        if (isReconnect) {
+          (await this.replayMissedEvents()).match({
+            Ok: count => count > 0 && logger.info(`[ARCADE_REALTIME] Replayed ${count} missed table events.`),
+            Err: err => logger.warn('[ARCADE_REALTIME] Missed event replay failed:', err)
+          });
+        }
+      }, toMessage).then(res =>
+        res.match({
+          Ok: () => undefined,
+          Err: err => {
+            logger.warn('[ARCADE_REALTIME] PocketBase subscription failed:', err);
+            this.config.onError?.(err);
+          }
+        })
+      );
+    });
+
+    es.addEventListener(topic, (e: MessageEvent) => {
+      const msg = parseJson(e.data) as { action?: string; record?: ArcadeEventRecord } | string;
+      matchBool(typeof msg === 'object' && msg !== null && msg.action !== 'delete' && msg.record !== undefined, {
+        true: () => this.ingestRecord((msg as { record: ArcadeEventRecord }).record),
+        false: () => {
+          logger.warn('[ARCADE_REALTIME] Ignoring malformed arcade event message.');
+        }
+      });
+    });
+
+    es.onerror = err => {
+      this.isConnected = false;
+      this.setStatus(this.hasConnectedOnce ? 'reconnecting' : 'offline');
+      this.config.onError?.(err);
+    };
+  }
+
+  private connectLocal(): void {
     const base = this.getBaseUrl();
     const query = new URLSearchParams({
       participantId: this.config.participantId,
       ...(this.lastEventSeq > 0 ? { lastEventId: String(this.lastEventSeq) } : {})
     });
+    const es = new EventSource(`${base}/api/arcade/sessions/${encodeURIComponent(this.config.sessionCode)}/events?${query.toString()}`);
+    this.eventSource = some(es);
 
-    const url = `${base}/api/arcade/sessions/${encodeURIComponent(this.config.sessionCode)}/events?${query.toString()}`;
+    es.onopen = () => {
+      this.hasConnectedOnce = true;
+      this.isConnected = true;
+      this.setStatus('live');
+      this.config.onOpen?.();
+    };
 
-    try {
-      this.eventSource = new EventSource(url);
-
-      this.eventSource.onopen = () => {
-        this.isConnected = true;
-        this.config.onOpen?.();
-      };
-
-      this.eventSource.onerror = err => {
-        this.isConnected = false;
-        this.config.onError?.(err);
-      };
-
-      // Wire existing registered event listeners
-      this.eventHandlers.forEach((_, evtType) => {
-        if (this.eventSource) {
-          this.wireEventListener(this.eventSource, evtType);
-        }
-      });
-    } catch (err) {
-      logger.error('[ARCADE_REALTIME] Connection failed:', err);
+    es.onerror = err => {
+      this.isConnected = false;
+      this.setStatus(this.hasConnectedOnce ? 'reconnecting' : 'offline');
       this.config.onError?.(err);
-    }
+    };
+
+    this.eventHandlers.forEach((_, evtType) => this.wireLocalEventListener(es, evtType));
+  }
+
+  public connect(): void {
+    this.disconnect();
+    this.setStatus('connecting');
+
+    tryCatch(() => matchBool(this.isPocketBaseMode(), {
+      true: () => this.connectPocketBase(),
+      false: () => this.connectLocal()
+    })).match({
+      Ok: () => undefined,
+      Err: err => {
+        logger.error('[ARCADE_REALTIME] Connection failed:', err);
+        this.setStatus('offline');
+        this.config.onError?.(err);
+      }
+    });
   }
 
   public disconnect(): void {
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
-      this.isConnected = false;
+    this.eventSource.map(es => es.close());
+    this.eventSource = none();
+    this.clientId = none();
+    this.isConnected = false;
+  }
+
+  private nextSendSeq(): number {
+    this.lastSentSeq = Math.max(currentEpochMs(), this.lastSentSeq + 1);
+    return this.lastSentSeq;
+  }
+
+  /**
+   * Publishes one event record to PocketHost. The sender id travels both as a column (for echo
+   * filtering) and inside the payload (so handlers know who acted).
+   */
+  private async publishPocketBase(eventType: string,
+                                  payload: Record<string, unknown>): Promise<void> {
+    const res = await fetch(`${this.getBaseUrl()}/api/collections/${ARCADE_EVENTS_COLLECTION}/records`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_code: this.config.sessionCode,
+        game_key: fromNullable(this.config.game).getOrElse('' as ArcadeGameEnum),
+        participant_id: this.config.participantId,
+        event_type: eventType,
+        event_seq: this.nextSendSeq(),
+        payload: { sessionCode: this.config.sessionCode, participantId: this.config.participantId, ...payload }
+      })
+    });
+    if (!res.ok) {
+      throw new Error(await describeHttpFailure(res, `Failed to publish ${eventType}`));
     }
   }
 
+  private async postLocal<T>(path: string,
+                             body: Record<string, unknown>,
+                             failureLabel: string): Promise<T> {
+    const res = await fetch(`${this.getBaseUrl()}/api/arcade/sessions/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      throw new Error(await describeHttpFailure(res, failureLabel));
+    }
+    return (await res.json()) as T;
+  }
+
   public async claimSeat(displayName: string): Promise<Result<{ seatNumber: number; sessionCode: string }, string>> {
-    return tryCatchAsync(
-      async () => {
-        if (this.isPocketBaseMode()) {
-          const base = this.getBaseUrl();
-          await fetch(`${base}/api/collections/session_events/records`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              session: this.config.sessionCode,
-              event_type: 'seat_claimed',
-              event_seq: currentEpochMs(),
-              payload: {
-                sessionCode: this.config.sessionCode,
-                participantId: this.config.participantId,
-                displayName,
-                seatNumber: 1
-              }
-            })
-          }).catch(() => {});
-          return { seatNumber: 1, sessionCode: this.config.sessionCode };
-        }
-
-        const base = this.getBaseUrl();
-        const res = await fetch(`${base}/api/arcade/sessions/join`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionCode: this.config.sessionCode,
-            participantId: this.config.participantId,
-            displayName
-          })
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `Failed to claim seat: HTTP ${res.status}`);
-        }
-
-        return await res.json();
-      },
-      err => (err instanceof Error ? err.message : String(err))
-    );
+    return tryCatchAsync(async () => {
+      if (this.isPocketBaseMode()) {
+        await this.publishPocketBase('seat_claimed', { displayName });
+        return { seatNumber: 1, sessionCode: this.config.sessionCode };
+      }
+      return this.postLocal<{ seatNumber: number; sessionCode: string }>('join', {
+        sessionCode: this.config.sessionCode,
+        participantId: this.config.participantId,
+        displayName,
+        ...(this.config.game ? { game: this.config.game } : {})
+      }, 'Failed to claim seat');
+    }, toMessage);
   }
 
   public async leaveSeat(): Promise<Result<{ message: string }, string>> {
-    return tryCatchAsync(
-      async () => {
-        if (this.isPocketBaseMode()) {
-          const base = this.getBaseUrl();
-          await fetch(`${base}/api/collections/session_events/records`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              session: this.config.sessionCode,
-              event_type: 'seat_left',
-              event_seq: currentEpochMs(),
-              payload: {
-                sessionCode: this.config.sessionCode,
-                participantId: this.config.participantId
-              }
-            })
-          }).catch(() => {});
-          return { message: 'Participant vacated' };
-        }
-
-        const base = this.getBaseUrl();
-        const res = await fetch(`${base}/api/arcade/sessions/leave`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionCode: this.config.sessionCode,
-            participantId: this.config.participantId
-          })
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `Failed to leave seat: HTTP ${res.status}`);
-        }
-
-        return await res.json();
-      },
-      err => (err instanceof Error ? err.message : String(err))
-    );
+    return tryCatchAsync(async () => {
+      if (this.isPocketBaseMode()) {
+        await this.publishPocketBase('seat_left', {});
+        return { message: 'Participant vacated' };
+      }
+      return this.postLocal<{ message: string }>('leave', {
+        sessionCode: this.config.sessionCode,
+        participantId: this.config.participantId
+      }, 'Failed to leave seat');
+    }, toMessage);
   }
 
   public async kickPlayer(targetParticipantId: string,
                           reason?: string): Promise<Result<{ success: boolean; kickedParticipantId: string; seatNumber: number }, string>> {
-    return tryCatchAsync(
-      async () => {
-        if (this.isPocketBaseMode()) {
-          const base = this.getBaseUrl();
-          await fetch(`${base}/api/collections/session_events/records`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              session: this.config.sessionCode,
-              event_type: 'player_kicked',
-              event_seq: currentEpochMs(),
-              payload: {
-                sessionCode: this.config.sessionCode,
-                targetParticipantId,
-                reason: reason || 'Removed by match host'
-              }
-            })
-          }).catch(() => {});
-          return { success: true, kickedParticipantId: targetParticipantId, seatNumber: 1 };
-        }
-
-        const base = this.getBaseUrl();
-        const res = await fetch(`${base}/api/arcade/sessions/kick`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionCode: this.config.sessionCode,
-            hostParticipantId: this.config.participantId,
-            targetParticipantId,
-            reason: reason || 'Removed by match host'
-          })
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `Failed to kick player: HTTP ${res.status}`);
-        }
-
-        return await res.json();
-      },
-      err => (err instanceof Error ? err.message : String(err))
-    );
+    const resolvedReason = fromNullable(reason).getOrElse('Removed by match host');
+    return tryCatchAsync(async () => {
+      if (this.isPocketBaseMode()) {
+        await this.publishPocketBase('player_kicked', { targetParticipantId, reason: resolvedReason });
+        return { success: true, kickedParticipantId: targetParticipantId, seatNumber: 1 };
+      }
+      return this.postLocal<{ success: boolean; kickedParticipantId: string; seatNumber: number }>('kick', {
+        sessionCode: this.config.sessionCode,
+        hostParticipantId: this.config.participantId,
+        targetParticipantId,
+        reason: resolvedReason
+      }, 'Failed to kick player');
+    }, toMessage);
   }
 
   public async sendAction(actionType: string,
                           payload: Record<string, unknown>): Promise<Result<{ event: unknown }, string>> {
-    return tryCatchAsync(
-      async () => {
-        if (this.isPocketBaseMode()) {
-          const base = this.getBaseUrl();
-          await fetch(`${base}/api/collections/session_events/records`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              session: this.config.sessionCode,
-              event_type: 'action_dispatched',
-              event_seq: currentEpochMs(),
-              payload: {
-                sessionCode: this.config.sessionCode,
-                participantId: this.config.participantId,
-                actionType,
-                payload
-              }
-            })
-          }).catch(() => {});
-          return { event: { actionType, payload } };
-        }
-
-        const base = this.getBaseUrl();
-        const res = await fetch(`${base}/api/arcade/sessions/action`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionCode: this.config.sessionCode,
-            participantId: this.config.participantId,
-            actionType,
-            payload
-          })
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `Failed to send action: HTTP ${res.status}`);
-        }
-
-        return await res.json();
-      },
-      err => (err instanceof Error ? err.message : String(err))
-    );
+    return tryCatchAsync(async () => {
+      if (this.isPocketBaseMode()) {
+        await this.publishPocketBase('action_dispatched', { actionType, payload });
+        return { event: { actionType, payload } };
+      }
+      return this.postLocal<{ event: unknown }>('action', {
+        sessionCode: this.config.sessionCode,
+        participantId: this.config.participantId,
+        actionType,
+        payload
+      }, 'Failed to send action');
+    }, toMessage);
   }
 
   public async dispatchAction(actionType: string,

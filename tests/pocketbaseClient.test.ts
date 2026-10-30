@@ -2,6 +2,7 @@ import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test';
 import { some, none } from '../src/utils/fp';
 import {
   PocketBaseChessClient,
+  sessionEventsTopic,
   POCKETHOST_URL,
   sanitizeTextInput,
   sanitizeSessionCode
@@ -119,7 +120,7 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     expect(opened).toBe(true);
 
     // Trigger session_events for this session
-    listeners['session_events']({
+    listeners[sessionEventsTopic('sess-123')]({
       data: JSON.stringify({
         action: 'create',
         record: {
@@ -136,7 +137,7 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
 
     // Duplicate message for evt-1 should be ignored
     moveReceived = null;
-    listeners['session_events']({
+    listeners[sessionEventsTopic('sess-123')]({
       data: JSON.stringify({
         action: 'create',
         record: {
@@ -150,8 +151,8 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     });
     expect(moveReceived).toBeNull();
 
-    // Trigger session_events/* (wildcard topic listener)
-    listeners['session_events/*']({
+    // A second event on the filtered session topic
+    listeners[sessionEventsTopic('sess-123')]({
       data: JSON.stringify({
         action: 'create',
         record: {
@@ -167,7 +168,7 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     expect(client.getLastEventSeq()).toBe(5);
 
     // Trigger session_events for other session (should be ignored)
-    listeners['session_events']({
+    listeners[sessionEventsTopic('sess-123')]({
       data: JSON.stringify({
         action: 'create',
         record: {
@@ -425,7 +426,7 @@ describe('PocketBaseChessClient Realtime Adapter & PocketHost Connectivity', () 
     });
 
     // Trigger session_events with invalid JSON
-    listeners['session_events']({
+    listeners[sessionEventsTopic('sess-123')]({
       data: 'not-json'
     });
 

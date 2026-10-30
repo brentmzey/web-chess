@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
 import {
+  ARCADE_RESUME_KEY,
+  clearArcadeResumeState,
+  loadArcadeResumeState,
+  saveArcadeResumeState,
+  type ArcadeResumeState,
   auditEncryptedStorage,
   base64ToBytes,
   buildAdditionalAuthenticatedData,
@@ -443,6 +448,7 @@ function installIndexedDbWithRequestBehavior(behavior: {
   getFails?: boolean;
   putFails?: boolean;
   clearFails?: boolean;
+  deleteFails?: boolean;
   onPut?: () => void;
 }) {
   const fakeDb = {
@@ -470,6 +476,11 @@ function installIndexedDbWithRequestBehavior(behavior: {
         clear: () => {
           const req: any = {};
           queueMicrotask(() => (behavior.clearFails ? req.onerror?.() : req.onsuccess?.()));
+          return req;
+        },
+        delete: () => {
+          const req: any = {};
+          queueMicrotask(() => (behavior.deleteFails ? req.onerror?.() : req.onsuccess?.()));
           return req;
         }
       })
@@ -802,5 +813,56 @@ describe('Storage load outcomes (exhaustive sum type) & Wipe & Start Over', () =
         setDevModeOverride(none());
       }
     });
+  });
+});
+
+describe('Encrypted arcade table resume record', () => {
+  const sampleTable: ArcadeResumeState = {
+    game: 'uno',
+    isLive: true,
+    sessionCode: 'UNO-ABC123',
+    isHost: true,
+    participantId: 'usr_abc',
+    playerName: 'Ana',
+    snapshot: { version: 1, state: { turn: 2 } },
+    savedAt: 1
+  };
+
+  beforeEach(() => {
+    setupMockIndexedDB();
+    clearCachedCryptoKey();
+  });
+
+  it('round-trips the active table encrypted at rest, then forgets it', async () => {
+    expect((await loadArcadeResumeState()).isNone()).toBe(true);
+
+    expect((await saveArcadeResumeState(sampleTable)).isSuccess()).toBe(true);
+    const raw = activeMockDb.getRawRecord(STORE_NAME, ARCADE_RESUME_KEY);
+    expect(isEncryptedEnvelope(raw.envelope)).toBe(true);
+    expect(JSON.stringify(raw)).not.toContain('UNO-ABC123');
+
+    expect((await loadArcadeResumeState()).getOrThrow()).toEqual(sampleTable);
+
+    expect((await clearArcadeResumeState()).isSuccess()).toBe(true);
+    expect((await loadArcadeResumeState()).isNone()).toBe(true);
+  });
+
+  it('cannot be decrypted under another record context', async () => {
+    await saveArcadeResumeState(sampleTable);
+    const raw = activeMockDb.getRawRecord(STORE_NAME, ARCADE_RESUME_KEY);
+    expect((await decryptPayload(raw.envelope, SESSION_KEY)).isFailure()).toBe(true);
+  });
+
+  it('reports storage failures instead of throwing', async () => {
+    installIndexedDbWithRequestBehavior({ getFails: true, putFails: true, deleteFails: true });
+    expect((await loadArcadeResumeState()).isNone()).toBe(true);
+    expect((await clearArcadeResumeState()).isFailure()).toBe(true);
+
+    installIndexedDbWithRequestBehavior({ deleteFails: false });
+    expect((await clearArcadeResumeState()).isSuccess()).toBe(true);
+
+    (globalThis as any).indexedDB = undefined;
+    expect((await saveArcadeResumeState(sampleTable)).isFailure()).toBe(true);
+    expect((await loadArcadeResumeState()).isNone()).toBe(true);
   });
 });

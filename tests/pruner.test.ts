@@ -511,6 +511,13 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
       if (urlStr.includes('/api/collections/tbl_audit_cleanup_logs/records') && init?.method === 'POST') {
         return new Response(JSON.stringify({ id: 'audit_arc_1' }), { status: 200 });
       }
+      if (urlStr.includes('/api/collections/tbl_arcade_events/records?filter=')) {
+        return new Response(JSON.stringify({ items: [{ id: 'evt_old_1' }, { id: 'evt_old_2' }] }), { status: 200 });
+      }
+      if (urlStr.includes('/api/collections/tbl_arcade_events/records/') && init?.method === 'DELETE') {
+        deletedArcadeIds.push(urlStr.split('/').pop()!);
+        return new Response('', { status: urlStr.endsWith('evt_old_2') ? 404 : 204 });
+      }
       if (urlStr.includes('/api/collections/') && urlStr.includes('/records?filter=')) {
         return new Response(JSON.stringify({ items: [], totalItems: 0 }), { status: 200 });
       }
@@ -524,7 +531,8 @@ describe('PocketBase Cascade Pruner Service & Stale Session Maintenance', () => 
     const pruneRes = await prunePocketBaseSessions('https://test.pockethost.io', 'admin@test.com', 'pass', 3);
     expect(pruneRes.isSuccess()).toBe(true);
     expect(pruneRes.getOrThrow().sessionCodes).toEqual(['SET-OLD1']);
-    expect(deletedArcadeIds).toEqual(['set_stale_1']);
+    expect(deletedArcadeIds).toEqual(['set_stale_1', 'evt_old_1', 'evt_old_2']);
+    expect(pruneRes.getOrThrow().deletedArcadeEventsCount).toBe(1);
     expect(savedArcadeSnapshots.length).toBe(1);
     expect(savedArcadeSnapshots[0].txt_session_code).toBe('SET-OLD1');
   });

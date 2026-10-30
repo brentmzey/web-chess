@@ -617,7 +617,7 @@ export class CathedralPokerEngine {
    * Draw phase for Five-Card Draw: player can discard up to 3 cards and draw replacements.
    */
   public drawCardsFiveCardDraw(seatNumber: number,
-                              discardIndices: number[]): Result<PlayingCard[], string> {
+                               discardIndices: number[]): Result<PlayingCard[], string> {
     if (this.state.variant !== PokerVariantEnum.FiveCardDraw) {
       return failure('Draw phase is only valid in Five-Card Draw.');
     }
@@ -925,5 +925,16 @@ export class CathedralPokerEngine {
     }
 
     return success(tiedWinners[0]!);
+  }
+
+  /**
+   * Returns the undealt cards so a synchronized table deals the same next cards on every client.
+   */
+  public exportShoe(): readonly PlayingCard[] {
+    return [...this.shoe];
+  }
+
+  public importShoe(shoe: readonly PlayingCard[]): void {
+    this.shoe = [...shoe];
   }
 }

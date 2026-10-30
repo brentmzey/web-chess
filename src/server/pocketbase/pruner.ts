@@ -1,6 +1,7 @@
 import { currentEpochMs, epochMsToIso } from '../../utils/dateTime';
 import { failure, success, tryCatchAsync, type Result } from '../../utils/fp';
 import { logger } from '../../utils/logger';
+import { ARCADE_EVENTS_COLLECTION } from '../../realtime/arcadeRealtimeClient';
 
 export type CleanupTriggerSource = 'cron_hook' | 'cli_manual' | 'api_maintenance';
 
@@ -9,6 +10,7 @@ export interface PruneReport {
   readonly auditLogId?: string;
   readonly triggerSource: CleanupTriggerSource;
   readonly deletedSessionsCount: number;
+  readonly deletedArcadeEventsCount: number;
   readonly cutoffTimestamp: string;
   readonly sessionCodes: string[];
   readonly durationMs: number;
@@ -308,7 +310,7 @@ export async function prunePocketBaseSessions(baseUrl: string,
     });
   }
 
-  // 3d. Sweep all 7 multi-game Sanctuary Arcade session collections (3+ days old & do_not_delete != true)
+  // 3d. Sweep all multi-game Sanctuary Arcade session collections (3+ days old & do_not_delete != true)
   for (const arc of ARCADE_CLEANUP_COLLECTIONS) {
     await tryCatchAsync(async () => {
       const arcUrl = `${url}/api/collections/${arc.sessionCol}/records?filter=${encodeURIComponent(
@@ -341,6 +343,25 @@ export async function prunePocketBaseSessions(baseUrl: string,
       }
     }, toError);
   }
+
+  // 3e. Prune stale arcade realtime events (tbl_arcade_events) on the same 3-day inactivity window
+  let deletedArcadeEvents = 0;
+  await tryCatchAsync(async () => {
+    const evtRes = await fetch(`${url}/api/collections/${ARCADE_EVENTS_COLLECTION}/records?filter=${encodeURIComponent(
+      filter
+    )}&perPage=${batchSize * 5}&sort=+updated&fields=id`, { headers });
+    if (!evtRes.ok) return;
+    const evtList = (await evtRes.json()) as { items?: ReadonlyArray<{ id: string }> };
+    for (const evt of evtList.items || []) {
+      const delRes = await fetch(`${url}/api/collections/${ARCADE_EVENTS_COLLECTION}/records/${evt.id}`, {
+        method: 'DELETE',
+        headers
+      });
+      if (delRes.ok) {
+        deletedArcadeEvents += 1;
+      }
+    }
+  }, toError);
 
   const durationMs = currentEpochMs() - startTime;
 
@@ -461,6 +482,7 @@ export async function prunePocketBaseSessions(baseUrl: string,
     auditLogId,
     triggerSource,
     deletedSessionsCount: deletedCodes.length,
+    deletedArcadeEventsCount: deletedArcadeEvents,
     cutoffTimestamp: cutoffPocketBase,
     sessionCodes: deletedCodes,
     durationMs,
