@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.4.1] - 2026-10-30
+### Changed
+- **Clean build and test output**: a passing `bun run build && bun run test && bun run test:coverage && bun run typecheck` now prints no ERROR/WARN lines.
+  - Tests that drive failure paths on purpose no longer print those expected errors: `tests/setup/quietLogs.ts` (preloaded via `bunfig.toml`) hides log output during tests. Set `SANCTUARY_TEST_LOGS=1` to see it while debugging.
+  - zod, tslog and dayjs moved to their own `vendor` chunk, bringing the app chunk from 554 kB to 381 kB (under Vite's 500 kB warning) and letting browsers cache libraries across releases.
+  - The harmless Rollup notice about a comment inside zod is filtered.
+
 ## [1.4.0] - 2026-10-30
 ### Release
 Minor release promoting `1.4.0-rc.1` through `1.4.0-rc.4` (see those entries for detail): hidden information stays hidden at live arcade tables on PocketHost.

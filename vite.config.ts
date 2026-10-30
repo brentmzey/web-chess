@@ -19,10 +19,16 @@ export default defineConfig({
     assetsDir: 'assets',
     sourcemap: true,
     rollupOptions: {
+      onwarn(warning, warn) {
+        // zod ships a /* @__PURE__ */ comment Rollup cannot place; it is dropped harmlessly
+        if (warning.code === 'INVALID_ANNOTATION' && warning.id?.includes('node_modules/zod')) return;
+        warn(warning);
+      },
       output: {
         manualChunks: {
           three: ['three'],
-          chess: ['chess.js']
+          chess: ['chess.js'],
+          vendor: ['zod', 'tslog', 'dayjs']
         }
       }
     }
