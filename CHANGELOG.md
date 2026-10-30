@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.3.0] - 2026-10-30
+### Release
+Minor release promoting release candidates `1.2.0-rc.45` through `1.2.0-rc.47` (see those entries for full detail). Verified end to end before release against the live PocketHost instance and the production Netlify build:
+- **Database & migrations**: `pb:migrate` is idempotent; all 43 collections match `schema.json`/`multiGameSchema.json` exactly (fields, relations, indexes, API rules) with zero drift; missing config keys are upserted without overwriting tuned values.
+- **Server hooks & cron**: `arcade_tables.pb.js` validates table codes, links every event to `tbl_arcade_tables` and keeps the latest snapshot; the `cleanup_stale_chess_sessions` cron archives stale games, rotates archives to `*_history` and purges expired history, writing an audit row each run.
+- **Services**: the Bun arcade service creates tables on first join, rejoins idempotently, replays the latest snapshot to new subscribers, keeps streams alive past Bun's idle timeout, restores bots when players leave and only lets the host kick.
+- **Realtime & clients**: chess moves and arcade table state stream live over filtered PocketBase topics; late joiners hydrate from the server-kept snapshot; clients reconnect and replay after drops.
+- **Games**: Sanctuary Chess plus all eight arcade games (Blackjack, Poker, Skip-Bo, Phase 10, Uno, Avalon, SET, Solitaire) play against AI and live with per-seat hands, host-driven bots, refresh resume and live-config pacing.
+
+### Highlights
+- Live multiplayer on PocketHost for every arcade game, with each human owning their own seat.
+- Server-owned arcade table registry with cascading relations and a DB-driven storage lifecycle (archives → `*_history` → retention).
+- Strongly typed realtime records (zod) and live DB-driven configuration over SSE.
+- Encrypted refresh resume: players stay in their arcade game across reloads.
+
 ## [1.2.0-rc.47] - 2026-10-30
 ### Fixed (found by end-to-end testing of every arcade game on production with two browsers)
 - **Solitaire spectators saw an unrelated board** until the player's next move: Solitaire boards are now sent as the standard `state_sync` table snapshot, published as soon as the table goes live and again whenever a spectator joins. PocketHost keeps them, so late spectators load the current board even if the player is away. Only spectators apply incoming boards.
