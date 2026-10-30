@@ -73,6 +73,8 @@ const createApp = (schema: Record<string, readonly string[]>,
         return r.data.txt_config_key === p.key && r.data.bln_is_active === true;
       case 'session_code = {:code}':
         return r.data.session_code === p.code;
+      case 'participant_id = {:id}':
+        return r.data.participant_id === p.id;
       default:
         throw new Error(`unsupported filter ${filter}`);
     }
@@ -161,6 +163,7 @@ const fullSchema = () => ({
   tbl_archived_uno_snapshots_history: ['txt_session_code', 'json_snapshot_payload'],
   tbl_arcade_tables: ['session_code', 'game_key', 'host_participant_id', 'status', 'int_event_count', 'dt_last_event_at', 'json_last_snapshot', 'do_not_delete'],
   tbl_arcade_events: ['table', 'session_code', 'game_key', 'participant_id', 'event_type', 'event_seq', 'payload', 'do_not_delete'],
+  tbl_arcade_players: ['email', 'txt_display_name'],
   tbl_archived_arcade_snapshots: SNAPSHOT_FIELDS,
   tbl_archived_arcade_snapshots_history: SNAPSHOT_FIELDS
 });
@@ -169,7 +172,7 @@ describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
   it('reads the retention policy from tbl_cfg_system_controls with safe defaults', () => {
     const lib = loadLib();
     const app = createApp(fullSchema());
-    expect(lib.loadPolicy(app)).toEqual({ staleDays: 3, rotationDays: 30, maxArchiveRows: 5000, historyRetentionDays: 365 });
+    expect(lib.loadPolicy(app)).toEqual({ staleDays: 3, rotationDays: 30, maxArchiveRows: 5000, historyRetentionDays: 365, guestPlayerDays: 30 });
 
     app.insert('tbl_cfg_system_controls', { txt_config_key: 'system.stale_session_days', dec_val_number: 7, bln_is_active: true });
     app.insert('tbl_cfg_system_controls', { txt_config_key: 'system.archive_max_rows', dec_val_number: 0, bln_is_active: true });
@@ -243,6 +246,33 @@ describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
     expect(app.rows.get('tbl_arcade_events').length).toBe(1);
     expect(report.errors.some((e: string) => e.includes('tbl_uno_sessions'))).toBe(true);
     expect(app.rows.get('tbl_audit_cleanup_logs')[0].data.bln_success).toBe(false);
+  });
+
+  it('removes idle guest players but keeps new ones and players with live table events', () => {
+    const lib = loadLib();
+    const app = createApp(fullSchema());
+    const old = pbDate(Date.now() - 45 * DAY);
+    app.insert('tbl_arcade_players', { id: 'gone', created: old });
+    app.insert('tbl_arcade_players', { id: 'seated', created: old });
+    app.insert('tbl_arcade_players', { id: 'fresh' });
+    app.insert('tbl_arcade_events', { session_code: 'UNO-LIVE', table: 'tbl_1', participant_id: 'seated' });
+
+    const report = lib.runMaintenance(app, 'test');
+    expect(report.prunedPlayers).toBe(1);
+    expect(app.rows.get('tbl_arcade_players').map((r: FakeRecord) => r.id).sort()).toEqual(['fresh', 'seated']);
+  });
+
+  it('records a failed guest player lookup without aborting maintenance', () => {
+    const lib = loadLib();
+    const app = createApp(fullSchema(), { throwOnFind: 'tbl_arcade_players' });
+    const report = lib.runMaintenance(app, 'test');
+    expect(report.errors.some((e: string) => e.startsWith('tbl_arcade_players:'))).toBe(true);
+
+    const perPlayer = createApp(fullSchema(), { throwOnFind: 'tbl_arcade_events' });
+    perPlayer.insert('tbl_arcade_players', { id: 'p1', created: pbDate(Date.now() - 45 * DAY) });
+    const perPlayerReport = lib.runMaintenance(perPlayer, 'test');
+    expect(perPlayerReport.errors.some((e: string) => e.startsWith('tbl_arcade_players/p1'))).toBe(true);
+    expect(perPlayer.rows.get('tbl_arcade_players').length).toBe(1);
   });
 
   it('keeps a stale game when its archive transaction fails', () => {

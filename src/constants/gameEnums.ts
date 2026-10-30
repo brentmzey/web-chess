@@ -422,6 +422,7 @@ export enum SystemControlKeyEnum {
   ArchiveRotationDays = 'system.archive_rotation_days',
   ArchiveMaxRows = 'system.archive_max_rows',
   HistoryRetentionDays = 'system.history_retention_days',
+  GuestPlayerRetentionDays = 'system.guest_player_retention_days',
   WakeLockDefault = 'system.wake_lock_default'
 }
 

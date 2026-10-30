@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.4.0-rc.2] - 2026-10-30
+### Added
+- **Idle guest players are cleaned up**: the maintenance cron now removes guest arcade players older than `system.guest_player_retention_days` (default 30, DB-driven) that have no remaining live table events. Their private seat records cascade with them; a returning browser whose stored sign-in no longer works registers a new guest automatically.
+
+### Fixed
+- **SET seat takeover inherited the bot's score**: a player claiming a bot's seat now starts at 0 points, 0 SETs and 0 penalties. Reclaiming your own seat (e.g. after a reload) keeps your score.
+
 ## [1.4.0-rc.1] - 2026-10-30
 ### Security
 - **Hidden information stays hidden at live arcade tables (PocketHost)**: cards and roles no longer reach other players' browsers.

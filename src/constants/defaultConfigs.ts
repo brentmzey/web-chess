@@ -339,6 +339,15 @@ export const DEFAULT_SYSTEM_CONTROLS: readonly SystemControlInput[] = Object.fre
     bln_is_active: true
   },
   {
+    txt_config_key: SystemControlKeyEnum.GuestPlayerRetentionDays,
+    txt_category: ConfigCategoryEnum.System,
+    txt_label: 'Guest Player Retention (Days)',
+    txt_description: 'Guest arcade player accounts older than this with no live table activity are removed; returning browsers sign up again',
+    txt_val_type: ConfigValTypeEnum.Number,
+    dec_val_number: 30,
+    bln_is_active: true
+  },
+  {
     txt_config_key: SystemControlKeyEnum.WakeLockDefault,
     txt_category: ConfigCategoryEnum.System,
     txt_label: 'Keep Screen Awake Default (W3C Wake Lock)',

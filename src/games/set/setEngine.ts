@@ -273,6 +273,12 @@ export class SetEngine {
       return failure(`Invalid player index ${playerIndex}.`);
     }
     const target = this.state.players[playerIndex]!;
+    // SET is scored per person, so a newcomer taking over a bot's seat starts from zero
+    if (target.isBot) {
+      target.score = 0;
+      target.setsFound = 0;
+      target.penalties = 0;
+    }
     target.name = humanName;
     target.isBot = false;
     this.seatManager.claimSeat(playerIndex + 1, target.id, humanName, target);

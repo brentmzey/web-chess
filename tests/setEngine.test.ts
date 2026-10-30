@@ -163,8 +163,16 @@ describe('Sacred Geometry SET Engine (GF(3)^4 Finite Geometry Rules)', () => {
     expect(engine.state.players.length).toBe(20);
     expect(engine.addPlayer('Overflow 21', false).isFailure()).toBe(true);
 
+    engine.state.players[1]!.score = 4;
+    engine.state.players[1]!.setsFound = 4;
     expect(engine.claimSeatForHuman(1, 'Riemann').isSuccess()).toBe(true);
     expect(engine.state.players[1]!.isBot).toBe(false);
+    expect(engine.state.players[1]!.score).toBe(0);
+    expect(engine.state.players[1]!.setsFound).toBe(0);
+    // Re-claiming a human seat (e.g. after a reload) keeps the earned score
+    engine.state.players[1]!.score = 2;
+    expect(engine.claimSeatForHuman(1, 'Riemann').isSuccess()).toBe(true);
+    expect(engine.state.players[1]!.score).toBe(2);
     expect(engine.claimSeatForHuman(99, 'Invalid').isFailure()).toBe(true);
 
     expect(engine.vacatePlayerSeat('p2', 'Geometer Bot').isSuccess()).toBe(true);

@@ -21,7 +21,8 @@ const POLICY_DEFAULTS = {
     "system.stale_session_days": 3,
     "system.archive_rotation_days": 30,
     "system.archive_max_rows": 5000,
-    "system.history_retention_days": 365
+    "system.history_retention_days": 365,
+    "system.guest_player_retention_days": 30
 };
 
 /** Session tables swept for stale games, with the archive each one is snapshotted into. */
@@ -91,7 +92,8 @@ function loadPolicy(app) {
         staleDays: readNumberControl(app, "system.stale_session_days"),
         rotationDays: readNumberControl(app, "system.archive_rotation_days"),
         maxArchiveRows: readNumberControl(app, "system.archive_max_rows"),
-        historyRetentionDays: readNumberControl(app, "system.history_retention_days")
+        historyRetentionDays: readNumberControl(app, "system.history_retention_days"),
+        guestPlayerDays: readNumberControl(app, "system.guest_player_retention_days")
     };
 }
 
@@ -219,6 +221,40 @@ function pruneOrphanArcadeEvents(app, cutoff, report) {
     report.orphanEvents += orphans.length;
 }
 
+/**
+ * Removes guest arcade players created before the retention cutoff who have no remaining live table
+ * events (those are pruned with their tables). Their private seat records cascade with them, and a
+ * returning browser whose stored sign-in no longer works simply registers a new guest.
+ */
+function pruneIdleArcadePlayers(app, cutoff, report) {
+    if (!findCollection(app, "tbl_arcade_players")) return;
+    const candidates = app.findRecordsByFilter(
+        "tbl_arcade_players",
+        "created < {:cutoff}",
+        "created",
+        BATCH_SIZE,
+        0,
+        { cutoff: cutoff }
+    );
+    candidates.forEach(player => {
+        try {
+            const active = app.findRecordsByFilter(
+                "tbl_arcade_events",
+                "participant_id = {:id}",
+                "created",
+                1,
+                0,
+                { id: player.id }
+            );
+            if (active.length > 0) return;
+            app.delete(player);
+            report.prunedPlayers += 1;
+        } catch (err) {
+            report.errors.push(`tbl_arcade_players/${player.id}: ${err}`);
+        }
+    });
+}
+
 function moveToHistory(app, source, history, records, report) {
     records.forEach(rec => {
         try {
@@ -293,6 +329,7 @@ function runMaintenance(app, source) {
         archivedRows: 0,
         historyPurged: 0,
         orphanEvents: 0,
+        prunedPlayers: 0,
         errors: []
     };
 
@@ -307,6 +344,11 @@ function runMaintenance(app, source) {
         pruneOrphanArcadeEvents(app, cutoff, report);
     } catch (err) {
         report.errors.push(`tbl_arcade_events: ${err}`);
+    }
+    try {
+        pruneIdleArcadePlayers(app, toPbDate(startedAt - policy.guestPlayerDays * DAY_MS), report);
+    } catch (err) {
+        report.errors.push(`tbl_arcade_players: ${err}`);
     }
     ROTATING_TABLES.forEach(table => {
         try {
@@ -324,7 +366,8 @@ function runMaintenance(app, source) {
     console.log(
         `[SanctuaryMaintenance:${report.traceId}] archived ${report.prunedCodes.length} stale games, ` +
         `rotated ${report.archivedRows} rows to history, purged ${report.historyPurged} expired history rows, ` +
-        `removed ${report.orphanEvents} orphan events, ${report.errors.length} errors`
+        `removed ${report.orphanEvents} orphan events and ${report.prunedPlayers} idle guest players, ` +
+        `${report.errors.length} errors`
     );
     return report;
 }
@@ -404,6 +447,7 @@ module.exports = {
     SESSION_FAMILIES,
     attachArcadeEventToTable,
     loadPolicy,
+    pruneIdleArcadePlayers,
     recordArcadeTableActivity,
     rotateTable,
     runIfOverdue,
