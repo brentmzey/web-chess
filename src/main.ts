@@ -2573,7 +2573,8 @@ function main(): void {
     });
 
     fromNullable(document.getElementById('bjk-dealer-total')).map(el => {
-      el.textContent = formatBlackjackAdditiveCount(s.dealerHand, s.stage === 'player-turn');
+      // Face-down cards (the hole card, or a hidden placeholder at a live table) never count toward the shown total
+      el.textContent = formatBlackjackAdditiveCount(s.dealerHand, true);
     });
 
     fromNullable(document.getElementById('bjk-player-cards')).map(container => {

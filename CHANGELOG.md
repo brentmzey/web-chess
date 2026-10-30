@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.4.0-rc.4] - 2026-10-30
+### Fixed
+- **Blackjack dealer total read "8 + NAN = NAN" for live guests**: the multi-seat table names its stage `player-turns` (not `player-turn`), so the hidden hole card was counted as a number. The dealer total now always counts only face-up cards ("8 + ? = 8+?" until the reveal).
+
+### Verified on production (two browsers, separate origins)
+- Blackjack: link-opened table hosted by its first player, guest seated, deal, guest Hit and Stand via intents, dealer reveal and settlement; the public snapshot hides the shoe.
+- SET: guest seated on a former bot seat at 0, guest claim scored on both screens; the public snapshot hides the deck order.
+
 ## [1.4.0-rc.3] - 2026-10-30
 ### Fixed
 - **A table opened from a shared link had no host**: every browser arriving by `?session=` link joined as a guest, so when the first player at a new table came from a link, nobody ran the table: no snapshot was published, joiners were never seated, and guests saw only their own placeholder seat (found while verifying Blackjack on production). After joining, the browser now asks the server who hosts the table (`host_participant_id`, the first player to join) and takes on that role, so the first arrival runs the table and later arrivals are seated by them.
