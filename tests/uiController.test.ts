@@ -7,7 +7,7 @@ import {
   type EncryptedStorageAuditReport,
   type GameMode
 } from '../src/types';
-import { UIController } from '../src/ui/uiController';
+import { UIController, liveTurnLabel } from '../src/ui/uiController';
 import { failure, success } from '../src/utils/fp';
 
 class MockElement {
@@ -173,6 +173,32 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     );
     expect(domElements['turn-text']?.textContent).toBe('Neural AI (RUTHLESS) Evaluating...');
     expect(domElements['difficulty-badge']?.textContent).toBe('RUTHLESS');
+  });
+
+  it('labels live chess turns from the local player\'s side', () => {
+    expect(liveTurnLabel('white', 'white')).toBe('Your Turn (White Marble)');
+    expect(liveTurnLabel('black', 'white')).toBe("Opponent's Turn (Black Obsidian)");
+    expect(liveTurnLabel('black', 'black')).toBe('Your Turn (Black Obsidian)');
+    expect(liveTurnLabel('white', 'black')).toBe("Opponent's Turn (White Marble)");
+    expect(liveTurnLabel('white', 'spectator')).toBe("White Marble's Turn");
+
+    const ui = new UIController();
+    const chess = new Chess();
+    ui.update(chess, GameModeEnum.Live, undefined, OpponentDifficultyEnum.Balanced, true, 'black');
+    expect(domElements['turn-text']?.textContent).toBe("Opponent's Turn (White Marble)");
+    expect(domElements['turn-dot']?.className).toContain('bg-stone-100');
+
+    chess.move('e4');
+    ui.update(chess, GameModeEnum.Live, undefined, OpponentDifficultyEnum.Balanced, true, 'black');
+    expect(domElements['turn-text']?.textContent).toBe('Your Turn (Black Obsidian)');
+    expect(domElements['turn-dot']?.className).toContain('bg-purple-400');
+
+    ui.update(chess, GameModeEnum.Live, 'Syncing…', OpponentDifficultyEnum.Balanced, true, 'white');
+    expect(domElements['turn-text']?.textContent).toBe('Syncing…');
+
+    // The role only applies to live matches
+    ui.update(chess, GameModeEnum.PassAndPlay, undefined, OpponentDifficultyEnum.Balanced, true, 'white');
+    expect(domElements['turn-text']?.textContent).toBe("Black Obsidian's Turn");
   });
 
   it('locks Undo button UI when allowUndo is false (Strict Mode)', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { indicesToSquare, squareToWorld, worldToSquare } from '../src/engine/coordinates';
+import { indicesToSquare, squareToWorld, worldToSquare, plyFromFen } from '../src/engine/coordinates';
 import { BOARD_OFFSET, SQUARE_SIZE } from '../src/constants/board';
 
 describe('Coordinate transformations', () => {
@@ -50,6 +50,14 @@ describe('Coordinate transformations', () => {
     expect(worldToSquare(10.5, 0).isNone()).toBe(true);
     expect(worldToSquare(0, -10.5).isNone()).toBe(true);
     expect(worldToSquare(0, 10.5).isNone()).toBe(true);
+  });
+
+  it('derives the half-move ply from a FEN, independent of local move history', () => {
+    expect(plyFromFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')).toBe(0);
+    expect(plyFromFen('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1')).toBe(1);
+    expect(plyFromFen('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2')).toBe(2);
+    expect(plyFromFen('8/8/8/8/8/8/8/K6k b - - 10 40')).toBe(79);
+    expect(plyFromFen('malformed')).toBe(0);
   });
 });
 

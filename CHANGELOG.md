@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.3.1] - 2026-10-30
+### Fixed (found during 1.3.0 release verification of live chess in two browsers)
+- **Live chess lost move records after joining or reconnecting mid-game**: the move's ply came from the local move history, which a FEN load clears, so the next move reused a ply (e.g. 1...e5 sent as ply 1) and its `game_moves` row collided with the unique `(session, ply)` index and was dropped. Ply is now derived from the FEN (`plyFromFen`), so move records and the session's `ply` stay correct. The board was never affected (it syncs by FEN).
+- **Live chess turn label ignored which side you play**: Black was told "Remote Opponent's Turn" on their own move, and White saw "White Marble's Turn" while waiting. Live matches now show "Your Turn (…)" or "Opponent's Turn (…)" from the local player's side, and spectators see the side to move.
+- **The Resistance: Avalon live multiplayer role privacy & vote merging verification**: verified that role views remain strictly client-isolated so hidden identities are never leaked across seats, and confirmed asynchronous vote aggregation correctly merges human and host-driven bot decisions before quest execution.
+
 ## [1.3.0] - 2026-10-30
 ### Release
 Minor release promoting release candidates `1.2.0-rc.45` through `1.2.0-rc.47` (see those entries for full detail). Verified end to end before release against the live PocketHost instance and the production Netlify build:

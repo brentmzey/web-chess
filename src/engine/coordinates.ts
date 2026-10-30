@@ -37,4 +37,14 @@ export function worldToSquare(x: number, z: number): Option<string> {
   return none();
 }
 
+/**
+ * Half-move count after the position in `fen` (1 after 1. e4, 2 after 1...e5). Derived from the FEN's
+ * fullmove number and side to move, so it stays correct after a mid-game `chess.load(fen)`, which
+ * clears the local move history.
+ */
+export function plyFromFen(fen: string): number {
+  const [, sideToMove = 'w', , , , fullmove = '1'] = fen.trim().split(/\s+/);
+  const fullmoveNumber = Math.max(1, parseInt(fullmove, 10) || 1);
+  return (fullmoveNumber - 1) * 2 + (sideToMove === 'b' ? 1 : 0);
+}
 

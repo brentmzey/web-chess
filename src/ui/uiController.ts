@@ -47,6 +47,18 @@ export function escapeHtml(raw: string): string {
   return raw.replace(/[&<>"']/g, ch => fromNullable(HTML_ESCAPE_MAP[ch]).getOrElse(ch));
 }
 
+export type LiveSeatRole = 'white' | 'black' | 'spectator';
+
+/**
+ * Turn label for a live chess match, written from the local player's side.
+ */
+export function liveTurnLabel(turnColor: 'white' | 'black',
+                              role: LiveSeatRole): string {
+  const side = turnColor === 'white' ? 'White Marble' : 'Black Obsidian';
+  if (role === 'spectator') return `${side}'s Turn`;
+  return role === turnColor ? `Your Turn (${side})` : `Opponent's Turn (${side})`;
+}
+
 export interface UIControllerElements {
   readonly turnDot: Option<HTMLElement>;
   readonly turnText: Option<HTMLElement>;
@@ -312,7 +324,8 @@ export class UIController {
                 mode: GameMode,
                 customStatus?: string,
                 difficulty: OpponentDifficulty = OpponentDifficultyEnum.Balanced,
-                allowUndo: boolean = true): void {
+                allowUndo: boolean = true,
+                liveRole?: LiveSeatRole): void {
     const turn = chess.turn();
     const diffProfile = getDifficultyProfile(difficulty);
     const modeConfig = getGameModeConfig(mode);
@@ -331,6 +344,17 @@ export class UIController {
     });
 
     zipOptions(this.el.turnDot, this.el.turnText).map(([turnDot, turnText]) => {
+      // A live match labels turns from the local player's side, for either color
+      const liveLabel = fromNullable(liveRole)
+        .filter(() => mode === GameModeEnum.Live)
+        .map(role => liveTurnLabel(turn === PieceColorEnum.White ? 'white' : 'black', role));
+      if (liveLabel.isSome()) {
+        turnDot.className = turn === PieceColorEnum.White
+          ? 'w-2.5 h-2.5 rounded-full bg-stone-100 shadow-[0_0_8px_#fff] transition-colors duration-300'
+          : 'w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_#a855f7] transition-colors duration-300';
+        turnText.textContent = fromNullable(customStatus).getOrElse(liveLabel.getOrElse(''));
+        return;
+      }
       if (turn === PieceColorEnum.White) {
         turnDot.className =
           'w-2.5 h-2.5 rounded-full bg-stone-100 shadow-[0_0_8px_#fff] transition-colors duration-300';

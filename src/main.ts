@@ -14,7 +14,7 @@ import {
   type MatchSettingsSnapshot
 } from './constants/board';
 import { computeMinimaxMove } from './engine/ai';
-import { indicesToSquare, squareToWorld, worldToSquare } from './engine/coordinates';
+import { indicesToSquare, squareToWorld, worldToSquare, plyFromFen } from './engine/coordinates';
 import { checkGeminiNanoStatus, computeGeminiNanoAIMove } from './engine/geminiNanoAI';
 import { computeMicroNeuralAIMove } from './engine/neuralAI';
 import { buildChessboardGrid, updateBoardHighlights } from './graphics/board';
@@ -604,7 +604,12 @@ function main(): void {
     });
 
     ui.updateWakeLockUI(wakeLockManager.isActive(), wakeLockManager.isSupported());
-    ui.update(chess, currentMode, undefined, currentDifficulty, allowUndo);
+    ui.update(chess,
+              currentMode,
+              undefined,
+              currentDifficulty,
+              allowUndo,
+              currentMode === GameModeEnum.Live ? liveUserRole : undefined);
   }
 
 
@@ -883,7 +888,8 @@ function main(): void {
 
     if (!isRemote && currentMode === GameModeEnum.Live && activeRealtimeClient) {
       void activeRealtimeClient.submitMove(executed.san, {
-        ply: chess.history().length,
+        // From the FEN, not chess.history(): history is empty after joining or reconnecting mid-game
+        ply: plyFromFen(chess.fen()),
         color: executed.color,
         from: executed.from,
         to: executed.to,

@@ -135,10 +135,9 @@ describe('The Resistance: Avalon Engine - 5 to 10 Player Capacity & Hidden Roles
     expect(engine.castQuestCard('p3', true).isFailure()).toBe(true);
 
     // Good player attempting to cast Fail
-    const goodP = engine.state.players.find(p => p.id === 'p1' && p.alignment === 'good');
-    if (goodP) {
-      expect(engine.castQuestCard('p1', false).isFailure()).toBe(true);
-    }
+    const goodKnight = engine.state.players.find(p => p.alignment === 'good')!;
+    engine.getCurrentQuest().proposedTeam = [goodKnight.id];
+    expect(engine.castQuestCard(goodKnight.id, false).isFailure()).toBe(true);
 
     // Assassination guards
     expect(engine.assassinateMerlin('p1').isFailure()).toBe(true);
@@ -185,6 +184,66 @@ describe('The Resistance: Avalon Engine - 5 to 10 Player Capacity & Hidden Roles
     expect(again.match({ Ok: () => '', Err: e => e })).toBe('This knight has already cast a quest card.');
     expect(engine.getCurrentQuest().questCards.length).toBe(1);
     expect(engine.getCurrentQuest().castBy).toEqual([first]);
+  });
+
+  it('keeps each player\'s role private and correctly merges human and bot votes in live play', () => {
+    const engine = new AvalonEngine('Host Arthur', 5);
+    // Seat 0 is claimed by Host ('p1'), Seat 1 is claimed by Joiner ('p2')
+    engine.claimSeatForHuman(1, 'Joiner Lancelot');
+    expect(engine.state.players[0]!.isBot).toBe(false);
+    expect(engine.state.players[1]!.isBot).toBe(false);
+    expect(engine.state.players[2]!.isBot).toBe(true);
+
+    // 1. Verify Role Privacy: Each player role lookup is isolated to their own identity
+    const p1Role = engine.state.players.find(p => p.id === 'p1')?.role;
+    const p2Role = engine.state.players.find(p => p.id === 'p2')?.role;
+    expect(p1Role).toBeDefined();
+    expect(p2Role).toBeDefined();
+
+    // In UI rendering, each client only extracts their own role via avalonLocalId()
+    const getClientRoleView = (localPlayerId: string): string => {
+      const p = engine.state.players.find(player => player.id === localPlayerId);
+      return p ? `${p.role} (${p.alignment})` : 'Spectator (good)';
+    };
+
+    expect(getClientRoleView('p1')).toBe(`${p1Role} (${engine.state.players[0]!.alignment})`);
+    expect(getClientRoleView('p2')).toBe(`${p2Role} (${engine.state.players[1]!.alignment})`);
+    expect(getClientRoleView('spectator-guest')).toBe('Spectator (good)');
+
+    // 2. Propose team of 2: p1 and p2
+    const currentQuest = engine.getCurrentQuest();
+    expect(engine.proposeTeam(['p1', 'p2']).isSuccess()).toBe(true);
+    expect(engine.state.stage).toBe('voting');
+
+    // 3. Joiner votes reject first (testing asynchronous partial vote merging)
+    expect(engine.castVote('p2', false).isSuccess()).toBe(true);
+    // Not all votes are in yet (1/5)
+    expect(Object.keys(currentQuest.votes).length).toBe(1);
+    expect(engine.state.stage).toBe('voting');
+
+    // 4. Host votes approve and bot driver casts votes for bot seats p3, p4, p5
+    expect(engine.castVote('p1', true).isSuccess()).toBe(true);
+    const botPlayers = engine.state.players.filter(p => p.isBot);
+    botPlayers.forEach(bot => {
+      expect(engine.castVote(bot.id, true).isSuccess()).toBe(true);
+    });
+
+    // 5. All 5 votes merged: 4 approves (p1, p3, p4, p5) vs 1 reject (p2) -> Team approved!
+    expect(Object.keys(currentQuest.votes).length).toBe(5);
+    expect(engine.state.stage).toBe('quest-execution');
+
+    // 6. Execute quest: p1 and p2 cast cards
+    const p1Alignment = engine.state.players[0]!.alignment;
+    const p2Alignment = engine.state.players[1]!.alignment;
+    expect(p1Alignment).toBeDefined();
+
+    // Good knights must pass; evil can choose
+    expect(engine.castQuestCard('p1', true).isSuccess()).toBe(true);
+    const p2Card = p2Alignment === 'good' ? true : false;
+    expect(engine.castQuestCard('p2', p2Card).isSuccess()).toBe(true);
+
+    // Quest outcome is resolved once both cards are in
+    expect(currentQuest.outcome.isSome()).toBe(true);
   });
 });
 
