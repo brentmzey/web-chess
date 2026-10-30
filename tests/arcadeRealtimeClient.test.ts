@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import {
   ArcadeRealtimeClient,
   ARCADE_EVENTS_COLLECTION,
+  ARCADE_TABLES_COLLECTION,
+  TABLE_SNAPSHOT_SENDER,
   POCKETHOST_URL,
   arcadeSubscriptionTopic,
   type ArcadeConnectionStatus
@@ -249,7 +251,9 @@ describe('ArcadeRealtimeClient', () => {
       expect(calls[0]!.body).toEqual({ clientId: 'c1', subscriptions: [topic] });
       expect(client.getClientId().getOrElse('')).toBe('c1');
       expect(statuses).toEqual(['connecting', 'live']);
-      expect(calls.length).toBe(1);
+      // First connect also loads the server-kept table snapshot (none yet)
+      expect(calls.length).toBe(2);
+      expect(calls[1]!.url).toContain(`/api/collections/${ARCADE_TABLES_COLLECTION}/records`);
 
       es.emit(topic, record({ id: 'r1', event_seq: 10, payload: { n: 1 } }));
       expect(received).toEqual([{ n: 1 }]);
@@ -258,20 +262,20 @@ describe('ArcadeRealtimeClient', () => {
       expect(statuses.at(-1)).toBe('reconnecting');
 
       responder = url =>
-        url.includes('/records')
+        url.includes(`${ARCADE_EVENTS_COLLECTION}/records`)
           ? jsonResponse({ items: [{ id: 'r1', session_code: 'BJK-PB', participant_id: 'peer', event_type: 'action_dispatched', event_seq: 10, payload: { n: 1 } },
                                    { id: 'r2', session_code: 'BJK-PB', participant_id: 'peer', event_type: 'action_dispatched', event_seq: 11, payload: '{"n":2}' }] })
           : jsonResponse({});
       es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c2' }) });
       await flush();
       await flush();
-      const replayCall = calls.find(c => c.url.includes('/records'))!;
+      const replayCall = calls.find(c => c.url.includes(`${ARCADE_EVENTS_COLLECTION}/records`))!;
       expect(decodeURIComponent(replayCall.url)).toContain('session_code="BJK-PB" && event_seq > 10');
       expect(received).toEqual([{ n: 1 }, { n: 2 }]);
       expect(opens).toBe(2);
 
       // Reconnect with no missed events
-      responder = url => (url.includes('/records') ? jsonResponse({}) : jsonResponse({}));
+      responder = () => jsonResponse({});
       es.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c3' }) });
       await flush();
       await flush();
@@ -322,6 +326,47 @@ describe('ArcadeRealtimeClient', () => {
       await flush();
       expect(errors.length).toBe(2);
       expect((await client.replayMissedEvents()).match({ Ok: () => '', Err: e => e })).toBe('Failed to replay missed events: HTTP 500');
+    });
+
+    it('hydrates a late joiner from the server-kept table snapshot', async () => {
+      const client = remote();
+      const received: any[] = [];
+      client.on('action_dispatched', d => received.push(d));
+
+      responder = () => jsonResponse({ items: [{ id: 't1', session_code: 'BJK-PB', status: 'active', json_last_snapshot: { version: 1, state: {} } }] });
+      expect((await client.hydrateFromTableSnapshot()).getOrThrow()).toBe(true);
+      expect(received[0]).toEqual({ sessionCode: 'BJK-PB', participantId: TABLE_SNAPSHOT_SENDER, actionType: 'state_sync', payload: { version: 1, state: {} } });
+      expect(decodeURIComponent(calls[0]!.url)).toContain('session_code="BJK-PB"');
+
+      responder = () => jsonResponse({ items: [{ id: 't1', session_code: 'BJK-PB', status: 'open' }] });
+      expect((await client.hydrateFromTableSnapshot()).getOrThrow()).toBe(false);
+      responder = () => jsonResponse({ items: [{ id: 't1', session_code: 'BJK-PB', status: 'bogus' }] });
+      expect((await client.hydrateFromTableSnapshot()).getOrThrow()).toBe(false);
+      responder = () => jsonResponse({ items: 'not a list' });
+      expect((await client.hydrateFromTableSnapshot()).getOrThrow()).toBe(false);
+      responder = () => jsonResponse({}, 500);
+      expect((await client.hydrateFromTableSnapshot()).isFailure()).toBe(true);
+      expect(received.length).toBe(1);
+
+      // A failed snapshot load on first connect is reported but does not block going live
+      const statuses: ArcadeConnectionStatus[] = [];
+      const other = remote({ onStatusChange: (st: ArcadeConnectionStatus) => statuses.push(st) });
+      responder = url => (url.includes(ARCADE_TABLES_COLLECTION) ? jsonResponse({}, 500) : jsonResponse({}));
+      other.connect();
+      MockEventSource.last!.emit('PB_CONNECT', { data: JSON.stringify({ clientId: 'c9' }) });
+      await flush();
+      await flush();
+      expect(statuses).toEqual(['connecting', 'live']);
+    });
+
+    it('drops records that fail schema validation', () => {
+      const client = remote();
+      const received: unknown[] = [];
+      client.on('action_dispatched', d => received.push(d));
+      client.ingestRecord({ session_code: 'BJK-PB', event_type: '' });
+      client.ingestRecord({ event_type: 'action_dispatched' });
+      client.ingestRecord(null);
+      expect(received).toEqual([]);
     });
 
     it('publishes seat, kick, and action events as tbl_arcade_events records', async () => {

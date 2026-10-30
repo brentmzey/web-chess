@@ -1,5 +1,6 @@
-import { describe, expect, it, beforeEach } from 'bun:test';
-import { ConfigClient } from '../src/realtime/configClient';
+import { describe, expect, it, beforeEach, mock } from 'bun:test';
+import { ConfigClient, CONFIG_CONTROLS_COLLECTION, CONFIG_GAMES_COLLECTION } from '../src/realtime/configClient';
+import { DEFAULT_ARCADE_GAME_CONFIGS, DEFAULT_SYSTEM_CONTROLS } from '../src/constants/defaultConfigs';
 import { ArcadeGameEnum, SystemControlKeyEnum } from '../src/constants/gameEnums';
 
 describe('ConfigClient - Client-Side Database-Driven Dynamic UI Synchronization', () => {
@@ -248,5 +249,102 @@ describe('ConfigClient - Client-Side Database-Driven Dynamic UI Synchronization'
     expect(client.getSystemControlValue<any>('custom.json_payload', null)).toEqual({ activeTheme: 'cathedral' });
 
     (globalThis as any).fetch = originalFetch;
+  });
+
+  describe('live configuration over PocketBase SSE', () => {
+    const control = (key: string,
+                     over: Record<string, unknown> = {}) => ({
+      ...DEFAULT_SYSTEM_CONTROLS.find(c => c.txt_config_key === key)!,
+      id: `rec_${key}`,
+      int_version: 2,
+      created_at: 0,
+      updated_at: 0,
+      ...over
+    });
+
+    it('applies control edits, restores defaults on delete, and ignores invalid or unknown records', () => {
+      let notified = 0;
+      client.subscribe(() => { notified += 1; });
+
+      expect(client.applyRealtimeConfigChange(CONFIG_CONTROLS_COLLECTION, 'update',
+                                              control(SystemControlKeyEnum.ArcadeBotTurnDelayMs, { dec_val_number: 1200 }))).toBe(true);
+      expect(client.getSystemControlValue(SystemControlKeyEnum.ArcadeBotTurnDelayMs, 0)).toBe(1200);
+
+      expect(client.applyRealtimeConfigChange(CONFIG_CONTROLS_COLLECTION, 'delete',
+                                              control(SystemControlKeyEnum.ArcadeBotTurnDelayMs, { dec_val_number: 1200 }))).toBe(true);
+      expect(client.getSystemControlValue(SystemControlKeyEnum.ArcadeBotTurnDelayMs, 0)).toBe(700);
+
+      expect(client.applyRealtimeConfigChange(CONFIG_CONTROLS_COLLECTION, 'delete',
+                                              control(SystemControlKeyEnum.ArcadeBotTurnDelayMs, { txt_config_key: 'custom.operator_key' }))).toBe(true);
+      expect(client.getSystemControlValue('custom.operator_key', 'fallback')).toBe('fallback');
+
+      expect(client.applyRealtimeConfigChange(CONFIG_CONTROLS_COLLECTION, 'update', { nonsense: true })).toBe(false);
+      expect(client.applyRealtimeConfigChange('tbl_other', 'update', {})).toBe(false);
+      expect(notified).toBe(3);
+    });
+
+    it('adds, updates and removes arcade games live', () => {
+      const uno = { ...DEFAULT_ARCADE_GAME_CONFIGS.find(g => g.txt_game_key === ArcadeGameEnum.Uno)!, id: 'rec_uno', int_version: 2, created_at: 0, updated_at: 0 };
+      expect(client.applyRealtimeConfigChange(CONFIG_GAMES_COLLECTION, 'update', { ...uno, txt_title: 'Cardinal Uno Live' })).toBe(true);
+      expect(client.getGameConfig(ArcadeGameEnum.Uno).getOrThrow().txt_title).toBe('Cardinal Uno Live');
+
+      expect(client.applyRealtimeConfigChange(CONFIG_GAMES_COLLECTION, 'update', { ...uno, bln_is_active: false })).toBe(true);
+      expect(client.getGameConfig(ArcadeGameEnum.Uno).isNone()).toBe(true);
+
+      client.applyRealtimeConfigChange(CONFIG_GAMES_COLLECTION, 'update', uno);
+      expect(client.applyRealtimeConfigChange(CONFIG_GAMES_COLLECTION, 'delete', uno)).toBe(true);
+      expect(client.getGameConfig(ArcadeGameEnum.Uno).isNone()).toBe(true);
+      expect(client.applyRealtimeConfigChange(CONFIG_GAMES_COLLECTION, 'update', { broken: 1 })).toBe(false);
+    });
+
+    it('subscribes to both config collections and applies streamed changes', async () => {
+      const originalES = (globalThis as any).EventSource;
+      const originalFetch = globalThis.fetch;
+      const bodies: any[] = [];
+      let es: any = null;
+      (globalThis as any).EventSource = class {
+        public listeners: Record<string, ((e: any) => void)[]> = {};
+        public closed = false;
+        constructor(public url: string) { es = this; }
+        addEventListener(t: string, fn: (e: any) => void) { (this.listeners[t] ||= []).push(fn); }
+        close() { this.closed = true; }
+      };
+      let status = 204;
+      globalThis.fetch = mock(async (_url: string, init?: any) => {
+        bodies.push(JSON.parse(init.body));
+        return new Response(null, { status });
+      }) as any;
+
+      try {
+        const unsubscribe = client.subscribeRealtime('https://cfg.pockethost.io/');
+        expect(es.url).toBe('https://cfg.pockethost.io/api/realtime');
+        es.listeners['PB_CONNECT'][0]({ data: JSON.stringify({ clientId: 'c1' }) });
+        await new Promise(r => setTimeout(r, 0));
+        expect(bodies[0]).toEqual({ clientId: 'c1', subscriptions: [`${CONFIG_GAMES_COLLECTION}/*`, `${CONFIG_CONTROLS_COLLECTION}/*`] });
+
+        status = 403;
+        es.listeners['PB_CONNECT'][0]({ data: JSON.stringify({ clientId: 'c2' }) });
+        await new Promise(r => setTimeout(r, 0));
+
+        es.listeners[`${CONFIG_CONTROLS_COLLECTION}/*`][0]({
+          data: JSON.stringify({ action: 'update', record: control(SystemControlKeyEnum.ArcadeSyncBatchMs, { dec_val_number: 400 }) })
+        });
+        expect(client.getSystemControlValue(SystemControlKeyEnum.ArcadeSyncBatchMs, 0)).toBe(400);
+        es.listeners[`${CONFIG_GAMES_COLLECTION}/*`][0]({ data: JSON.stringify({ record: { broken: 1 } }) });
+        es.listeners[`${CONFIG_GAMES_COLLECTION}/*`][0]({ data: 'not json' });
+
+        unsubscribe();
+        expect(es.closed).toBe(true);
+
+        (globalThis as any).EventSource = class {
+          constructor() { throw new Error('blocked'); }
+        };
+        const noop = client.subscribeRealtime();
+        expect(() => noop()).not.toThrow();
+      } finally {
+        (globalThis as any).EventSource = originalES;
+        globalThis.fetch = originalFetch;
+      }
+    });
   });
 });

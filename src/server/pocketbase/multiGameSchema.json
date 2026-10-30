@@ -50,7 +50,6 @@
         { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX `idx_bjk_hand_session` ON `tbl_bjk_hands` (`session`)",
         "CREATE INDEX `idx_bjk_hand_player` ON `tbl_bjk_hands` (`session`, `player_id`)"
       ]
     },
@@ -78,7 +77,6 @@
         { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX `idx_bjk_seat_session` ON `tbl_bjk_seats` (`session`)",
         "CREATE UNIQUE INDEX `idx_bjk_seat_number` ON `tbl_bjk_seats` (`session`, `seat_number`)"
       ]
     },
@@ -175,7 +173,6 @@
         { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
-        "CREATE INDEX `idx_res_mission_session` ON `tbl_res_missions` (`session`)",
         "CREATE INDEX `idx_res_mission_number` ON `tbl_res_missions` (`session`, `mission_number`)"
       ]
     },
@@ -654,6 +651,32 @@
       ]
     },
     {
+      "name": "tbl_arcade_tables",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "session_code", "type": "text", "required": true, "max": 32, "pattern": "^[A-Z0-9]{2,10}-[A-Z0-9]{3,16}$" },
+        { "name": "game_key", "type": "text", "required": false, "max": 32 },
+        { "name": "host_participant_id", "type": "text", "required": false, "max": 64 },
+        { "name": "status", "type": "select", "required": true, "maxSelect": 1, "values": ["open", "active", "closed"] },
+        { "name": "int_event_count", "type": "number", "required": false, "onlyInt": true, "min": 0 },
+        { "name": "dt_last_event_at", "type": "date", "required": false },
+        { "name": "json_last_snapshot", "type": "json", "required": false, "maxSize": 1048576 },
+        { "name": "do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_arcade_tables_code` ON `tbl_arcade_tables` (`session_code`)",
+        "CREATE INDEX `idx_arcade_tables_game_status` ON `tbl_arcade_tables` (`game_key`, `status`)",
+        "CREATE INDEX `idx_arcade_tables_cleanup_composite` ON `tbl_arcade_tables` (`do_not_delete`, `updated`, `status`)"
+      ]
+    },
+    {
       "name": "tbl_arcade_events",
       "type": "base",
       "listRule": "",
@@ -662,7 +685,8 @@
       "updateRule": null,
       "deleteRule": null,
       "fields": [
-        { "name": "session_code", "type": "text", "required": true, "max": 64 },
+        { "name": "table", "type": "relation", "required": false, "collectionId": "tbl_arcade_tables", "cascadeDelete": true, "maxSelect": 1 },
+        { "name": "session_code", "type": "text", "required": true, "max": 32 },
         { "name": "game_key", "type": "text", "required": false, "max": 32 },
         { "name": "participant_id", "type": "text", "required": true, "max": 64 },
         { "name": "event_type", "type": "text", "required": true, "max": 64 },
@@ -673,9 +697,58 @@
         { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
       ],
       "indexes": [
+        "CREATE INDEX `idx_arcade_events_table_seq` ON `tbl_arcade_events` (`table`, `event_seq`)",
         "CREATE INDEX `idx_arcade_events_session_seq` ON `tbl_arcade_events` (`session_code`, `event_seq`)",
         "CREATE INDEX `idx_arcade_events_session_type` ON `tbl_arcade_events` (`session_code`, `event_type`)",
         "CREATE INDEX `idx_arcade_events_cleanup_composite` ON `tbl_arcade_events` (`do_not_delete`, `updated`, `event_type`)"
+      ]
+    },
+    {
+      "name": "tbl_archived_arcade_snapshots",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_session_code", "type": "text", "required": true, "max": 32 },
+        { "name": "txt_game_key", "type": "text", "required": false, "max": 32 },
+        { "name": "int_event_count", "type": "number", "required": false, "onlyInt": true, "min": 0 },
+        { "name": "json_snapshot_payload", "type": "json", "required": false, "maxSize": 1048576 },
+        { "name": "txt_pruned_reason", "type": "text", "required": false },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_snap_arcade_code` ON `tbl_archived_arcade_snapshots` (`txt_session_code`)",
+        "CREATE INDEX `idx_snap_arcade_game` ON `tbl_archived_arcade_snapshots` (`txt_game_key`)",
+        "CREATE INDEX `idx_snap_arcade_created` ON `tbl_archived_arcade_snapshots` (`created`)"
+      ]
+    },
+    {
+      "name": "tbl_archived_arcade_snapshots_history",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "txt_session_code", "type": "text", "required": true, "max": 32 },
+        { "name": "txt_game_key", "type": "text", "required": false, "max": 32 },
+        { "name": "int_event_count", "type": "number", "required": false, "onlyInt": true, "min": 0 },
+        { "name": "json_snapshot_payload", "type": "json", "required": false, "maxSize": 1048576 },
+        { "name": "txt_pruned_reason", "type": "text", "required": false },
+        { "name": "bln_do_not_delete", "type": "bool", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_snap_arcade_hist_code` ON `tbl_archived_arcade_snapshots_history` (`txt_session_code`)",
+        "CREATE INDEX `idx_snap_arcade_hist_game` ON `tbl_archived_arcade_snapshots_history` (`txt_game_key`)",
+        "CREATE INDEX `idx_snap_arcade_hist_created` ON `tbl_archived_arcade_snapshots_history` (`created`)"
       ]
     },
     {

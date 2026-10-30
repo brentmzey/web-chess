@@ -3,6 +3,13 @@ import {
   triggerPocketBaseServerCron
 } from '../src/server/pocketbase/pruner';
 
+/**
+ * Runs PocketHost maintenance. By default it triggers the server-side hook (`pb_hooks/sanctuary_maintenance.js`),
+ * which archives stale games, rotates archives into *_history and purges expired history using the
+ * DB-driven policy in tbl_cfg_system_controls, then prints that run's audit row.
+ * `--client-side` instead runs the legacy REST pruner from this machine.
+ */
+
 const rawUrl = process.env.POCKETBASE_URL;
 const url = rawUrl && !rawUrl.startsWith('${') ? rawUrl : 'https://web-chess.pockethost.io';
 
@@ -12,9 +19,9 @@ const email = rawEmail && !rawEmail.startsWith('${') ? rawEmail : process.env.PB
 const rawPassword = process.env.PB_ADMIN_PASSWORD || process.env.POCKETBASE_SUPERUSER_PASSWORD;
 const password = rawPassword && !rawPassword.startsWith('${') ? rawPassword : process.env.PB_ADMIN_PASSWORD;
 
-// Parse optional --days argument, default to 3 days
 const daysArg = process.argv.find(arg => arg.startsWith('--days='));
 const days = daysArg ? parseInt(daysArg.split('=')[1]!, 10) : 3;
+const clientSide = process.argv.includes('--client-side');
 
 if (!email || !password) {
   console.error(
@@ -24,17 +31,64 @@ if (!email || !password) {
   process.exit(1);
 }
 
-async function main(): Promise<void> {
-  const cronRes = await triggerPocketBaseServerCron(url, email!, password!);
-  cronRes.match({
-    Ok: c => console.log(`[PocketBase Server Cron] Triggered server-side cron hook: ${c.cronId}`),
-    Err: err => console.warn(`[PocketBase Server Cron] Could not trigger server-side cron hook: ${err}`)
+interface AuditRow {
+  readonly txt_trace_id: string;
+  readonly bln_success: boolean;
+  readonly int_deleted_sessions: number;
+  readonly int_archived_rows?: number;
+  readonly int_history_purged?: number;
+  readonly int_duration_ms: number;
+  readonly txt_cutoff_timestamp: string;
+  readonly txt_error_message: string;
+}
+
+async function printLatestServerAudit(): Promise<void> {
+  const auth = await fetch(`${url}/api/collections/_superusers/auth-with-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identity: email, password })
   });
+  const { token } = (await auth.json()) as { token: string };
+  const res = await fetch(`${url}/api/collections/tbl_audit_cleanup_logs/records?perPage=1&sort=-created`, {
+    headers: { Authorization: token }
+  });
+  const row = ((await res.json()) as { items: AuditRow[] }).items[0];
+  if (!row) {
+    console.warn('No audit row found yet.');
+    return;
+  }
+  console.log('--- PocketHost Maintenance Report (server hook) ---');
+  console.log(`Trace:                 ${row.txt_trace_id}`);
+  console.log(`Stale Cutoff:          ${row.txt_cutoff_timestamp}`);
+  console.log(`Archived Stale Games:  ${row.int_deleted_sessions}`);
+  console.log(`Rotated to *_history:  ${row.int_archived_rows ?? 0}`);
+  console.log(`Purged From History:   ${row.int_history_purged ?? 0}`);
+  console.log(`Duration:              ${row.int_duration_ms}ms`);
+  console.log(`Success:               ${row.bln_success}${row.txt_error_message ? `\n${row.txt_error_message}` : ''}`);
+  if (!row.bln_success) process.exit(1);
+}
+
+async function main(): Promise<void> {
+  if (!clientSide) {
+    const cronRes = await triggerPocketBaseServerCron(url, email!, password!);
+    await cronRes.match({
+      Ok: async () => {
+        await new Promise(resolve => setTimeout(resolve, 2500));
+        await printLatestServerAudit();
+        process.exit(0);
+      },
+      Err: async err => {
+        console.error(`Could not trigger the server maintenance hook: ${err}`);
+        process.exit(1);
+      }
+    });
+    return;
+  }
 
   const res = await prunePocketBaseSessions(url, email!, password!, days);
   res.match({
     Ok: report => {
-      console.log('--- PocketBase Cascade Cleanup Report ---');
+      console.log('--- PocketBase Cascade Cleanup Report (client-side) ---');
       console.log(`Cutoff Date:           ${report.cutoffTimestamp}`);
       console.log(`Deleted Game Sessions: ${report.deletedSessionsCount}`);
       console.log(`Deleted Arcade Events: ${report.deletedArcadeEventsCount}`);

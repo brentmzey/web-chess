@@ -104,11 +104,10 @@
     ],
     "indexes": [
       "CREATE UNIQUE INDEX `idx_game_sessions_code` ON `game_sessions` (`session_code`)",
-      "CREATE INDEX `idx_game_sessions_status` ON `game_sessions` (`status`)",
       "CREATE INDEX `idx_game_sessions_created` ON `game_sessions` (`created`)",
       "CREATE INDEX `idx_game_sessions_updated` ON `game_sessions` (`updated`)",
       "CREATE INDEX `idx_game_sessions_status_created` ON `game_sessions` (`status`, `created`)",
-      "CREATE INDEX `idx_game_sessions_do_not_delete` ON `game_sessions` (`do_not_delete`)"
+      "CREATE INDEX `idx_game_sessions_cleanup_composite` ON `game_sessions` (`do_not_delete`, `updated`, `status`)"
     ]
   },
   {
@@ -163,7 +162,6 @@
       }
     ],
     "indexes": [
-      "CREATE INDEX `idx_participants_session` ON `session_participants` (`session`)",
       "CREATE INDEX `idx_participants_session_role` ON `session_participants` (`session`, `role`)",
       "CREATE INDEX `idx_participants_created` ON `session_participants` (`created`)"
     ]
@@ -250,7 +248,6 @@
     ],
     "indexes": [
       "CREATE UNIQUE INDEX `idx_moves_session_ply` ON `game_moves` (`session`, `ply`)",
-      "CREATE INDEX `idx_moves_session` ON `game_moves` (`session`)",
       "CREATE INDEX `idx_moves_session_created` ON `game_moves` (`session`, `created`)"
     ]
   },
@@ -301,7 +298,6 @@
     ],
     "indexes": [
       "CREATE UNIQUE INDEX `idx_events_session_seq` ON `session_events` (`session`, `event_seq`)",
-      "CREATE INDEX `idx_events_session` ON `session_events` (`session`)",
       "CREATE INDEX `idx_events_session_type` ON `session_events` (`session`, `event_type`)",
       "CREATE INDEX `idx_events_created` ON `session_events` (`created`)"
     ]
@@ -353,6 +349,16 @@
       {
         "name": "txt_error_message",
         "type": "text",
+        "required": false
+      },
+      {
+        "name": "int_archived_rows",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "int_history_purged",
+        "type": "number",
         "required": false
       },
       {
@@ -421,6 +427,16 @@
       {
         "name": "txt_error_message",
         "type": "text",
+        "required": false
+      },
+      {
+        "name": "int_archived_rows",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "int_history_purged",
+        "type": "number",
         "required": false
       },
       {

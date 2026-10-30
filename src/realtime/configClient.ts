@@ -6,6 +6,7 @@ import {
   Option,
   Result,
   some,
+  tryCatch,
   tryCatchAsync
 } from '../utils/fp';
 import { logger } from '../utils/logger';
@@ -13,6 +14,9 @@ import {
   validateArcadeGameConfig,
   validateSystemControl
 } from '../validation/gameSchemas';
+
+export const CONFIG_GAMES_COLLECTION = 'tbl_cfg_arcade_games';
+export const CONFIG_CONTROLS_COLLECTION = 'tbl_cfg_system_controls';
 
 interface PocketBaseListResponse<T> {
   readonly items: readonly T[];
@@ -213,6 +217,95 @@ export class ConfigClient {
 
   public isRemoteConfigActive(): boolean {
     return this.isLoadedFromRemote;
+  }
+
+  /**
+   * Applies one realtime change from `tbl_cfg_arcade_games` or `tbl_cfg_system_controls`. Invalid
+   * records are ignored; deleted or deactivated games are removed, and deleted controls fall back to
+   * their built-in defaults.
+   */
+  public applyRealtimeConfigChange(collection: string,
+                                   action: string,
+                                   record: unknown): boolean {
+    if (collection === CONFIG_GAMES_COLLECTION) {
+      return validateArcadeGameConfig(record).fold(
+        () => false,
+        rec => {
+          if (action === 'delete' || !rec.bln_is_active) {
+            this.gamesMap.delete(rec.txt_game_key);
+          } else {
+            this.gamesMap.set(rec.txt_game_key, rec);
+          }
+          this.notifyListeners();
+          return true;
+        }
+      );
+    }
+    if (collection === CONFIG_CONTROLS_COLLECTION) {
+      return validateSystemControl(record).fold(
+        () => false,
+        rec => {
+          if (action === 'delete') {
+            fromNullable(DEFAULT_SYSTEM_CONTROLS.find(c => c.txt_config_key === rec.txt_config_key)).fold(
+              () => {
+                this.controlsMap.delete(rec.txt_config_key);
+              },
+              def => {
+                this.controlsMap.set(rec.txt_config_key, { ...rec, ...def });
+              }
+            );
+          } else {
+            this.controlsMap.set(rec.txt_config_key, rec);
+          }
+          this.notifyListeners();
+          return true;
+        }
+      );
+    }
+    return false;
+  }
+
+  /**
+   * Keeps configuration live: subscribes to every change in the PocketBase config collections over
+   * SSE, so an operator's edit applies to all open clients without a reload. Returns an unsubscribe.
+   */
+  public subscribeRealtime(baseUrl: string = 'https://web-chess.pockethost.io'): () => void {
+    const url = baseUrl.replace(/\/+$/, '');
+    const topics = [`${CONFIG_GAMES_COLLECTION}/*`, `${CONFIG_CONTROLS_COLLECTION}/*`];
+    return tryCatch(() => new EventSource(`${url}/api/realtime`)).match({
+      Ok: es => {
+        es.addEventListener('PB_CONNECT', (e: MessageEvent) => {
+          void tryCatchAsync(async () => {
+            const { clientId } = JSON.parse(e.data) as { clientId: string };
+            const res = await fetch(`${url}/api/realtime`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clientId, subscriptions: topics })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          }, err => String(err)).then(res =>
+            res.match({
+              Ok: () => undefined,
+              Err: err => {
+                logger.warn(`[CFG_TRACE] Live configuration subscription failed: ${err}`);
+              }
+            })
+          );
+        });
+        topics.forEach(topic =>
+          es.addEventListener(topic, (e: MessageEvent) => {
+            tryCatch(() => JSON.parse(e.data) as { action?: string; record?: unknown }).map(msg =>
+              this.applyRealtimeConfigChange(topic.split('/')[0]!, String(msg.action ?? 'update'), msg.record)
+            );
+          })
+        );
+        return () => es.close();
+      },
+      Err: err => {
+        logger.warn(`[CFG_TRACE] Live configuration unavailable: ${String(err)}`);
+        return () => undefined;
+      }
+    });
   }
 }
 

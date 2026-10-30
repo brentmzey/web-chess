@@ -285,12 +285,57 @@ export const DEFAULT_SYSTEM_CONTROLS: readonly SystemControlInput[] = Object.fre
     bln_is_active: true
   },
   {
+    txt_config_key: SystemControlKeyEnum.ArcadeBotTurnDelayMs,
+    txt_category: ConfigCategoryEnum.Arcade,
+    txt_label: 'Arcade Bot Turn Delay (ms)',
+    txt_description: 'Pause before each AI bot turn at arcade tables, so humans can follow the play',
+    txt_val_type: ConfigValTypeEnum.Number,
+    dec_val_number: 700,
+    bln_is_active: true
+  },
+  {
+    txt_config_key: SystemControlKeyEnum.ArcadeSyncBatchMs,
+    txt_category: ConfigCategoryEnum.Arcade,
+    txt_label: 'Live Table Sync Batch Window (ms)',
+    txt_description: 'Rapid local changes within this window are sent to other players as one table snapshot',
+    txt_val_type: ConfigValTypeEnum.Number,
+    dec_val_number: 150,
+    bln_is_active: true
+  },
+  {
     txt_config_key: SystemControlKeyEnum.StaleSessionDays,
     txt_category: ConfigCategoryEnum.System,
     txt_label: 'Stale Session Cleanup Threshold (Days)',
     txt_description: 'Age in days beyond which inactive sessions without do_not_delete are purged',
     txt_val_type: ConfigValTypeEnum.Number,
     dec_val_number: 3,
+    bln_is_active: true
+  },
+  {
+    txt_config_key: SystemControlKeyEnum.ArchiveRotationDays,
+    txt_category: ConfigCategoryEnum.System,
+    txt_label: 'Archive Rotation Age (Days)',
+    txt_description: 'Archived snapshots and cleanup audit logs older than this move to their *_history tables',
+    txt_val_type: ConfigValTypeEnum.Number,
+    dec_val_number: 30,
+    bln_is_active: true
+  },
+  {
+    txt_config_key: SystemControlKeyEnum.ArchiveMaxRows,
+    txt_category: ConfigCategoryEnum.System,
+    txt_label: 'Archive Table Row Cap',
+    txt_description: 'When an archive or audit table grows past this many rows, its oldest rows move to *_history',
+    txt_val_type: ConfigValTypeEnum.Number,
+    dec_val_number: 5000,
+    bln_is_active: true
+  },
+  {
+    txt_config_key: SystemControlKeyEnum.HistoryRetentionDays,
+    txt_category: ConfigCategoryEnum.System,
+    txt_label: 'History Retention (Days)',
+    txt_description: 'Rows in *_history tables older than this are permanently purged unless marked do-not-delete',
+    txt_val_type: ConfigValTypeEnum.Number,
+    dec_val_number: 365,
     bln_is_active: true
   },
   {

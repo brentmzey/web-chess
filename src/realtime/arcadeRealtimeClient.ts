@@ -1,10 +1,23 @@
-import { tryCatch, tryCatchAsync, fromNullable, none, some, matchBool, type Option, type Result } from '../utils/fp';
+import { tryCatch, tryCatchAsync, fromNullable, fromResult, none, some, matchBool, type Option, type Result } from '../utils/fp';
 import { logger } from '../utils/logger';
 import { currentEpochMs } from '../utils/dateTime';
 import type { ArcadeGameEnum } from '../constants/gameEnums';
+import {
+  ArcadeEventRecordSchema,
+  ArcadeTableRecordSchema,
+  ListResponseSchema,
+  RealtimeRecordMessageSchema,
+  parseWith,
+  type ArcadeEventRecord
+} from '../validation/realtimeSchemas';
 
 export const POCKETHOST_URL = 'https://web-chess.pockethost.io';
 export const ARCADE_EVENTS_COLLECTION = 'tbl_arcade_events';
+export const ARCADE_TABLES_COLLECTION = 'tbl_arcade_tables';
+/** Sender id used for state loaded from the server-kept table snapshot rather than a live peer. */
+export const TABLE_SNAPSHOT_SENDER = '__table_snapshot__';
+
+export type { ArcadeEventRecord };
 
 export type ArcadeRealtimeEventHandler<T = unknown> = (data: T, eventSeq: number) => void;
 
@@ -18,16 +31,6 @@ export interface ArcadeRealtimeConfig {
   readonly onOpen?: () => void;
   readonly onError?: (err: unknown) => void;
   readonly onStatusChange?: (status: ArcadeConnectionStatus) => void;
-}
-
-/** A `tbl_arcade_events` record as delivered by PocketBase REST and realtime. */
-export interface ArcadeEventRecord {
-  readonly id?: string;
-  readonly session_code?: string;
-  readonly participant_id?: string;
-  readonly event_type?: string;
-  readonly event_seq?: number;
-  readonly payload?: unknown;
 }
 
 const toMessage = (err: unknown): string => (err instanceof Error ? err.message : String(err));
@@ -163,9 +166,19 @@ export class ArcadeRealtimeClient {
   }
 
   /**
-   * Delivers one `tbl_arcade_events` record to handlers, skipping duplicates, other tables and own echoes.
+   * Delivers one `tbl_arcade_events` record to handlers after validating it, skipping duplicates,
+   * other tables and own echoes.
    */
-  public ingestRecord(rec: ArcadeEventRecord): void {
+  public ingestRecord(raw: unknown): void {
+    parseWith(ArcadeEventRecordSchema, raw, 'arcade event').match({
+      Ok: rec => this.ingestValidRecord(rec),
+      Err: err => {
+        logger.warn(`[ARCADE_REALTIME] ${err}`);
+      }
+    });
+  }
+
+  private ingestValidRecord(rec: ArcadeEventRecord): void {
     const recordId = fromNullable(rec.id).getOrElse('');
     const isDuplicate = recordId !== '' && this.seenRecordIds.has(recordId);
     const isOtherTable = rec.session_code !== this.config.sessionCode;
@@ -193,10 +206,39 @@ export class ArcadeRealtimeClient {
       if (!res.ok) {
         throw new Error(await describeHttpFailure(res, 'Failed to replay missed events'));
       }
-      const body = (await res.json()) as { items?: ArcadeEventRecord[] };
-      const items = fromNullable(body.items).getOrElse([]);
+      const items = parseWith(ListResponseSchema, await res.json(), 'event list').map(list => list.items).getOrElse([]);
       items.forEach(rec => this.ingestRecord(rec));
       return items.length;
+    }, toMessage);
+  }
+
+  /**
+   * Loads the latest full table state the server kept in `tbl_arcade_tables`, so a player joining
+   * while the host is away still sees the current table. Delivered as a `state_sync` action.
+   */
+  public async hydrateFromTableSnapshot(): Promise<Result<boolean, string>> {
+    const filter = `session_code="${this.config.sessionCode}"`;
+    return tryCatchAsync(async () => {
+      const res = await fetch(
+        `${this.getBaseUrl()}/api/collections/${ARCADE_TABLES_COLLECTION}/records?perPage=1&filter=${encodeURIComponent(filter)}`
+      );
+      if (!res.ok) {
+        throw new Error(await describeHttpFailure(res, 'Failed to load table'));
+      }
+      const items = parseWith(ListResponseSchema, await res.json(), 'table list').map(list => list.items).getOrElse([]);
+      return fromNullable(items[0])
+        .flatMap(item => fromResult(parseWith(ArcadeTableRecordSchema, item, 'arcade table')))
+        .flatMap(table => fromNullable(table.json_last_snapshot))
+        .map(snapshot => {
+          this.dispatchEvent('action_dispatched', {
+            sessionCode: this.config.sessionCode,
+            participantId: TABLE_SNAPSHOT_SENDER,
+            actionType: 'state_sync',
+            payload: snapshot
+          }, this.lastEventSeq);
+          return true;
+        })
+        .getOrElse(false);
     }, toMessage);
   }
 
@@ -226,6 +268,12 @@ export class ArcadeRealtimeClient {
         this.isConnected = true;
         this.setStatus('live');
         this.config.onOpen?.();
+        if (!isReconnect) {
+          (await this.hydrateFromTableSnapshot()).match({
+            Ok: () => undefined,
+            Err: err => logger.warn('[ARCADE_REALTIME] Table snapshot unavailable:', err)
+          });
+        }
         if (isReconnect) {
           (await this.replayMissedEvents()).match({
             Ok: count => count > 0 && logger.info(`[ARCADE_REALTIME] Replayed ${count} missed table events.`),
@@ -244,10 +292,12 @@ export class ArcadeRealtimeClient {
     });
 
     es.addEventListener(topic, (e: MessageEvent) => {
-      const msg = parseJson(e.data) as { action?: string; record?: ArcadeEventRecord } | string;
-      matchBool(typeof msg === 'object' && msg !== null && msg.action !== 'delete' && msg.record !== undefined, {
-        true: () => this.ingestRecord((msg as { record: ArcadeEventRecord }).record),
-        false: () => {
+      parseWith(RealtimeRecordMessageSchema, parseJson(e.data), 'realtime message').match({
+        Ok: msg => {
+          // Events are append-only; deletes only happen during server cleanup
+          if (msg.action !== 'delete') this.ingestRecord(msg.record);
+        },
+        Err: () => {
           logger.warn('[ARCADE_REALTIME] Ignoring malformed arcade event message.');
         }
       });

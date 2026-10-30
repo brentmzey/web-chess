@@ -163,54 +163,37 @@ export const runPocketBaseMigration = async (baseUrl: string,
     }
   }
 
-  // 4. Seed initial default arcade games and system controls if table is empty
-  try {
-    const checkGamesRes = await fetch(`${url}/api/collections/tbl_cfg_arcade_games/records?perPage=1`, { headers });
-    if (checkGamesRes.ok) {
-      const checkGames = (await checkGamesRes.json()) as { totalItems?: number };
-      if (!checkGames.totalItems || checkGames.totalItems === 0) {
-        logger.info('Seeding default arcade game configurations to PocketBase...');
-        for (const game of DEFAULT_ARCADE_GAME_CONFIGS) {
-          const createRes = await fetch(`${url}/api/collections/tbl_cfg_arcade_games/records`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              ...game,
-              int_version: 1,
-              txt_updated_by: 'pocketbase_migrator'
-            })
-          });
-          if (createRes.ok) {
-            applied.push(`seeded: ${game.txt_game_key}`);
-          }
-        }
+  // 4. Upsert DB-driven configuration: insert every default game and system control whose key is missing,
+  //    never overwriting values an operator has already tuned in PocketBase
+  const seedMissing = async (collection: string,
+                             keyField: string,
+                             defaults: ReadonlyArray<Record<string, unknown>>): Promise<void> => {
+    const existingRes = await fetch(`${url}/api/collections/${collection}/records?perPage=500&fields=${keyField}`, { headers });
+    if (!existingRes.ok) return;
+    const existing = (await existingRes.json()) as { items?: ReadonlyArray<Record<string, unknown>> };
+    const existingKeys = new Set((existing.items ?? []).map(item => String(item[keyField])));
+    for (const record of defaults.filter(d => !existingKeys.has(String(d[keyField])))) {
+      const createRes = await fetch(`${url}/api/collections/${collection}/records`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ...record, int_version: 1, txt_updated_by: 'pocketbase_migrator' })
+      });
+      if (createRes.ok) {
+        applied.push(`seeded: ${String(record[keyField])}`);
       }
     }
+  };
 
-    const checkCtrlRes = await fetch(`${url}/api/collections/tbl_cfg_system_controls/records?perPage=1`, { headers });
-    if (checkCtrlRes.ok) {
-      const checkCtrl = (await checkCtrlRes.json()) as { totalItems?: number };
-      if (!checkCtrl.totalItems || checkCtrl.totalItems === 0) {
-        logger.info('Seeding default system controls to PocketBase...');
-        for (const ctrl of DEFAULT_SYSTEM_CONTROLS) {
-          const createRes = await fetch(`${url}/api/collections/tbl_cfg_system_controls/records`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              ...ctrl,
-              int_version: 1,
-              txt_updated_by: 'pocketbase_migrator'
-            })
-          });
-          if (createRes.ok) {
-            applied.push(`seeded: ${ctrl.txt_config_key}`);
-          }
-        }
-      }
+  const seedRes = await tryCatchAsync(async () => {
+    await seedMissing('tbl_cfg_arcade_games', 'txt_game_key', DEFAULT_ARCADE_GAME_CONFIGS as unknown as ReadonlyArray<Record<string, unknown>>);
+    await seedMissing('tbl_cfg_system_controls', 'txt_config_key', DEFAULT_SYSTEM_CONTROLS as unknown as ReadonlyArray<Record<string, unknown>>);
+  }, toError);
+  seedRes.match({
+    Ok: () => undefined,
+    Err: err => {
+      logger.warn(`Configuration seeding encountered error: ${err.message}`);
     }
-  } catch (seedErr) {
-    logger.warn(`Configuration seeding encountered error: ${String(seedErr)}`);
-  }
+  });
 
   logger.info(`PocketBase migration finished. Applied: ${applied.length}, Errors: ${errors.length}`);
   return { success: errors.length === 0, applied, errors };

@@ -416,7 +416,12 @@ export enum SystemControlKeyEnum {
   ReverbDecaySec = 'audio.reverb_decay_sec',
   MinimaxMaxDepth = 'chess.minimax_max_depth',
   QuickJoinEnabled = 'arcade.quick_join_enabled',
+  ArcadeBotTurnDelayMs = 'arcade.bot_turn_delay_ms',
+  ArcadeSyncBatchMs = 'arcade.sync_batch_ms',
   StaleSessionDays = 'system.stale_session_days',
+  ArchiveRotationDays = 'system.archive_rotation_days',
+  ArchiveMaxRows = 'system.archive_max_rows',
+  HistoryRetentionDays = 'system.history_retention_days',
   WakeLockDefault = 'system.wake_lock_default'
 }
 
