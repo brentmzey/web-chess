@@ -108,18 +108,53 @@ When operating in this repository, agents must adhere to the following without e
 * **Backend**: `https://web-chess.pockethost.io` (`POCKETBASE_URL`). Credentials come only from `~/.zshrc` (`PB_ADMIN_EMAIL`/`PB_ADMIN_PASSWORD`, or `POCKETBASE_SUPERUSER_EMAIL`/`POCKETBASE_SUPERUSER_PASSWORD`).
 * **`bun run pb:migrate`**: `scripts/pb-migrate.ts` → `src/server/pocketbase/migrator.ts` syncs `src/server/pocketbase/schema.json` and `multiGameSchema.json` (all `tbl_<game>_*` collections, relations, composite cleanup indexes, `tbl_arcade_tables`/`tbl_arcade_events`), then upserts any missing config keys without overwriting tuned values. Run it before `pb:deploy-hooks` when hooks depend on new collections.
 * **`bun run pb:cleanup`**: `scripts/pb-cleanup.ts` triggers the server cron `cleanup_stale_chess_sessions` (`POST /api/crons/...`) and prints its `tbl_audit_cleanup_logs` row. `--client-side` runs the legacy REST pruner (`src/server/pocketbase/pruner.ts`) instead.
-* **Storage lifecycle (`pb_hooks/sanctuary_maintenance.js`, shared by all hooks via `require`)**: stale sessions and arcade tables → `tbl_archived_*` (one transaction, children cascade) → `*_history` by age or row cap → purged after retention unless `bln_do_not_delete`. Thresholds are DB-driven `tbl_cfg_system_controls` keys (`system.stale_session_days`, `system.archive_rotation_days`, `system.archive_max_rows`, `system.history_retention_days`). PocketBase runs each hook handler in an isolated scope, so shared code must live in a `require`d module, not at the top level of a `*.pb.js` file.
+* **Storage lifecycle (`pb_hooks/sanctuary_maintenance.js`, shared by all hooks via `require`)**: stale sessions and arcade tables → `tbl_archived_*` (one transaction, children cascade) → `*_history` by age or row cap → purged after retention unless `bln_do_not_delete`. Thresholds are DB-driven `tbl_cfg_system_controls` keys (`system.stale_session_days`, `system.archive_rotation_days`, `system.archive_max_rows`, `system.history_retention_days`, `system.guest_player_retention_days`). Guest `tbl_arcade_players` with no remaining table events are pruned after the guest retention window; clients re-register automatically when their stored sign-in stops working. PocketBase runs each hook handler in an isolated scope, so shared code must live in a `require`d module, not at the top level of a `*.pb.js` file.
 * **`bun run pb:deploy-hooks`**: `scripts/pb-deploy-hooks.ts` uploads `pb_hooks/` over SFTP (`ftp.pockethost.io:2222`, key `~/.ssh/pockethost_ed25519`).
 * **Realtime (`src/realtime/arcadeRealtimeClient.ts`)**: outside `localhost` it uses PocketBase SSE (`/api/realtime`) with a filtered per-table topic (`arcadeSubscriptionTopic`) and publishes to `POST /api/collections/tbl_arcade_events/records`. Local dev and tests use the Bun server SSE endpoints (`/api/arcade/sessions/...`, `bun run server`). Never subscribe to a bare collection name: PocketBase only delivers `<collection>/*`, `<collection>/<id>` or options-filtered topics, under an SSE event named exactly as the topic. Arcade `session_events` is chess-only, because `session` is a relation to `game_sessions`.
 * **Arcade tables (`tbl_arcade_tables`)**: server-owned. The `arcade_tables.pb.js` hook validates and links every `tbl_arcade_events` record to its table (cascading relation) and keeps the latest snapshot for late joiners. Clients never write tables directly.
-* **Live table state**: multi-seat arcade tables stay consistent by broadcasting `state_sync` snapshots (`src/games/multiplayer/tableSnapshot.ts`), not by replaying actions, since engines shuffle with `Math.random`. Seat ownership (`src/games/multiplayer/liveSeats.ts`) travels inside the snapshot. Only the host drives bots and resets the table.
+* **Live table state**: multi-seat arcade tables stay consistent by broadcasting `state_sync` snapshots (`src/games/multiplayer/tableSnapshot.ts`), not by replaying actions, since engines shuffle with `Math.random`. Seat ownership (`src/games/multiplayer/liveSeats.ts`) travels inside the snapshot. Only the host drives bots and resets the table. The host is whoever the server recorded first in `tbl_arcade_tables.host_participant_id`; after joining, every client adopts that role (`adoptServerHostRole` in `main.ts`), because arriving by `?session=` link says nothing about who hosts.
 * **Hidden information (PocketHost)**: guests sign in as `tbl_arcade_players` (credentials encrypted in IndexedDB) and send zod-validated intents (`src/validation/arcadeIntents.ts`); only the host runs engines. The host publishes a redacted table (`src/games/multiplayer/hiddenInfo.ts` policies) plus each guest's secrets to `tbl_arcade_private` (owner-readable, host-writable). New hidden fields must be added to that game's policy with a test proving they never appear in the public snapshot. Deploy client changes before tightening collection rules the old client relies on.
 * **Typed records & live config**: parse every PocketBase record with the zod schemas in `src/validation/` before use. Tunables belong in `tbl_cfg_system_controls` (add the key to `SystemControlKeyEnum` and `DEFAULT_SYSTEM_CONTROLS`; `pb:migrate` upserts missing keys). Clients receive config edits live over SSE.
+
+## 🧭 Shared Working Notes (Claude + AGY)
+
+Hard-won lessons from earlier sessions. Read them before working on live tables, releases or tooling, and add new ones here, never in a tool-specific file.
+
+### Release & commit routine
+* **Order for schema or hook changes**: `bun run pb:migrate` → `bun run pb:deploy-hooks` → `bun run pb:cleanup` (proves the hook runs on the live server) → commit → push. Pushing `main` deploys production on Netlify within about a minute.
+* **Commits**: author `Brent Zey <brentmzey4795@gmail.com>`, **no** `Co-Authored-By` or AI trailers, and `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE` set off-hours in `America/Chicago` (Rule 14). Each new timestamp must be later than the previous commit's, so check `git log -1 --format=%ad` first.
+* **Before every push**: the full gate, plus a scan of `git diff --cached` for secrets and for wording banned by Rule 17.
+* **Confirm a deploy** by checking that the live bundle carries the new version: `curl` the homepage, find `assets/index-*.js` and grep it for the version, or read `<html data-app-version>` in a browser.
+* **Versioning**: bump the `RC#` for each pushed fix while verifying a release, then promote to `X.Y.Z` with a `### Release` CHANGELOG entry that lists what was verified on production. Tooling-only changes that alter the deployed bundle still get a patch version.
+
+### Clean output is the contract
+* A passing `bun run build && bun run test && bun run test:coverage && bun run typecheck` prints **no** ERROR/WARN lines and no build warnings. Tests that drive failure paths are quiet because `tests/setup/quietLogs.ts` (preloaded by `bunfig.toml`) hides log output; run with `SANCTUARY_TEST_LOGS=1` to see it.
+* Any new ERROR/WARN line or Vite warning is a real regression. Fix the cause; don't filter it. The only filtered warning is zod's harmless `INVALID_ANNOTATION`. Keep app chunks under 500 kB: libraries go in the `vendor`, `three` or `chess` manual chunks in `vite.config.ts`.
+
+### Verifying live multiplayer for real
+* Unit tests are not enough for live tables: verify in two browsers on **different origins** (`https://web-chess-app.netlify.app` and `https://main--web-chess-app.netlify.app` share one build but keep separate storage and guest identities).
+* Open both by link (`/?session=<PREFIX>-<CODE>`), not only through the in-game Live tab. The link path is the one real players use, and it once left tables with no host.
+* Production hides console logs, so inspect server state directly: anonymous `GET /api/collections/tbl_arcade_tables/records?filter=session_code="<CODE>"` shows the public snapshot (secrets must be placeholders), and superuser reads of `tbl_arcade_events` show what each participant published.
+* The Chrome extension cannot screenshot the second origin. Drive it with JS (set `#arcade-join-player-name-input`, click `#btn-arcade-confirm-join`, read `innerText`). Select buttons by id, not by text: "Deal" also matches the "vs Dealer" tab.
+* Still to verify in two browsers: Skip-Bo and Phase 10 (they share Uno's tested policy code).
+
+### Engine & UI gotchas
+* The single-seat and multi-seat Blackjack engines name their stages differently (`player-turn` vs `player-turns`). Never gate display logic on a stage string shared between them; prefer card properties such as `faceUp`.
+* Hidden placeholders (`HIDDEN_CARD`) have `faceUp: false` and no rank. Any UI that sums or parses cards must skip face-down cards.
+* Seat takeovers: per-person scores (SET) reset when a human claims a bot's seat; card hands are inherited. Decide per game, and test it.
+
+### Local dev quirks
+* Two-tab local tests need separate origins (`localhost` and `127.0.0.1`). PocketHost-mode local testing uses `*.lvh.me` over HTTP, where `crypto.subtle` is unavailable.
+* Kill dev servers with `lsof -ti tcp:PORT -sTCP:LISTEN`; without `-sTCP:LISTEN` you also kill Vite through its proxy socket.
+
+### Known limits (Option A) and the next step
+* The host's browser still holds every secret because it runs the bots. If the host leaves, the table stalls, and a host who returns by link instead of reloading starts a new game.
+* The planned fix is **Option B**: move the engines into PocketBase hooks so the server is authoritative. That closes the host gap, keeps bots running without a host, and ends SET claim races.
 
 ## 📋 Pre-Completion Checklist
 
 - [ ] `bun run test:coverage` passes with 0 failures and 100% line/branch coverage on touched files.
-- [ ] `bun run typecheck` reports 0 errors and `bun run build` succeeds.
+- [ ] `bun run typecheck` reports 0 errors and `bun run build` succeeds, with no ERROR/WARN lines or build warnings in a passing run.
 - [ ] `git diff` contains no secrets, tokens, or credentials.
 - [ ] RC# bumped in `package.json` and documented in `CHANGELOG.md` (behavior changes only).
 - [ ] Commit timestamp is off-hours Central Time (Rule 14).
