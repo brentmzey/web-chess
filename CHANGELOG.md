@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.3] - 2026-10-30
+### Fixed
+- **Solitaire on phones**: seven columns of minimum-size cards (75px) did not fit a 390px screen, so the columns piled on top of one another and the last foundation was clipped. On phone widths the cards and slots are now sized from the screen width (`cqw`), with a lighter card face, so the whole table fits with no sideways scroll.
+
+### Changed
+- Solitaire rules now explain the controls (tap to select, tap again to send home, foundation cards can come back down) and the win condition.
+
 ## [1.5.0-rc.2] - 2026-10-30
 ### Fixed
 - **Solitaire was hard to play on laptop and desktop screens**: every buried card showed a fixed 4.75rem strip, so columns grew taller than the screen and slid under the action buttons, while stacked face-up cards were too thin to read or click on phones. Face-down cards now show a thin edge and face-up cards show their rank and suit corner, sized to the card on every screen.

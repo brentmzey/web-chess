@@ -176,8 +176,11 @@ canvas:active {
 }
 
 /* Tableau fan: a face-down card shows a thin edge, a face-up card shows its rank and suit corner */
-.solitaire-col {
+.felt-solitaire {
   --sol-card-h: clamp(7.5rem, 11.8vw, 10.25rem);
+}
+
+.solitaire-col {
   --sol-fan-down: 0.9rem;
   --sol-fan-up: clamp(1.75rem, 2.4vw, 2.2rem);
 }
@@ -320,10 +323,39 @@ canvas:active {
 }
 
 @media (max-width: 639px) {
+  /* Seven tableau columns must fit side by side, so phone cards are sized from the theater width
+     (cqw: .arcade-theater-main is the container) minus board padding and the six column gaps */
+  .felt-solitaire {
+    --sol-card-w: min(5.15rem, calc((100cqw - 5rem) / 7));
+    --sol-card-h: calc(var(--sol-card-w) * 1.4);
+  }
+
+  .felt-solitaire .solitaire-slot,
+  .felt-solitaire .playing-card-ui {
+    width: var(--sol-card-w);
+    height: var(--sol-card-h);
+    min-width: 0;
+    min-height: 0;
+    padding: 0.2rem 0.25rem;
+    border-radius: 0.55rem;
+  }
+
+  .felt-solitaire .playing-card-corner {
+    font-size: 0.85rem;
+  }
+
+  .felt-solitaire .playing-card-center {
+    font-size: 1.35rem;
+  }
+
+  /* The mirrored bottom corner only crowds a small card */
+  .felt-solitaire .playing-card-corner.rotate-180 {
+    display: none;
+  }
+
   .solitaire-col {
-    --sol-card-h: clamp(6.15rem, 27.5vw, 7.35rem);
-    --sol-fan-down: 0.7rem;
-    --sol-fan-up: 1.6rem;
+    --sol-fan-down: 0.55rem;
+    --sol-fan-up: 1.3rem;
   }
 
   .playing-card-ui {

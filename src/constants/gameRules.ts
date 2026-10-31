@@ -144,6 +144,8 @@ export const ARCADE_GAME_RULES: Readonly<Record<string, GameRuleInfo>> = Object.
       'The 4 Foundations build upwards in suit from Ace to King (Ace -> 2 -> 3 ... King).',
       'Draw cards from the Stock pile into the Waste pile when you need more options. When the Stock is exhausted, recycle the Waste back into the Stock.',
       'Only Kings (or card stacks led by a King) may be placed into empty Tableau spaces.',
+      'Controls: tap a card (or a face-up run) to select it, then tap where it should go. Tap a selected card again to send it to its Foundation. A Foundation\'s top card can come back down onto the Tableau (-15 pts).',
+      'You win when all 52 cards are on the Foundations. Auto-Foundation moves every eligible card for you; Undo steps back one move.',
       'Live multiplayer spectator mode enables friends to watch the match in real time over SSE without interfering.'
     ],
     officialUrl: 'https://en.wikipedia.org/wiki/Klondike_(solitaire)',
