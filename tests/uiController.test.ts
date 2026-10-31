@@ -384,6 +384,19 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['status-banner']?.classList.contains('hidden')).toBe(true);
   });
 
+  it('shows temporary messages in the app toast above game theaters when the page has one', async () => {
+    domElements['app-toast'] = new MockElement();
+    domElements['app-toast-text'] = new MockElement();
+    domElements['app-toast']!.classList.add('hidden');
+    const ui = new UIController();
+    ui.showTemporaryBanner('Only an Ace can start a foundation.', 5);
+    expect(domElements['app-toast-text']?.textContent).toBe('Only an Ace can start a foundation.');
+    expect(domElements['app-toast']?.classList.contains('hidden')).toBe(false);
+    expect(domElements['status-banner-text']?.textContent).not.toBe('Only an Ace can start a foundation.');
+    await new Promise(resolve => setTimeout(resolve, 15));
+    expect(domElements['app-toast']?.classList.contains('hidden')).toBe(true);
+  });
+
   it('controls Live Multiplayer Session modal, tab switching, and error displays', () => {
     const ui = new UIController();
 

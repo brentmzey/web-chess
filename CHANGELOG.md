@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.5] - 2026-10-30
+### Fixed
+- **Messages were invisible inside every arcade game**: `showTemporaryBanner` wrote into the chess HUD, which sits below the game theaters (z-index 20 vs 50). Refusals ("Only an Ace can start a foundation."), prompts ("Tap New Game again…") and live-table notices in all eight card games were never seen, so refused moves looked like the game ignoring you. Messages now appear in a dedicated app toast (`#app-toast`, z-index 60) above every theater and modal, announced to screen readers.
+
 ## [1.5.0-rc.4] - 2026-10-30
 ### Fixed
 - **Solitaire foundations**: each of the four foundation spaces was locked to one suit, so an Ace clicked onto the "wrong" space did nothing. As in real Klondike, any Ace now starts any empty space (the one you click, or the leftmost free one for tap-twice and Auto-Foundation), and that space then builds that suit to King. Sending the Ace back down frees the space. Spaces are kept in undo, saved games (older saves are rebuilt) and live spectator tables.

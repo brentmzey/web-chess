@@ -69,6 +69,8 @@ export interface UIControllerElements {
   readonly mobileLiteBannerText: Option<HTMLElement>;
   readonly statusBanner: Option<HTMLElement>;
   readonly statusBannerText: Option<HTMLElement>;
+  readonly appToast: Option<HTMLElement>;
+  readonly appToastText: Option<HTMLElement>;
   readonly capturedByWhite: Option<HTMLElement>;
   readonly capturedByBlack: Option<HTMLElement>;
   readonly shatteredBlackList: Option<HTMLElement>;
@@ -184,6 +186,8 @@ export function buildUIControllerElements(overrides?: Readonly<Partial<UIControl
     mobileLiteBannerText: domById('mobile-lite-banner-text'),
     statusBanner: domById('status-banner'),
     statusBannerText: domById('status-banner-text'),
+    appToast: domById('app-toast'),
+    appToastText: domById('app-toast-text'),
     capturedByWhite: domById('captured-by-white'),
     capturedByBlack: domById('captured-by-black'),
     shatteredBlackList: domById('shattered-black-list'),
@@ -636,13 +640,19 @@ export class UIController {
 
   public showTemporaryBanner(message: string,
                              durationMs: number = 3200): void {
-    zipOptions(this.el.statusBanner, this.el.statusBannerText).map(([statusBanner, statusBannerText]) => {
-      statusBannerText.textContent = message;
-      statusBanner.classList.remove('hidden');
-      setTimeout(() => {
-        statusBanner.classList.add('hidden');
-      }, durationMs);
-    });
+    // The app toast sits above the game theaters; the chess HUD banner is the fallback where it is missing
+    zipOptions(this.el.appToast, this.el.appToastText)
+      .match({
+        Some: pair => some(pair),
+        None: () => zipOptions(this.el.statusBanner, this.el.statusBannerText)
+      })
+      .map(([banner, bannerText]: readonly [HTMLElement, HTMLElement]) => {
+        bannerText.textContent = message;
+        banner.classList.remove('hidden');
+        setTimeout(() => {
+          banner.classList.add('hidden');
+        }, durationMs);
+      });
   }
 
   public showLiveSessionModal(): void {

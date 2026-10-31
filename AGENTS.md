@@ -145,6 +145,7 @@ Hard-won lessons from earlier sessions. Read them before working on live tables,
 ### Engine & UI gotchas
 * The single-seat and multi-seat Blackjack engines name their stages differently (`player-turn` vs `player-turns`). Never gate display logic on a stage string shared between them; prefer card properties such as `faceUp`.
 * Hidden placeholders (`HIDDEN_CARD`) have `faceUp: false` and no rank. Any UI that sums or parses cards must skip face-down cards.
+* Player-facing notices go through `ui.showTemporaryBanner`, which renders in `#app-toast` above the theaters (z-[60]). Never show arcade messages in the chess HUD (z-20); theaters (z-50) cover it.
 * Seat takeovers: per-person scores (SET) reset when a human claims a bot's seat; card hands are inherited. Decide per game, and test it.
 
 ### Local dev quirks

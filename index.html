@@ -34,6 +34,11 @@
     </div>
 
     <!-- TOP HUD: Minimalist Material Design 3 Cathedral Header & Turn Pill -->
+    <!-- App-wide notices: above every game theater and modal so refused moves and prompts are always seen -->
+    <div id="app-toast" role="status" aria-live="polite" class="hidden fixed top-3 sm:top-4 left-1/2 -translate-x-1/2 z-[60] pointer-events-none max-w-[92%] px-4 py-2 rounded-full bg-stone-950/90 border border-amber-300/60 text-amber-100 text-xs sm:text-sm font-bold text-center shadow-[0_0_24px_rgba(0,0,0,0.6)]">
+        <span id="app-toast-text"></span>
+    </div>
+
     <header class="fixed top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 pointer-events-none w-[96%] max-w-3xl">
         <div class="md3-glass px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full flex items-center justify-between gap-2.5 sm:gap-5 pointer-events-auto w-full sm:w-auto">
             <!-- Basilica Title & Info -->
