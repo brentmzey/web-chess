@@ -34,27 +34,14 @@ export interface NavigatorWithWakeLock {
 }
 
 /**
- * Minimal Document interface for visibility and element lookup.
+ * Minimal Document interface for visibility and lifecycle listener registration.
  */
 export interface DocumentWithVisibility {
   readonly visibilityState: DocumentVisibilityState;
-  getElementById?(elementId: string): HTMLElement | null;
   addEventListener(type: string,
                    listener: EventListenerOrEventListenerObject): void;
   removeEventListener(type: string,
                       listener: EventListenerOrEventListenerObject): void;
-}
-
-/**
- * Minimal Window interface for coordinate bounds, dispatching, and timing.
- */
-export interface WindowWithMotion {
-  readonly innerWidth?: number;
-  readonly innerHeight?: number;
-  setInterval?(handler: TimerHandler,
-               timeout?: number): number;
-  clearInterval?(id: number): void;
-  dispatchEvent?(event: Event): boolean;
 }
 
 /**
@@ -71,19 +58,15 @@ export class ScreenWakeLockManager {
   private readonly listeners: Set<(active: boolean) => void> = new Set();
   private readonly visibilityHandler: () => void;
   private readonly releaseHandler: () => void;
-  private motionTimer: Option<number> = none();
-  private currentCoord: Option<{ readonly x: number; readonly y: number }> = none();
 
   constructor(private readonly nav: NavigatorWithWakeLock = typeof navigator !== 'undefined' ? (navigator as unknown as NavigatorWithWakeLock) : {},
               private readonly doc: DocumentWithVisibility = typeof document !== 'undefined' ? (document as unknown as DocumentWithVisibility) : ({ visibilityState: 'visible', addEventListener: () => {}, removeEventListener: () => {} }),
-              onStateChange?: (active: boolean) => void,
-              private readonly win: Option<WindowWithMotion> = fromNullable(typeof window !== 'undefined' ? (window as unknown as WindowWithMotion) : null)) {
+              onStateChange?: (active: boolean) => void) {
     if (onStateChange) {
       this.listeners.add(onStateChange);
     }
 
     this.releaseHandler = () => {
-      this.stopMotion();
       this.sentinel = none();
       this.notify(false);
     };
@@ -124,103 +107,6 @@ export class ScreenWakeLockManager {
     return this.requestedByUser;
   }
 
-  public getMotionElement(): Option<HTMLElement> {
-    return fromNullable(this.doc.getElementById).flatMap(getEl =>
-      fromNullable(getEl.call(this.doc, 'screen-wake-pointer'))
-    );
-  }
-
-  public getViewportBounds(): { readonly width: number; readonly height: number } {
-    return this.win
-      .map(w => ({
-        width: fromNullable(w.innerWidth).getOrElse(1280),
-        height: fromNullable(w.innerHeight).getOrElse(800)
-      }))
-      .getOrElse({ width: 1280, height: 800 });
-  }
-
-  public nextMotionCoordinates(): { readonly x: number; readonly y: number } {
-    const bounds = this.getViewportBounds();
-    const margin = 32;
-    const maxX = Math.max(margin, bounds.width - margin);
-    const maxY = Math.max(margin, bounds.height - margin);
-
-    return this.currentCoord.fold(
-      () => {
-        const initial = {
-          x: Math.round(bounds.width * 0.45),
-          y: Math.round(bounds.height * 0.45)
-        };
-        this.currentCoord = some(initial);
-        return initial;
-      },
-      prev => {
-        const deltaX = (Math.random() - 0.48) * 120;
-        const deltaY = (Math.random() - 0.48) * 90;
-        const nextX = Math.min(maxX, Math.max(margin, Math.round(prev.x + deltaX)));
-        const nextY = Math.min(maxY, Math.max(margin, Math.round(prev.y + deltaY)));
-        const next = { x: nextX, y: nextY };
-        this.currentCoord = some(next);
-        return next;
-      }
-    );
-  }
-
-  public stepMotion(): void {
-    const coords = this.nextMotionCoordinates();
-
-    this.getMotionElement().map(el => {
-      el.classList.remove('hidden');
-      el.style.transform = `translate3d(${coords.x}px, ${coords.y}px, 0)`;
-    });
-
-    this.win.map(w => {
-      fromNullable(w.dispatchEvent).map(dispatch => {
-        try {
-          const evt = typeof MouseEvent !== 'undefined'
-            ? new MouseEvent('mousemove', {
-                clientX: coords.x,
-                clientY: coords.y,
-                bubbles: true
-              })
-            : new Event('mousemove');
-          dispatch.call(w, evt);
-        } catch {
-          // Graceful fallback for non-DOM environments
-        }
-      });
-    });
-  }
-
-  public startMotion(intervalMs: number = 2400): void {
-    this.stopMotion();
-    this.stepMotion();
-
-    this.win.map(w => {
-      fromNullable(w.setInterval).map(setIntervalFn => {
-        const timerId = setIntervalFn.call(w, () => {
-          this.stepMotion();
-        }, intervalMs);
-        this.motionTimer = some(timerId);
-      });
-    });
-  }
-
-  public stopMotion(): void {
-    this.motionTimer.map(id => {
-      this.win.map(w => {
-        fromNullable(w.clearInterval).map(clearIntervalFn => {
-          clearIntervalFn.call(w, id);
-        });
-      });
-    });
-    this.motionTimer = none();
-
-    this.getMotionElement().map(el => {
-      el.classList.add('hidden');
-    });
-  }
-
   /**
    * Requests a screen wake lock from the browser.
    * If unsupported or rejected by permission/OS policy, returns a Failure with error.
@@ -232,7 +118,6 @@ export class ScreenWakeLockManager {
       false: async () => failure(new Error('Screen Wake Lock API is not supported in this browser')),
       true: async () => {
         if (this.isActive()) {
-          this.startMotion();
           return success(true);
         }
 
@@ -245,13 +130,11 @@ export class ScreenWakeLockManager {
             sentinel.addEventListener('release', this.releaseHandler);
           }
 
-          this.startMotion();
           this.notify(true);
           return success(true);
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err));
           this.sentinel = none();
-          this.stopMotion();
           this.notify(false);
           return failure(error);
         }
@@ -264,7 +147,6 @@ export class ScreenWakeLockManager {
    */
   public async release(): Promise<Result<boolean, Error>> {
     this.requestedByUser = false;
-    this.stopMotion();
 
     return this.sentinel.fold(
       async () => success(false),
@@ -303,11 +185,7 @@ export class ScreenWakeLockManager {
     if (this.doc.visibilityState === 'visible') {
       if (this.requestedByUser && !this.isActive()) {
         await this.request();
-      } else if (this.isActive()) {
-        this.startMotion();
       }
-    } else {
-      this.stopMotion();
     }
   }
 
@@ -330,7 +208,6 @@ export class ScreenWakeLockManager {
       this.doc.removeEventListener('visibilitychange', this.visibilityHandler);
     }
     this.listeners.clear();
-    this.stopMotion();
     void this.release();
   }
 

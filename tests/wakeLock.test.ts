@@ -4,10 +4,8 @@ import {
   type DocumentWithVisibility,
   type NavigatorWithWakeLock,
   type WakeLockLike,
-  type WakeLockSentinelLike,
-  type WindowWithMotion
+  type WakeLockSentinelLike
 } from '../src/utils/wakeLock';
-import { none, some } from '../src/utils/fp';
 
 class MockWakeLockSentinel extends EventTarget implements WakeLockSentinelLike {
   public released: boolean = false;
@@ -42,24 +40,9 @@ class MockWakeLock implements WakeLockLike {
   }
 }
 
-class MockMotionElement {
-  public classList = {
-    classes: new Set<string>(['hidden']),
-    add: (...cls: string[]) => cls.forEach(c => this.classList.classes.add(c)),
-    remove: (...cls: string[]) => cls.forEach(c => this.classList.classes.delete(c)),
-    contains: (c: string) => this.classList.classes.has(c)
-  };
-  public style: Record<string, string> = {};
-}
-
 class MockDocument implements DocumentWithVisibility {
   public visibilityState: DocumentVisibilityState = 'visible';
-  public elements: Map<string, any> = new Map();
   private readonly listeners: Map<string, Set<EventListenerOrEventListenerObject>> = new Map();
-
-  public getElementById(id: string): any {
-    return this.elements.get(id) ?? null;
-  }
 
   public addEventListener(type: string,
                           listener: EventListenerOrEventListenerObject): void {
@@ -90,54 +73,20 @@ class MockDocument implements DocumentWithVisibility {
   }
 }
 
-class MockWindow implements WindowWithMotion {
-  public innerWidth: number = 1024;
-  public innerHeight: number = 768;
-  public intervals: Map<number, { fn: () => void; timeout?: number }> = new Map();
-  public nextId: number = 1;
-  public dispatchedEvents: Event[] = [];
-
-  public setInterval(handler: TimerHandler, timeout?: number): number {
-    const id = this.nextId++;
-    if (typeof handler === 'function') {
-      this.intervals.set(id, { fn: handler as () => void, timeout });
-    }
-    return id;
-  }
-
-  public clearInterval(id: number): void {
-    this.intervals.delete(id);
-  }
-
-  public dispatchEvent(event: Event): boolean {
-    this.dispatchedEvents.push(event);
-    return true;
-  }
-
-  public tickAllIntervals(): void {
-    this.intervals.forEach(item => item.fn());
-  }
-}
-
-describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook Mode)', () => {
+describe('ScreenWakeLockManager Functional Service (Cook Mode Display Wake Lock)', () => {
   let mockWl: MockWakeLock;
   let mockNav: NavigatorWithWakeLock;
   let mockDoc: MockDocument;
-  let mockWin: MockWindow;
-  let mockElement: MockMotionElement;
 
   beforeEach(() => {
     mockWl = new MockWakeLock();
     mockNav = { wakeLock: mockWl };
     mockDoc = new MockDocument();
-    mockWin = new MockWindow();
-    mockElement = new MockMotionElement();
-    mockDoc.elements.set('screen-wake-pointer', mockElement);
   });
 
   it('detects when Screen Wake Lock API is not supported', async () => {
     const unsupportedNav: NavigatorWithWakeLock = {};
-    const manager = new ScreenWakeLockManager(unsupportedNav, mockDoc, undefined, some(mockWin));
+    const manager = new ScreenWakeLockManager(unsupportedNav, mockDoc);
 
     expect(manager.isSupported()).toBe(false);
     expect(manager.isActive()).toBe(false);
@@ -154,13 +103,18 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
     expect(toggleResult.isFailure()).toBe(true);
   });
 
-  it('successfully acquires, verifies active state, and activates pointer motion', async () => {
+  it('detects when wakeLock object exists but request is not a function', () => {
+    const invalidNav: NavigatorWithWakeLock = { wakeLock: {} as any };
+    const manager = new ScreenWakeLockManager(invalidNav, mockDoc);
+    expect(manager.isSupported()).toBe(false);
+  });
+
+  it('successfully acquires and verifies active state with subscriber notifications', async () => {
     const stateNotifications: boolean[] = [];
     const manager = new ScreenWakeLockManager(
       mockNav,
       mockDoc,
-      active => stateNotifications.push(active),
-      some(mockWin)
+      active => stateNotifications.push(active)
     );
 
     expect(manager.isSupported()).toBe(true);
@@ -172,46 +126,46 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
     expect(manager.isRequested()).toBe(true);
     expect(stateNotifications).toEqual([true]);
 
-    // Motion element is revealed and positioned
-    expect(mockElement.classList.contains('hidden')).toBe(false);
-    expect(mockElement.style.transform).toContain('translate3d');
-    expect(mockWin.dispatchedEvents.length).toBeGreaterThan(0);
-    expect(mockWin.intervals.size).toBe(1);
-
-    // Subsequent tick updates coordinates and dispatches event
-    const prevTransform = mockElement.style.transform;
-    expect(prevTransform).toContain('translate3d');
-    mockWin.tickAllIntervals();
-    expect(mockElement.style.transform).toBeDefined();
-
-    // Subsequent request when already active returns true idempotently
+    // Subsequent request when already active returns true idempotently without duplicate requests
     const secondReq = await manager.request();
     expect(secondReq.isSuccess()).toBe(true);
     expect(stateNotifications).toEqual([true]);
   });
 
-  it('releases screen wake lock cleanly, stops pointer motion, and notifies listeners', async () => {
+  it('handles sentinel without addEventListener gracefully upon request', async () => {
+    const sentinelWithoutListener: WakeLockSentinelLike = {
+      released: false,
+      type: 'screen',
+      release: async () => {},
+      onrelease: null,
+      addEventListener: undefined as any,
+      removeEventListener: undefined as any,
+      dispatchEvent: () => true
+    };
+    const customNav: NavigatorWithWakeLock = {
+      wakeLock: {
+        request: async () => sentinelWithoutListener
+      }
+    };
+    const manager = new ScreenWakeLockManager(customNav, mockDoc);
+    const res = await manager.request();
+    expect(res.isSuccess()).toBe(true);
+    expect(manager.isActive()).toBe(true);
+  });
+
+  it('releases screen wake lock cleanly and notifies listeners', async () => {
     const stateNotifications: boolean[] = [];
-    const manager = new ScreenWakeLockManager(
-      mockNav,
-      mockDoc,
-      undefined,
-      some(mockWin)
-    );
+    const manager = new ScreenWakeLockManager(mockNav, mockDoc);
     const unsubscribe = manager.subscribe(active => stateNotifications.push(active));
 
     await manager.request();
     expect(manager.isActive()).toBe(true);
-    expect(mockElement.classList.contains('hidden')).toBe(false);
-    expect(mockWin.intervals.size).toBe(1);
 
     const relResult = await manager.release();
     expect(relResult.isSuccess()).toBe(true);
     expect(manager.isActive()).toBe(false);
     expect(manager.isRequested()).toBe(false);
     expect(stateNotifications).toEqual([true, false]);
-    expect(mockElement.classList.contains('hidden')).toBe(true);
-    expect(mockWin.intervals.size).toBe(0);
 
     // Releasing again when inactive is idempotent
     const relSecond = await manager.release();
@@ -219,11 +173,11 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
 
     unsubscribe();
     await manager.request();
-    expect(stateNotifications).toEqual([true, false]); // Listener stopped receiving
+    expect(stateNotifications).toEqual([true, false]); // Listener unsubscribed
   });
 
   it('swallows and cleans up sentinel release exceptions gracefully', async () => {
-    const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(mockWin));
+    const manager = new ScreenWakeLockManager(mockNav, mockDoc);
     await manager.request();
     expect(manager.isActive()).toBe(true);
 
@@ -236,53 +190,71 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
     expect(manager.isActive()).toBe(false);
   });
 
+  it('handles sentinel without removeEventListener gracefully on release', async () => {
+    const customSentinel: WakeLockSentinelLike = {
+      released: false,
+      type: 'screen',
+      release: async () => {},
+      onrelease: null,
+      addEventListener: () => {},
+      removeEventListener: undefined as any,
+      dispatchEvent: () => true
+    };
+    const customNav: NavigatorWithWakeLock = {
+      wakeLock: {
+        request: async () => customSentinel
+      }
+    };
+    const manager = new ScreenWakeLockManager(customNav, mockDoc);
+    await manager.request();
+    expect(manager.isActive()).toBe(true);
+
+    const relRes = await manager.release();
+    expect(relRes.isSuccess()).toBe(true);
+    expect(manager.isActive()).toBe(false);
+  });
+
   it('handles toggle() between active and released states', async () => {
-    const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(mockWin));
+    const manager = new ScreenWakeLockManager(mockNav, mockDoc);
 
     // Toggle 1: OFF -> ON
     const toggleOn = await manager.toggle();
     expect(toggleOn.isSuccess()).toBe(true);
     expect(manager.isActive()).toBe(true);
-    expect(mockElement.classList.contains('hidden')).toBe(false);
 
     // Toggle 2: ON -> OFF
     const toggleOff = await manager.toggle();
     expect(toggleOff.isSuccess()).toBe(true);
     expect(manager.isActive()).toBe(false);
-    expect(mockElement.classList.contains('hidden')).toBe(true);
   });
 
-  it('automatically handles external sentinel release events and halts motion', async () => {
+  it('automatically handles external sentinel release events', async () => {
     const stateNotifications: boolean[] = [];
     const manager = new ScreenWakeLockManager(
       mockNav,
       mockDoc,
-      active => stateNotifications.push(active),
-      some(mockWin)
+      active => stateNotifications.push(active)
     );
 
     await manager.request();
     expect(manager.isActive()).toBe(true);
-    expect(mockElement.classList.contains('hidden')).toBe(false);
 
     // Simulate browser / OS releasing the sentinel (e.g. low battery / backgrounding)
     await mockWl.lastCreatedSentinel!.release();
 
     expect(manager.isActive()).toBe(false);
     expect(stateNotifications).toEqual([true, false]);
-    expect(mockElement.classList.contains('hidden')).toBe(true);
   });
 
-  it('auto-restores wake lock and motion on document visibilitychange when visible and previously requested', async () => {
-    const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(mockWin));
+  it('auto-restores wake lock on document visibilitychange when visible and previously requested', async () => {
+    const manager = new ScreenWakeLockManager(mockNav, mockDoc);
 
     await manager.request();
     expect(manager.isActive()).toBe(true);
 
-    // Simulate tab hidden -> halts motion and OS releases sentinel
+    // Simulate tab hidden -> OS releases sentinel
     mockDoc.visibilityState = 'hidden';
     mockDoc.triggerVisibilityChange('hidden');
-    expect(mockElement.classList.contains('hidden')).toBe(true);
 
     await mockWl.lastCreatedSentinel!.release();
     expect(manager.isActive()).toBe(false);
@@ -293,30 +265,10 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
     await manager.handleVisibilityChange();
 
     expect(manager.isActive()).toBe(true);
-    expect(mockElement.classList.contains('hidden')).toBe(false);
-
-    // Request when already active returns success and maintains motion
-    const dupReq = await manager.request();
-    expect(dupReq.isSuccess()).toBe(true);
   });
 
-  it('resumes motion if visibility changes to visible when already active', async () => {
-    const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(mockWin));
-    await manager.request();
-    expect(manager.isActive()).toBe(true);
-
-    // Stop motion directly
-    manager.stopMotion();
-    expect(mockElement.classList.contains('hidden')).toBe(true);
-
-    // Visibility change while active restarts motion
-    mockDoc.visibilityState = 'visible';
-    await manager.handleVisibilityChange();
-    expect(mockElement.classList.contains('hidden')).toBe(false);
-  });
-
-  it('does NOT auto-restore wake lock on visibilitychange if user explicitly released it', async () => {
-    const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(mockWin));
+  it('does NOT auto-restore wake lock on visibilitychange if user explicitly released it or tab is hidden', async () => {
+    const manager = new ScreenWakeLockManager(mockNav, mockDoc);
 
     await manager.request();
     await manager.release();
@@ -326,10 +278,24 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
     await Promise.resolve();
 
     expect(manager.isActive()).toBe(false);
-    expect(mockElement.classList.contains('hidden')).toBe(true);
+
+    // When hidden, handleVisibilityChange does nothing
+    mockDoc.visibilityState = 'hidden';
+    await manager.handleVisibilityChange();
+    expect(manager.isActive()).toBe(false);
   });
 
-  it('catches and reports wakeLock.request rejection gracefully and stops motion', async () => {
+  it('does NOT duplicate request on visibilitychange if already active', async () => {
+    const manager = new ScreenWakeLockManager(mockNav, mockDoc);
+    await manager.request();
+    expect(manager.isActive()).toBe(true);
+
+    mockDoc.visibilityState = 'visible';
+    await manager.handleVisibilityChange();
+    expect(manager.isActive()).toBe(true);
+  });
+
+  it('catches and reports wakeLock.request rejection gracefully', async () => {
     mockWl.shouldReject = true;
     mockWl.rejectError = new Error('Device policy forbids display wake lock');
 
@@ -337,8 +303,7 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
     const manager = new ScreenWakeLockManager(
       mockNav,
       mockDoc,
-      active => stateNotifications.push(active),
-      some(mockWin)
+      active => stateNotifications.push(active)
     );
 
     const res = await manager.request();
@@ -350,7 +315,6 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
 
     expect(manager.isActive()).toBe(false);
     expect(stateNotifications).toEqual([false]);
-    expect(mockElement.classList.contains('hidden')).toBe(true);
   });
 
   it('catches non-Error thrown objects during request', async () => {
@@ -358,7 +322,7 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
       throw 'Plain string rejection';
     };
 
-    const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(mockWin));
+    const manager = new ScreenWakeLockManager(mockNav, mockDoc);
     const res = await manager.request();
     expect(res.isFailure()).toBe(true);
     res.match({
@@ -367,15 +331,13 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
     });
   });
 
-  it('cleans up event listeners, stops motion, and releases sentinel upon destroy()', async () => {
-    const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(mockWin));
+  it('cleans up event listeners and releases sentinel upon destroy()', async () => {
+    const manager = new ScreenWakeLockManager(mockNav, mockDoc);
     await manager.request();
     expect(manager.isActive()).toBe(true);
-    expect(mockElement.classList.contains('hidden')).toBe(false);
 
     manager.destroy();
     expect(manager.isActive()).toBe(false);
-    expect(mockElement.classList.contains('hidden')).toBe(true);
 
     // Triggering visibilitychange after destroy does nothing
     mockDoc.triggerVisibilityChange('visible');
@@ -383,8 +345,18 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
     expect(manager.isActive()).toBe(false);
   });
 
+  it('handles documents without removeEventListener on destroy()', () => {
+    const noRemoveDoc: DocumentWithVisibility = {
+      visibilityState: 'visible',
+      addEventListener: () => {},
+      removeEventListener: undefined as any
+    };
+    const manager = new ScreenWakeLockManager(mockNav, noRemoveDoc);
+    expect(() => manager.destroy()).not.toThrow();
+  });
+
   it('is resilient against listener exceptions in notify()', async () => {
-    const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(mockWin));
+    const manager = new ScreenWakeLockManager(mockNav, mockDoc);
     manager.subscribe(() => {
       throw new Error('Exploding listener');
     });
@@ -394,53 +366,15 @@ describe('ScreenWakeLockManager Functional Service (Serious Eats / Recipe Cook M
     expect(res.isSuccess()).toBe(true);
   });
 
-  it('instantiates safely with fallback / default constructor args and handles absent motion element', () => {
+  it('instantiates safely with fallback / default constructor args', () => {
     const emptyDoc: DocumentWithVisibility = {
       visibilityState: 'visible',
-      addEventListener: () => {},
+      addEventListener: undefined as any,
       removeEventListener: () => {}
     };
-    const manager = new ScreenWakeLockManager({}, emptyDoc, undefined, none());
+    const manager = new ScreenWakeLockManager({}, emptyDoc);
     expect(typeof manager.isSupported).toBe('function');
     expect(typeof manager.isActive).toBe('function');
     expect(manager.isActive()).toBe(false);
-
-    // Motion steps gracefully with no window and no element
-    manager.stepMotion();
-    expect(manager.getViewportBounds()).toEqual({ width: 1280, height: 800 });
-  });
-
-  it('handles window dispatch errors gracefully in stepMotion', () => {
-    const throwingWin: WindowWithMotion = {
-      innerWidth: 500,
-      innerHeight: 400,
-      dispatchEvent: () => {
-        throw new Error('Dispatch error');
-      }
-    };
-    const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(throwingWin));
-    // Should not throw
-    manager.stepMotion();
-  });
-
-  it('constructs MouseEvent when MouseEvent constructor is available in global scope', () => {
-    const originalMouseEvent = (globalThis as any).MouseEvent;
-    try {
-      (globalThis as any).MouseEvent = class MockMouseEvent extends Event {
-        public clientX: number;
-        public clientY: number;
-        constructor(type: string, init?: any) {
-          super(type);
-          this.clientX = init?.clientX ?? 0;
-          this.clientY = init?.clientY ?? 0;
-        }
-      };
-
-      const manager = new ScreenWakeLockManager(mockNav, mockDoc, undefined, some(mockWin));
-      manager.stepMotion();
-      expect(mockWin.dispatchedEvents.length).toBeGreaterThan(0);
-    } finally {
-      (globalThis as any).MouseEvent = originalMouseEvent;
-    }
   });
 });
