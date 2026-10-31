@@ -7,6 +7,8 @@ import {
   isOppositeColor,
   isTableauRun,
   CARD_NUMERIC_RANK,
+  claimFoundationSlot,
+  deriveFoundationSlots,
   generateStandardDeck,
   shuffleDeck
 } from '../src/games/solitaire/solitaireEngine';
@@ -497,5 +499,72 @@ describe('Cathedral Solitaire Engine - Pure Functional Klondike & Spectator Logi
         }
       }
     }
+  });
+
+  it('lets any Ace start any empty foundation space, the way real Klondike does', () => {
+    const card = (suit: CardSuitEnum, value: CardValueEnum): PlayingCard => ({ suit, value, faceUp: true });
+    const engine = new CathedralSolitaireEngine();
+    expect(engine.state.foundationSlots).toEqual([null, null, null, null]);
+
+    // The Ace of Clubs starts the third space because that is where the player put it
+    (engine.state as any).waste = [card(CardSuitEnum.Clubs, CardValueEnum.Ace)];
+    expect(engine.moveWasteToFoundation(undefined, 2).isSuccess()).toBe(true);
+    expect(engine.state.foundationSlots).toEqual([null, null, CardSuitEnum.Clubs, null]);
+
+    // Only an Ace starts a space, and a space building clubs refuses another suit
+    (engine.state as any).waste = [card(CardSuitEnum.Hearts, CardValueEnum.Two)];
+    expect(engine.moveWasteToFoundation(undefined, 0).match({ Ok: () => '', Err: e => e })).toBe('Only an Ace can start a foundation.');
+    (engine.state as any).waste = [card(CardSuitEnum.Hearts, CardValueEnum.Ace)];
+    expect(engine.moveWasteToFoundation(undefined, 2).match({ Ok: () => '', Err: e => e })).toContain('That foundation is building clubs');
+    expect(engine.canUndo()).toBe(true);
+    const undoDepth = (engine as any).undoStack.length;
+
+    // Without a chosen space (auto-move, tap twice) the Ace takes the leftmost free one
+    expect(engine.moveWasteToFoundation().isSuccess()).toBe(true);
+    expect((engine as any).undoStack.length).toBe(undoDepth + 1);
+    expect(engine.state.foundationSlots).toEqual([CardSuitEnum.Hearts, null, CardSuitEnum.Clubs, null]);
+
+    // A tableau Ace may also pick its space; the next club joins the clubs space wherever it was clicked from
+    (engine.state as any).tableau[0] = [card(CardSuitEnum.Spades, CardValueEnum.Ace)];
+    expect(engine.moveTableauToFoundation(0, undefined, 3).isSuccess()).toBe(true);
+    (engine.state as any).tableau[0] = [card(CardSuitEnum.Clubs, CardValueEnum.Two)];
+    expect(engine.moveTableauToFoundation(0, undefined, 1).isFailure()).toBe(true);
+    expect(engine.moveTableauToFoundation(0).isSuccess()).toBe(true);
+    expect(engine.state.foundationSlots).toEqual([CardSuitEnum.Hearts, null, CardSuitEnum.Clubs, CardSuitEnum.Spades]);
+    expect(engine.state.foundations[CardSuitEnum.Clubs].length).toBe(2);
+
+    // Undo puts the space back too, and sending an Ace back down frees its space
+    engine.undo();
+    expect(engine.state.foundations[CardSuitEnum.Clubs].length).toBe(1);
+    (engine.state as any).tableau[4] = [];
+    expect(engine.moveFoundationToTableau(CardSuitEnum.Hearts, 4).isFailure()).toBe(true);
+    (engine.state as any).tableau[4] = [card(CardSuitEnum.Clubs, CardValueEnum.Two)];
+    expect(engine.moveFoundationToTableau(CardSuitEnum.Hearts, 4).isSuccess()).toBe(true);
+    expect(engine.state.foundationSlots).toEqual([null, null, CardSuitEnum.Clubs, CardSuitEnum.Spades]);
+
+    // Spaces survive the wire to spectators and saved games
+    const copy = new CathedralSolitaireEngine();
+    expect(copy.importSnapshot(JSON.parse(JSON.stringify(engine.exportSnapshot()))).isSuccess()).toBe(true);
+    expect(copy.state.foundationSlots).toEqual(engine.state.foundationSlots);
+  });
+
+  it('rebuilds foundation spaces for older saves and rejects inconsistent ones', () => {
+    const ace = (suit: CardSuitEnum): PlayingCard => ({ suit, value: CardValueEnum.Ace, faceUp: true });
+    const foundations = { hearts: [], diamonds: [ace(CardSuitEnum.Diamonds)], clubs: [], spades: [ace(CardSuitEnum.Spades)] } as any;
+    expect(deriveFoundationSlots(foundations)).toEqual([CardSuitEnum.Diamonds, CardSuitEnum.Spades, null, null]);
+    expect(deriveFoundationSlots(foundations, [null, CardSuitEnum.Spades, null, CardSuitEnum.Diamonds]))
+      .toEqual([null, CardSuitEnum.Spades, null, CardSuitEnum.Diamonds]);
+    expect(deriveFoundationSlots(foundations, [CardSuitEnum.Hearts, null, null, null])).toEqual([CardSuitEnum.Diamonds, CardSuitEnum.Spades, null, null]);
+    expect(deriveFoundationSlots(foundations, ['purple', null, null, null])).toEqual([CardSuitEnum.Diamonds, CardSuitEnum.Spades, null, null]);
+    expect(claimFoundationSlot([CardSuitEnum.Clubs, null, null, null], CardSuitEnum.Clubs, 3)).toEqual([CardSuitEnum.Clubs, null, null, null]);
+    expect(claimFoundationSlot([CardSuitEnum.Clubs, null, null, null], CardSuitEnum.Hearts, 0)).toEqual([CardSuitEnum.Clubs, CardSuitEnum.Hearts, null, null]);
+
+    // Taking a card other than the Ace back down keeps the space building its suit
+    const engine = new CathedralSolitaireEngine();
+    (engine.state as any).foundations.clubs = [{ suit: CardSuitEnum.Clubs, value: CardValueEnum.Ace, faceUp: true }, { suit: CardSuitEnum.Clubs, value: CardValueEnum.Two, faceUp: true }];
+    (engine.state as any).foundationSlots = [null, CardSuitEnum.Clubs, null, null];
+    (engine.state as any).tableau[0] = [{ suit: CardSuitEnum.Hearts, value: CardValueEnum.Three, faceUp: true }];
+    expect(engine.moveFoundationToTableau(CardSuitEnum.Clubs, 0).isSuccess()).toBe(true);
+    expect(engine.state.foundationSlots).toEqual([null, CardSuitEnum.Clubs, null, null]);
   });
 });

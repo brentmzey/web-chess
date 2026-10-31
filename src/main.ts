@@ -110,7 +110,8 @@ import {
   type SetCard
 } from './games/set/setEngine';
 import {
-  CathedralSolitaireEngine
+  CathedralSolitaireEngine,
+  FOUNDATION_SLOT_COUNT
 } from './games/solitaire/solitaireEngine';
 import { ArcadeRealtimeClient, POCKETHOST_URL, type ArcadeConnectionStatus, type PrivateSeatState } from './realtime/arcadeRealtimeClient';
 import { exportTableSnapshot, importTableSnapshot, type ArcadeTableSnapshot, type SnapshotableEngine } from './games/multiplayer/tableSnapshot';
@@ -6017,20 +6018,15 @@ function main(): void {
       }
     });
 
-    // 4. Foundations
-    const suits = [CardSuitEnum.Hearts, CardSuitEnum.Diamonds, CardSuitEnum.Clubs, CardSuitEnum.Spades];
-    suits.forEach(suit => {
-      fromNullable(document.getElementById(`solitaire-foundation-${suit}`)).map(el => {
-        const pile = s.foundations[suit];
-        if (pile.length > 0) {
-          const topCard = pile[pile.length - 1]!;
-          const isSelected = selectedSolitaireCard.map(sel => sel.source === 'foundation' && sel.suit === suit).getOrElse(false);
-          el.innerHTML = renderSolitaireCardHtml(topCard, isSelected);
-        } else {
-          const icon = suit === 'hearts' ? 'favorite' : suit === 'diamonds' ? 'diamond' : suit === 'clubs' ? 'eco' : 'shield';
-          const color = suit === 'hearts' ? 'text-rose-500/40' : suit === 'diamonds' ? 'text-amber-500/40' : suit === 'clubs' ? 'text-emerald-400/40' : 'text-sky-400/40';
-          el.innerHTML = `<span class="material-symbols-rounded text-2xl ${color} select-none">${icon}</span>`;
-        }
+    // 4. Foundations: four open spaces, each building whichever suit's Ace started it
+    s.foundationSlots.forEach((slotSuit, slotIdx) => {
+      fromNullable(document.getElementById(`solitaire-foundation-${slotIdx}`)).map(el => {
+        el.innerHTML = fromNullable(slotSuit)
+          .flatMap(suit => fromNullable(s.foundations[suit][s.foundations[suit].length - 1]).map(topCard => {
+            const isSelected = selectedSolitaireCard.map(sel => sel.source === 'foundation' && sel.suit === suit).getOrElse(false);
+            return renderSolitaireCardHtml(topCard, isSelected);
+          }))
+          .getOrElse('<span class="material-symbols-rounded text-2xl text-amber-300/30 select-none" title="Any Ace starts a foundation">add</span>');
       });
     });
 
@@ -6118,36 +6114,47 @@ function main(): void {
       }), () => soundFX.playStoneSlide(0.25))
     ).getOrElse(false);
 
-  const suitsArr = [CardSuitEnum.Hearts, CardSuitEnum.Diamonds, CardSuitEnum.Clubs, CardSuitEnum.Spades];
-  suitsArr.forEach(suit => {
-    fromNullable(document.getElementById(`solitaire-foundation-${suit}`)).map(el =>
+  /** Shows why a Solitaire move was refused, so a click that does nothing is never a mystery. */
+  const explainSolitaireMove = (res: Result<unknown, string>): boolean =>
+    res.match({
+      Ok: () => true,
+      Err: err => {
+        ui.showTemporaryBanner(err, 2500);
+        return false;
+      }
+    });
+
+  for (let slotIdx = 0; slotIdx < FOUNDATION_SLOT_COUNT; slotIdx++) {
+    const slot = slotIdx;
+    fromNullable(document.getElementById(`solitaire-foundation-${slot}`)).map(el =>
       el.addEventListener('click', () => {
         if (solitaireIsSpectator) return;
+        const slotSuit = fromNullable(solitaireEngine.state.foundationSlots[slot]);
         selectedSolitaireCard.match({
           Some: sel => {
             const moved = match(sel.source, {
-              waste: () => solitaireEngine.moveWasteToFoundation(suit).isSuccess(),
-              tableau: () => solitaireEngine.moveTableauToFoundation(sel.colIdx ?? -1, suit).isSuccess(),
+              waste: () => explainSolitaireMove(solitaireEngine.moveWasteToFoundation(undefined, slot)),
+              tableau: () => explainSolitaireMove(solitaireEngine.moveTableauToFoundation(sel.colIdx ?? -1, undefined, slot)),
               foundation: () => false
             });
             if (!afterSolitaireMove(moved, () => soundFX.playSelect()) && sel.source === 'foundation') {
-              // Clicking the selected foundation again cancels the selection
+              // Clicking a foundation while one is selected cancels the selection
               selectedSolitaireCard = none();
               renderSolitaireBoard();
             }
           },
           None: () => {
             // A foundation's top card may come back down onto the tableau
-            if (solitaireEngine.state.foundations[suit].length > 0) {
+            slotSuit.map(suit => {
               selectedSolitaireCard = some({ source: 'foundation' as const, suit });
               soundFX.playSelect();
               renderSolitaireBoard();
-            }
+            });
           }
         });
       })
     );
-  });
+  }
 
   for (let cIdx = 0; cIdx < 7; cIdx++) {
     const colIdx = cIdx;

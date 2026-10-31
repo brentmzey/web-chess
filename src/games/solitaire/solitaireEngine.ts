@@ -23,10 +23,49 @@ export interface SolitairePlayerData {
   readonly joinedAt: number;
 }
 
+export type FoundationSlot = CardSuitEnum | null;
+
+export const FOUNDATION_SLOT_COUNT = 4;
+
+const EMPTY_FOUNDATION_SLOTS: readonly FoundationSlot[] = Object.freeze([null, null, null, null]);
+
+/**
+ * Gives a suit a foundation space when its Ace starts one: the space the player chose if it is free,
+ * otherwise the leftmost free space. Any Ace may start any empty foundation, as in real Klondike.
+ */
+export function claimFoundationSlot(slots: readonly FoundationSlot[],
+                                    suit: CardSuitEnum,
+                                    preferredSlot?: number): readonly FoundationSlot[] {
+  if (slots.includes(suit)) return slots;
+  const target = preferredSlot !== undefined && slots[preferredSlot] === null ? preferredSlot : slots.indexOf(null);
+  return slots.map((slot, i) => (i === target ? suit : slot));
+}
+
+/** Frees a suit's foundation space once its last card (the Ace) has gone back to the tableau. */
+export function releaseFoundationSlot(slots: readonly FoundationSlot[],
+                                      suit: CardSuitEnum): readonly FoundationSlot[] {
+  return slots.map(slot => (slot === suit ? null : slot));
+}
+
+/** Rebuilds foundation spaces from piles alone (saves made before spaces were recorded). */
+export function deriveFoundationSlots(foundations: Readonly<Record<CardSuitEnum, readonly PlayingCard[]>>,
+                                      saved?: unknown): readonly FoundationSlot[] {
+  const valid = Array.isArray(saved) &&
+    saved.length === FOUNDATION_SLOT_COUNT &&
+    saved.every(slot => slot === null || CARD_SUITS.includes(slot as CardSuitEnum)) &&
+    CARD_SUITS.every(suit => (foundations[suit].length > 0) === saved.includes(suit));
+  return valid
+    ? (saved as FoundationSlot[])
+    : CARD_SUITS.filter(suit => foundations[suit].length > 0)
+      .reduce((slots, suit) => claimFoundationSlot(slots, suit), EMPTY_FOUNDATION_SLOTS);
+}
+
 export interface SolitaireGameState {
   readonly stock: readonly PlayingCard[];
   readonly waste: readonly PlayingCard[];
   readonly foundations: Readonly<Record<CardSuitEnum, readonly PlayingCard[]>>;
+  /** The four foundation spaces left to right: the suit each one is building, or null while empty. */
+  readonly foundationSlots: readonly FoundationSlot[];
   readonly tableau: readonly (readonly PlayingCard[])[];
   readonly stage: SolitaireStageEnum;
   readonly movesCount: number;
@@ -38,6 +77,7 @@ export interface SolitaireSnapshotPayload {
   readonly stock: readonly PlayingCard[];
   readonly waste: readonly PlayingCard[];
   readonly foundations: Record<string, readonly PlayingCard[]>;
+  readonly foundationSlots?: readonly FoundationSlot[];
   readonly tableau: readonly (readonly PlayingCard[])[];
   readonly stage: string;
   readonly movesCount: number;
@@ -166,6 +206,7 @@ export function createInitialSolitaireState(providedDeck?: readonly PlayingCard[
     stock,
     waste: [],
     foundations,
+    foundationSlots: EMPTY_FOUNDATION_SLOTS,
     tableau,
     stage: SolitaireStageEnum.Playing,
     movesCount: 0,
@@ -206,6 +247,7 @@ export class CathedralSolitaireEngine {
         [CardSuitEnum.Clubs]: [...this.state.foundations[CardSuitEnum.Clubs]],
         [CardSuitEnum.Spades]: [...this.state.foundations[CardSuitEnum.Spades]]
       },
+      foundationSlots: [...this.state.foundationSlots],
       tableau: this.state.tableau.map(col => [...col]),
       stage: this.state.stage,
       movesCount: this.state.movesCount,
@@ -275,21 +317,45 @@ export class CathedralSolitaireEngine {
     return success(this.state);
   }
 
-  public moveWasteToFoundation(targetSuit?: CardSuitEnum): Result<SolitaireGameState, string> {
+  /**
+   * Checks that a card may go onto a foundation (optionally a chosen foundation space) and returns the
+   * suit pile it joins.
+   */
+  private checkFoundationMove(card: PlayingCard,
+                              targetSuit?: CardSuitEnum,
+                              preferredSlot?: number): Result<CardSuitEnum, string> {
+    const suit = (targetSuit || card.suit) as CardSuitEnum;
+    if (suit !== card.suit) {
+      return failure(`Card suit ${card.suit} does not match foundation ${suit}.`);
+    }
+    const slotSuit = preferredSlot === undefined ? null : this.state.foundationSlots[preferredSlot] ?? null;
+    if (slotSuit !== null && slotSuit !== suit) {
+      return failure(`That foundation is building ${slotSuit}; ${card.value} of ${card.suit} belongs on ${suit}.`);
+    }
+    if (preferredSlot !== undefined && slotSuit === null && this.state.foundationSlots.includes(suit)) {
+      return failure(`${card.value} of ${card.suit} goes on the ${suit} foundation you already started.`);
+    }
+    const foundationPile = this.state.foundations[suit];
+    if (!canStackOnFoundation(card, foundationPile)) {
+      return failure(foundationPile.length === 0
+        ? 'Only an Ace can start a foundation.'
+        : `Cannot place ${card.value} of ${card.suit} on ${suit} foundation; it needs the next card up.`);
+    }
+    return success(suit);
+  }
+
+  public moveWasteToFoundation(targetSuit?: CardSuitEnum,
+                               preferredSlot?: number): Result<SolitaireGameState, string> {
     if (this.state.waste.length === 0) {
       return failure('Waste pile is empty.');
     }
     const card = this.state.waste[this.state.waste.length - 1]!;
-    const suit = (targetSuit || card.suit) as CardSuitEnum;
-
-    if (suit !== card.suit) {
-      return failure(`Card suit ${card.suit} does not match foundation ${suit}.`);
+    const checked = this.checkFoundationMove(card, targetSuit, preferredSlot);
+    if (checked.isFailure()) {
+      return checked.map(() => this.state);
     }
-
+    const suit = checked.getOrThrow();
     const foundationPile = this.state.foundations[suit];
-    if (!canStackOnFoundation(card, foundationPile)) {
-      return failure(`Cannot place ${card.value} of ${card.suit} on ${suit} foundation.`);
-    }
 
     this.saveStateForUndo();
 
@@ -305,6 +371,7 @@ export class CathedralSolitaireEngine {
       ...this.state,
       waste: newWaste,
       foundations: newFoundations,
+      foundationSlots: claimFoundationSlot(this.state.foundationSlots, suit, preferredSlot),
       movesCount: this.state.movesCount + 1,
       score: this.state.score + 10,
       stage: matchBool(isWon, {
@@ -359,7 +426,8 @@ export class CathedralSolitaireEngine {
   }
 
   public moveTableauToFoundation(fromCol: number,
-                                targetSuit?: CardSuitEnum): Result<SolitaireGameState, string> {
+                                targetSuit?: CardSuitEnum,
+                                preferredSlot?: number): Result<SolitaireGameState, string> {
     if (fromCol < 0 || fromCol > 6) {
       return failure(`Invalid tableau column index: ${fromCol}`);
     }
@@ -373,15 +441,12 @@ export class CathedralSolitaireEngine {
       return failure('Top card is face down.');
     }
 
-    const suit = (targetSuit || card.suit) as CardSuitEnum;
-    if (suit !== card.suit) {
-      return failure(`Card suit ${card.suit} does not match foundation ${suit}.`);
+    const checked = this.checkFoundationMove(card, targetSuit, preferredSlot);
+    if (checked.isFailure()) {
+      return checked.map(() => this.state);
     }
-
+    const suit = checked.getOrThrow();
     const foundationPile = this.state.foundations[suit];
-    if (!canStackOnFoundation(card, foundationPile)) {
-      return failure(`Cannot place ${card.value} of ${card.suit} on ${suit} foundation.`);
-    }
 
     this.saveStateForUndo();
 
@@ -406,6 +471,7 @@ export class CathedralSolitaireEngine {
       ...this.state,
       tableau: newTableau,
       foundations: newFoundations,
+      foundationSlots: claimFoundationSlot(this.state.foundationSlots, suit, preferredSlot),
       movesCount: this.state.movesCount + 1,
       score: this.state.score + scoreBonus,
       stage: matchBool(isWon, {
@@ -519,6 +585,9 @@ export class CathedralSolitaireEngine {
     this.state = {
       ...this.state,
       foundations: newFoundations,
+      foundationSlots: foundationPile.length === 1
+        ? releaseFoundationSlot(this.state.foundationSlots, suit)
+        : this.state.foundationSlots,
       tableau: newTableau,
       movesCount: this.state.movesCount + 1,
       score: Math.max(0, this.state.score - 15),
@@ -631,6 +700,7 @@ export class CathedralSolitaireEngine {
       stock: this.state.stock,
       waste: this.state.waste,
       foundations: this.state.foundations,
+      foundationSlots: this.state.foundationSlots,
       tableau: this.state.tableau,
       stage: this.state.stage,
       movesCount: this.state.movesCount,
@@ -648,15 +718,17 @@ export class CathedralSolitaireEngine {
       return failure('Missing tableau or foundations in snapshot.');
     }
 
+    const foundations: Record<CardSuitEnum, readonly PlayingCard[]> = {
+      [CardSuitEnum.Hearts]: Array.isArray(data.foundations[CardSuitEnum.Hearts]) ? data.foundations[CardSuitEnum.Hearts] : [],
+      [CardSuitEnum.Diamonds]: Array.isArray(data.foundations[CardSuitEnum.Diamonds]) ? data.foundations[CardSuitEnum.Diamonds] : [],
+      [CardSuitEnum.Clubs]: Array.isArray(data.foundations[CardSuitEnum.Clubs]) ? data.foundations[CardSuitEnum.Clubs] : [],
+      [CardSuitEnum.Spades]: Array.isArray(data.foundations[CardSuitEnum.Spades]) ? data.foundations[CardSuitEnum.Spades] : []
+    };
     this.state = {
       stock: Array.isArray(data.stock) ? data.stock : [],
       waste: Array.isArray(data.waste) ? data.waste : [],
-      foundations: {
-        [CardSuitEnum.Hearts]: Array.isArray(data.foundations[CardSuitEnum.Hearts]) ? data.foundations[CardSuitEnum.Hearts] : [],
-        [CardSuitEnum.Diamonds]: Array.isArray(data.foundations[CardSuitEnum.Diamonds]) ? data.foundations[CardSuitEnum.Diamonds] : [],
-        [CardSuitEnum.Clubs]: Array.isArray(data.foundations[CardSuitEnum.Clubs]) ? data.foundations[CardSuitEnum.Clubs] : [],
-        [CardSuitEnum.Spades]: Array.isArray(data.foundations[CardSuitEnum.Spades]) ? data.foundations[CardSuitEnum.Spades] : []
-      },
+      foundations,
+      foundationSlots: deriveFoundationSlots(foundations, data.foundationSlots),
       tableau: data.tableau.map(col => (Array.isArray(col) ? col : [])),
       stage: (data.stage as SolitaireStageEnum) || SolitaireStageEnum.Playing,
       movesCount: typeof data.movesCount === 'number' ? data.movesCount : 0,
