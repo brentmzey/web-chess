@@ -139,6 +139,11 @@ describe('Hidden information policies', () => {
     multi.seatManager.claimSeat(1, 'p1', 'Host');
     multi.populateBotOpponents();
     multi.startRound();
+    // A dealer natural is revealed at once; redeal until the hole card is really face down
+    for (let i = 0; i < 50 && multi.state.dealerHand[1]?.faceUp !== false; i++) {
+      multi.prepareNextHand();
+      multi.startRound();
+    }
     const engine: SnapshotableEngine = {
       state: { single: single.state, multi: multi.state },
       seatManager: multi.seatManager

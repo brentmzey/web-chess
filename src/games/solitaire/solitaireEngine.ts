@@ -7,6 +7,7 @@ import {
 } from '../../constants/gameEnums';
 import type { PlayingCard } from '../blackjack/blackjackEngine';
 import { TableSeatManager } from '../multiplayer/tableSeatManager';
+import { currentEpochMs } from '../../utils/dateTime';
 import {
   failure,
   matchBool,
@@ -91,6 +92,11 @@ export function canStackOnFoundation(movingCard: PlayingCard,
     CARD_NUMERIC_RANK[movingCard.value as CardValueEnum] ===
       CARD_NUMERIC_RANK[topCard.value as CardValueEnum] + 1
   );
+}
+
+/** Whether cards form a movable tableau run: all face up, each one rank lower and the opposite color. */
+export function isTableauRun(cards: readonly PlayingCard[]): boolean {
+  return cards.every((card, i) => card.faceUp && (i === 0 || canStackOnTableau(card, some(cards[i - 1]!))));
 }
 
 export function generateStandardDeck(): PlayingCard[] {
@@ -180,12 +186,12 @@ export class CathedralSolitaireEngine {
       maxSpectators + 1,
       1,
       undefined,
-      () => ({ isSpectator: true, joinedAt: Date.now() })
+      () => ({ isSpectator: true, joinedAt: currentEpochMs() })
     );
     // Claim Seat 1 for the solitary player
     this.seatManager.claimSeat(1, 'player_1', 'Cathedral Pilgrim', {
       isSpectator: false,
-      joinedAt: Date.now()
+      joinedAt: currentEpochMs()
     });
   }
 
@@ -222,12 +228,12 @@ export class CathedralSolitaireEngine {
   }
 
   public drawFromStock(drawCount: number = 1): Result<SolitaireGameState, string> {
+    if (this.state.stock.length === 0 && this.state.waste.length === 0) {
+      return failure('Both Stock and Waste piles are empty.');
+    }
     this.saveStateForUndo();
 
     if (this.state.stock.length === 0) {
-      if (this.state.waste.length === 0) {
-        return failure('Both Stock and Waste piles are empty.');
-      }
       // Recycle Waste back into Stock (reversed, faceDown)
       const recycled: PlayingCard[] = [...this.state.waste]
         .reverse()
@@ -442,9 +448,13 @@ export class CathedralSolitaireEngine {
       return failure(`Cannot place ${movingCard.value} of ${movingCard.suit} on column ${toCol + 1}.`);
     }
 
+    const movingStack = sourceCol.slice(cardIndex);
+    if (!isTableauRun(movingStack)) {
+      return failure('Only a face-up run descending in alternating colors can move together.');
+    }
+
     this.saveStateForUndo();
 
-    const movingStack = sourceCol.slice(cardIndex);
     const newSource = sourceCol.slice(0, cardIndex);
 
     let scoreBonus = 0;

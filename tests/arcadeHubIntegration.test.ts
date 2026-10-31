@@ -694,4 +694,18 @@ describe('Sanctuary Arcade Multi-Game Hub UI & Hungarian Schema Architecture', (
       (globalThis as any).document = originalDoc;
     }
   });
+
+  it('gives every card-game theater a New Game control wired to an existing reset path', () => {
+    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const main = readFileSync(resolve(__dirname, '../src/main.ts'), 'utf8');
+    const resetTargets: Record<string, string> = {
+      bjk: 'bjk-seats-select', poker: 'poker-seats-select', skipbo: 'skipbo-seats-select', phase10: 'phase10-seats-select',
+      uno: 'uno-seats-select', avalon: 'avalon-seats-select', set: 'set-seats-select', solitaire: 'solitaire-btn-new'
+    };
+    Object.entries(resetTargets).forEach(([game, target]) => {
+      expect(html).toContain(`id="btn-${game}-new-game" data-arcade-new-game="${game}"`);
+      expect(html).toContain(`id="${target}"`);
+      expect(main).toContain(`${game}: () => domById`);
+    });
+  });
 });

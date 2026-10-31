@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.1] - 2026-10-30
+### Added
+- **New Game button in every card-game theater** (Blackjack, Poker, Skip-Bo, Phase 10, Uno, Avalon, SET, Solitaire), next to the rules button. It re-deals at the current seat count. A second tap within 3 seconds confirms, so a stray tap never wipes a game. It is hidden at live tables, which belong to everyone seated at them.
+- **Live tables end when every human has left.** On PocketHost the `arcade_tables` hook closes a table once no participant's latest seat event is a claim; the local dev server deletes the session. Opening the link to an ended table returns the visitor to the hub with "Live table … has ended because all players left."
+
+### Fixed
+- **SET had no working restart**: its New Game handler pointed at a button that did not exist in the page. The new header button restarts SET.
+- Flaky test: the Blackjack hidden-information test failed whenever the dealer was dealt a natural (the hole card is then correctly revealed). It now redeals until the hole card is face down.
+- **Solitaire, live table opened from a link**: the first person at the table becomes its host, but stayed locked in spectator mode and could not play. The spectator role now follows the server's host record.
+- **Solitaire, foundation back to tableau**: a legal Klondike move that had no control. Click a foundation's top card, then a column, to bring it back down (-15 pts).
+- **Solitaire, undo after a failed draw**: drawing with both Stock and Waste empty no longer records an empty undo step.
+- **Solitaire, stack moves**: only a face-up run descending in alternating colors moves as one stack, even if a restored or received board was malformed.
+- Solitaire spectator join time now uses the shared clock helpers instead of `Date.now()`.
+
+### Changed
+- Guest move handling moved from `main.ts` into `src/games/multiplayer/arcadeIntentHandlers.ts` (`createArcadeIntentHandlers`, `applyArcadeIntent`), unchanged in behavior, so live tables can be tested headlessly.
+
+### Tests
+- `tests/liveTables.integration.test.ts`: a host and guest play each live game (Uno, Skip-Bo, Phase 10, Avalon, SET, Poker, Blackjack, Solitaire) over a JSON wire, using the real engines, hidden-information policies and intent handlers. Checks that guests never receive other seats' secrets, that out-of-turn, unseated and malformed moves leave the table unchanged, that each move reaches the guest, and that both sides converge on the same public table.
+- Solitaire: 25 random games of up to 300 legal and illegal moves each, checking after every move that all 52 cards remain unique, foundations ascend by suit, face-down cards sit under one valid face-up run, and undo restores the exact prior board.
+
 ## [1.4.1] - 2026-10-30
 ### Changed
 - **Clean build and test output**: a passing `bun run build && bun run test && bun run test:coverage && bun run typecheck` now prints no ERROR/WARN lines.

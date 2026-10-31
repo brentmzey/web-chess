@@ -67,6 +67,19 @@ describe('ArcadeRealtimeService - Multi-Game Real-Time Seating & Bot Hot-Swappin
     expect(seat2.isOccupied).toBe(true);
   });
 
+  it('ends the table when the last human leaves', () => {
+    const service = new ArcadeRealtimeService();
+    service.createSession(ArcadeGameEnum.Uno, 'UNO-EMPTY1', 4, 'Host');
+    service.joinSession('UNO-EMPTY1', 'usr_p2', 'Player 2');
+    const hostId = service.getSession('UNO-EMPTY1').getOrThrow().seatManager.getHumanSeats()
+      .find(seat => seat.playerId !== 'usr_p2')!.playerId!;
+
+    expect(service.leaveSession('UNO-EMPTY1', 'usr_p2').isSuccess()).toBe(true);
+    expect(service.getSession('UNO-EMPTY1').isSome()).toBe(true);
+    expect(service.leaveSession('UNO-EMPTY1', hostId).getOrThrow()).toContain('ended');
+    expect(service.getSession('UNO-EMPTY1').isSome()).toBe(false);
+  });
+
   it('dispatches game actions and records event history with sequential IDs', () => {
     const service = new ArcadeRealtimeService();
     service.createSession(ArcadeGameEnum.Blackjack, 'BJK-LIVE1', 7, 'Host');

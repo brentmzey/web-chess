@@ -243,6 +243,13 @@ export class ArcadeRealtimeService {
       totalBots: session.seatManager.getBotCount()
     });
 
+    // Bots never play to an empty room: the last human out ends the table
+    if (session.seatManager.getHumanCount() === 0) {
+      this.broadcast(sessionCode, 'table_closed', participantId, { reason: 'All players left the table.' });
+      this.sessions.delete(sessionCode);
+      return success(`Participant '${participantId}' left. Table ${sessionCode} ended because no players remain.`);
+    }
+
     return success(`Participant '${participantId}' vacated. Bot restored to seat ${userSeat.seatNumber}.`);
   }
 

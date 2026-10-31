@@ -75,6 +75,8 @@ const createApp = (schema: Record<string, readonly string[]>,
         return r.data.session_code === p.code;
       case 'participant_id = {:id}':
         return r.data.participant_id === p.id;
+      case "table = {:table} && (event_type = 'seat_claimed' || event_type = 'seat_left')":
+        return r.data.table === p.table && ['seat_claimed', 'seat_left'].includes(r.data.event_type);
       default:
         throw new Error(`unsupported filter ${filter}`);
     }
@@ -91,7 +93,8 @@ const createApp = (schema: Record<string, readonly string[]>,
       const key = sort.replace('-', '');
       const list = (rows.get(n) ?? []).filter(r => matches(r, filter, p))
         .sort((a, b) => (a.data[key] < b.data[key] ? -1 : 1));
-      return (sort.startsWith('-') ? list.reverse() : list).slice(0, limit);
+      // PocketBase treats a limit of 0 as no limit
+      return (sort.startsWith('-') ? list.reverse() : list).slice(0, limit > 0 ? limit : undefined);
     },
     findFirstRecordByFilter: (n: string, filter: string, p: Record<string, any>) => {
       const hit = app.findRecordsByFilter(n, filter, 'created', 1, 0, p)[0];
@@ -322,6 +325,33 @@ describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
 
     table.data.status = 'closed';
     expect(() => lib.attachArcadeEventToTable(app, event({ session_code: 'UNO-ABC123' }))).toThrow('This arcade table is closed.');
+  });
+
+  it('ends a live table once its last human player leaves', () => {
+    const lib = loadLib();
+    const app = createApp(fullSchema());
+    let clock = 0;
+    const seatEvent = (participant: string,
+                       type: string) => {
+      const record = new FakeRecord(app.findCollectionByNameOrId('tbl_arcade_events'),
+                                    { session_code: 'UNO-LEAVE1', participant_id: participant, event_type: type, payload: {} });
+      lib.attachArcadeEventToTable(app, record);
+      record.data.created = pbDate(++clock);
+      app.save(record);
+      lib.recordArcadeTableActivity(app, record);
+      return app.findRecordById('tbl_arcade_tables', record.data.table);
+    };
+
+    seatEvent('usr_host', 'seat_claimed');
+    seatEvent('usr_guest', 'seat_claimed');
+    expect(seatEvent('usr_guest', 'seat_left').data.status).toBe('active');
+    // A guest who comes back counts as seated again
+    seatEvent('usr_guest', 'seat_claimed');
+    expect(seatEvent('usr_host', 'seat_left').data.status).toBe('active');
+    const table = seatEvent('usr_guest', 'seat_left');
+    expect(table.data.status).toBe('closed');
+    expect(lib.seatedParticipants(app, table.id)).toEqual([]);
+    expect(() => seatEvent('usr_late', 'seat_claimed')).toThrow('This arcade table is closed.');
   });
 });
 

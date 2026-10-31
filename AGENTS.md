@@ -136,7 +136,11 @@ Hard-won lessons from earlier sessions. Read them before working on live tables,
 * Open both by link (`/?session=<PREFIX>-<CODE>`), not only through the in-game Live tab. The link path is the one real players use, and it once left tables with no host.
 * Production hides console logs, so inspect server state directly: anonymous `GET /api/collections/tbl_arcade_tables/records?filter=session_code="<CODE>"` shows the public snapshot (secrets must be placeholders), and superuser reads of `tbl_arcade_events` show what each participant published.
 * The Chrome extension cannot screenshot the second origin. Drive it with JS (set `#arcade-join-player-name-input`, click `#btn-arcade-confirm-join`, read `innerText`). Select buttons by id, not by text: "Deal" also matches the "vs Dealer" tab.
-* Still to verify in two browsers: Skip-Bo and Phase 10 (they share Uno's tested policy code).
+* Headless first: `tests/liveTables.integration.test.ts` plays every live game host ↔ guest over a JSON wire with the real engines, policies and intent handlers (`src/games/multiplayer/arcadeIntentHandlers.ts`). Extend it when a game, intent or hidden field changes, and keep guest-move logic in that module, not in `main.ts`.
+* Still to verify in two browsers: Skip-Bo and Phase 10 (covered headlessly).
+* A live table closes when its last human sends `seat_left` (`seatedParticipants` in `sanctuary_maintenance.js`; `leaveSession` locally). Only an explicit leave counts: a reload or closed tab sends nothing, so resume keeps working and stale cleanup handles abandoned tabs.
+* New Game buttons (`data-arcade-new-game`) reuse each game's own reset path and are hidden while `activeArcadeClient` is set.
+* Solitaire live tables have no seats: the host plays and everyone else spectates, so the spectator flag must follow `adoptServerHostRole`.
 
 ### Engine & UI gotchas
 * The single-seat and multi-seat Blackjack engines name their stages differently (`player-turn` vs `player-turns`). Never gate display logic on a stage string shared between them; prefer card properties such as `faceUp`.

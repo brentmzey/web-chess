@@ -421,6 +421,20 @@ function attachArcadeEventToTable(app, event) {
 }
 
 /**
+ * Participants still at a table: those whose latest seat event is a claim rather than a leave.
+ */
+function seatedParticipants(app, tableId) {
+    const latest = {};
+    app.findRecordsByFilter("tbl_arcade_events",
+        "table = {:table} && (event_type = 'seat_claimed' || event_type = 'seat_left')",
+        "created", 0, 0, { table: tableId })
+        .forEach((seatEvent) => {
+            latest[seatEvent.getString("participant_id")] = seatEvent.getString("event_type");
+        });
+    return Object.keys(latest).filter((id) => latest[id] === "seat_claimed");
+}
+
+/**
  * After an event is stored: bumps the table's activity (which keeps it out of stale cleanup) and
  * keeps the latest full table snapshot so late joiners can load the table even if the host is away.
  */
@@ -431,6 +445,10 @@ function recordArcadeTableActivity(app, event) {
     table.set("int_event_count", table.getInt("int_event_count") + 1);
     table.set("status", "active");
     table.set("dt_last_event_at", toPbDate(Date.now()));
+    // The last human to leave ends the table: bots never play on to an empty room
+    if (event.getString("event_type") === "seat_left" && seatedParticipants(app, tableId).length === 0) {
+        table.set("status", "closed");
+    }
     if (event.getString("event_type") === "action_dispatched") {
         const payload = parseJsonField(event, "payload");
         if (payload && payload.actionType === "state_sync" && payload.payload) {
@@ -449,6 +467,7 @@ module.exports = {
     loadPolicy,
     pruneIdleArcadePlayers,
     recordArcadeTableActivity,
+    seatedParticipants,
     rotateTable,
     runIfOverdue,
     runMaintenance,

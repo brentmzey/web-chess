@@ -115,7 +115,8 @@ import {
 import { ArcadeRealtimeClient, POCKETHOST_URL, type ArcadeConnectionStatus, type PrivateSeatState } from './realtime/arcadeRealtimeClient';
 import { exportTableSnapshot, importTableSnapshot, type ArcadeTableSnapshot, type SnapshotableEngine } from './games/multiplayer/tableSnapshot';
 import { HIDDEN_INFO_POLICIES, type HiddenInfoPolicy, type SeatSecrets } from './games/multiplayer/hiddenInfo';
-import { parseArcadeIntent, type ArcadeIntent, type ArcadeIntentPayload, type ArcadeIntentType } from './validation/arcadeIntents';
+import { type ArcadeIntentPayload, type ArcadeIntentType } from './validation/arcadeIntents';
+import { applyArcadeIntent, createArcadeIntentHandlers } from './games/multiplayer/arcadeIntentHandlers';
 import { ensureArcadePlayer } from './realtime/playerIdentity';
 import type { TableSeatManager } from './games/multiplayer/tableSeatManager';
 import {
@@ -2193,7 +2194,43 @@ function main(): void {
     });
     activeArcadeSync = none();
     activeArcadeGame = none();
+    syncArcadeNewGameButtons();
   };
+
+  /** New Game restarts only offline tables; a live table belongs to everyone seated at it. */
+  const syncArcadeNewGameButtons = (): void =>
+    document.querySelectorAll<HTMLElement>('[data-arcade-new-game]')
+      .forEach(btn => btn.classList.toggle('hidden', activeArcadeClient !== null));
+
+  /** Each game's existing reset path: re-dealing at the current seat count, or its own New Game control. */
+  const ARCADE_NEW_GAME_TRIGGERS: Readonly<Record<string, () => void>> = {
+    bjk: () => domById<HTMLSelectElement>('bjk-seats-select').map(sel => sel.dispatchEvent(new Event('change'))),
+    poker: () => domById<HTMLSelectElement>('poker-seats-select').map(sel => sel.dispatchEvent(new Event('change'))),
+    skipbo: () => domById<HTMLSelectElement>('skipbo-seats-select').map(sel => sel.dispatchEvent(new Event('change'))),
+    phase10: () => domById<HTMLSelectElement>('phase10-seats-select').map(sel => sel.dispatchEvent(new Event('change'))),
+    uno: () => domById<HTMLSelectElement>('uno-seats-select').map(sel => sel.dispatchEvent(new Event('change'))),
+    avalon: () => domById<HTMLSelectElement>('avalon-seats-select').map(sel => sel.dispatchEvent(new Event('change'))),
+    set: () => domById<HTMLSelectElement>('set-seats-select').map(sel => sel.dispatchEvent(new Event('change'))),
+    solitaire: () => domById('solitaire-btn-new').map(btn => btn.click())
+  };
+
+  // The first tap arms the button and the second, within a few seconds, restarts, so a stray tap never wipes a game
+  let armedNewGame: Option<{ readonly game: string; readonly until: number }> = none();
+  document.querySelectorAll<HTMLElement>('[data-arcade-new-game]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const game = btn.dataset.arcadeNewGame ?? '';
+      if (activeArcadeClient !== null) return;
+      const confirmed = armedNewGame.filter(armed => armed.game === game && armed.until > currentEpochMs()).isSome();
+      if (!confirmed) {
+        armedNewGame = some({ game, until: currentEpochMs() + 3000 });
+        ui.showTemporaryBanner('Tap New Game again to start over.', 2500);
+        return;
+      }
+      armedNewGame = none();
+      fromNullable(ARCADE_NEW_GAME_TRIGGERS[game]).map(trigger => trigger());
+      ui.showTemporaryBanner('New game started.', 1800);
+    })
+  );
 
   modalManager.register(
     new ArcadeTheaterModal('blackjack-modal', ['#btn-close-blackjack', '#btn-close-blackjack-x'])
@@ -3373,88 +3410,32 @@ function main(): void {
     });
   };
 
-  type IntentHandlers = { readonly [T in ArcadeIntentType]: (payload: ArcadeIntentPayload<T>, seatKey: string) => boolean };
-
-  const playerTurnIs = (players: readonly { readonly id: string }[],
-                        turnIndex: number,
-                        seatKey: string): boolean =>
-    fromNullable(players[turnIndex]).map(player => player.id === seatKey).getOrElse(false);
-
-  const seatTurnIs = (activeSeat: Option<number>,
-                      seatKey: string): boolean =>
-    activeSeat.map(seatNumber => String(seatNumber) === seatKey).getOrElse(false);
-
   /** Host only: each guest move, applied to the sender's own seat and only on their turn. */
-  const intentHandlers: IntentHandlers = {
-    uno_play: (p, seat) => playerTurnIs(unoEngine.state.players, unoEngine.state.currentTurnIndex, seat) &&
-      unoEngine.playCard(p.handIndex, p.wildColor).isSuccess(),
-    uno_draw: (_p, seat) => playerTurnIs(unoEngine.state.players, unoEngine.state.currentTurnIndex, seat) &&
-      unoEngine.drawCard().isSuccess(),
-    uno_call: (_p, seat) => unoEngine.callUno(seat).isSuccess(),
-    skipbo_play: (p, seat) => playerTurnIs(skipboEngine.state.players, skipboEngine.state.currentTurnIndex, seat) &&
-      skipboEngine.playToBuilding(p.source as SkipBoSourcePileEnum, p.sourceIndex, p.buildingIndex).isSuccess(),
-    skipbo_discard: (p, seat) => playerTurnIs(skipboEngine.state.players, skipboEngine.state.currentTurnIndex, seat) &&
-      skipboEngine.discardAndEndTurn(p.handIndex, p.targetIndex).isSuccess(),
-    p10_draw: (p, seat) => playerTurnIs(phase10Engine.state.players, phase10Engine.state.currentTurnIndex, seat) &&
-      phase10Engine.drawCard(p.fromDiscard).isSuccess(),
-    p10_lay: (p, seat) => playerTurnIs(phase10Engine.state.players, phase10Engine.state.currentTurnIndex, seat) &&
-      phase10Engine.layDownPhase(p.g1, p.g2).isSuccess(),
-    p10_hit: (p, seat) => playerTurnIs(phase10Engine.state.players, phase10Engine.state.currentTurnIndex, seat) &&
-      phase10Engine.hitCard(p.cardIndex, p.targetPlayerId, p.groupIndex).isSuccess(),
-    p10_discard: (p, seat) => playerTurnIs(phase10Engine.state.players, phase10Engine.state.currentTurnIndex, seat) &&
-      phase10Engine.discardAndEndTurn(p.cardIndex).isSuccess(),
-    poker_action: (p, seat) => seatTurnIs(pokerEngine.state.activeSeatTurn, seat) &&
-      pokerEngine.playerAction(Number(seat), p.action as PokerActionEnum, p.amount).isSuccess(),
-    poker_draw: (p, seat) => pokerEngine.drawCardsFiveCardDraw(Number(seat), p.discardIndices).isSuccess(),
-    bjk_bet: (p, seat) => {
-      ensureBjkBettingStage();
-      return bjkMultiEngine.placeBet(Number(seat), p.amount).isSuccess();
-    },
-    bjk_hit: (_p, seat) => seatTurnIs(bjkMultiEngine.state.activeSeatTurn, seat) && bjkMultiEngine.playerHit(Number(seat)).isSuccess(),
-    bjk_stand: (_p, seat) => seatTurnIs(bjkMultiEngine.state.activeSeatTurn, seat) && bjkMultiEngine.playerStand(Number(seat)).isSuccess(),
-    bjk_double: (_p, seat) => seatTurnIs(bjkMultiEngine.state.activeSeatTurn, seat) && bjkMultiEngine.playerDoubleDown(Number(seat)).isSuccess(),
-    avalon_propose: (p, seat) => avalonEngine.getCurrentLeader().id === seat && avalonEngine.proposeTeam(p.team).isSuccess(),
-    avalon_vote: (p, seat) => avalonEngine.castVote(seat, p.approve).isSuccess(),
-    avalon_assassinate: (p, seat) =>
-      fromNullable(avalonEngine.state.players.find(player => player.id === seat)).map(player => player.role === 'Assassin').getOrElse(false) &&
-      avalonEngine.assassinateMerlin(p.targetId).isSuccess(),
-    avalon_quest: (p, seat) => {
-      const cast = avalonEngine.castQuestCard(seat, p.pass).isSuccess();
+  const intentHandlers = createArcadeIntentHandlers({
+    uno: () => unoEngine,
+    skipbo: () => skipboEngine,
+    phase10: () => phase10Engine,
+    poker: () => pokerEngine,
+    blackjack: () => bjkMultiEngine,
+    avalon: () => avalonEngine,
+    set: () => setEngine,
+    ensureBjkBettingStage: () => ensureBjkBettingStage(),
+    castAvalonBotQuestCards: () => {
       castAvalonBotQuestCards();
-      return cast;
-    },
-    set_claim: (p, seat) => {
-      // Cards are named by id, so a claim made against a slightly older table still finds the right cards
-      const indices = p.cardIds.map(id => setEngine.state.tableCards.findIndex(card => card.id === id));
-      return indices.every(i => i >= 0) &&
-        setEngine.claimSet(seat, [indices[0]!, indices[1]!, indices[2]!]).isSuccess();
     }
-  };
+  });
 
-  const applyArcadeIntent = (senderId: string,
-                             actionType: string,
-                             payload: unknown): void => {
-    parseArcadeIntent(actionType, payload).match({
-      Ok: (intent: ArcadeIntent) => {
-        fromNullable(Object.entries(liveSeatOwners).find(([, owner]) => owner === senderId))
-          .map(([seatKey]) => seatKey)
-          .match({
-            Some: seatKey => {
-              const handler = intentHandlers[intent.type] as (p: unknown, seat: string) => boolean;
-              if (handler(intent.payload, seatKey)) {
-                activeArcadeSync.map(sync => sync.rerender());
-              }
-            },
-            None: () => {
-              logger.warn(`[ARCADE_REALTIME] Ignored ${actionType} from a participant without a seat.`);
-            }
-          });
+  const applyGuestIntent = (senderId: string,
+                            actionType: string,
+                            payload: unknown): void =>
+    applyArcadeIntent(intentHandlers, liveSeatOwners, senderId, actionType, payload).match({
+      Ok: changed => {
+        if (changed) activeArcadeSync.map(sync => sync.rerender());
       },
       Err: err => {
         logger.warn('[ARCADE_REALTIME] Ignored intent:', err);
       }
     });
-  };
 
   const announceArcadeConnectionStatus = (status: ArcadeConnectionStatus): void => {
     match(status, {
@@ -3493,6 +3474,7 @@ function main(): void {
     });
     activeArcadeClient = client;
     activeArcadeGame = some(game);
+    syncArcadeNewGameButtons();
     activeArcadeSync = arcadeTableSyncFor(game);
     lastSyncedSnapshotJson = '';
     liveSeatOwners = {};
@@ -3542,7 +3524,7 @@ function main(): void {
             lastPublicSnapshot = some(evt.payload as ArcadeTableSnapshot);
             applyGuestView(tableSync);
           } else if (isLocalPlayerHost) {
-            applyArcadeIntent(String(evt?.participantId ?? ''), actionType, evt?.payload);
+            applyGuestIntent(String(evt?.participantId ?? ''), actionType, evt?.payload);
           }
         },
         None: () => {
@@ -3565,10 +3547,23 @@ function main(): void {
     }
     // Join first: on the local server the join creates the table, and its event stream 404s until then
     void client.claimSeat(playerName).then(async res => {
-      res.match({
-        Ok: () => undefined,
-        Err: err => ui.showTemporaryBanner(`Could not join live table ${sessionCode}: ${err}`, 4500)
+      const tableEnded = res.match({
+        Ok: () => false,
+        Err: err => {
+          if (/table is closed/i.test(err)) return true;
+          ui.showTemporaryBanner(`Could not join live table ${sessionCode}: ${err}`, 4500);
+          return false;
+        }
       });
+      if (tableEnded && activeArcadeClient === client) {
+        // Every player left this table, so it ended; send the visitor back to the hub to start fresh
+        disconnectActiveArcade();
+        forgetArcadeResume();
+        ui.hideAllArcadeModals();
+        ui.showArcadeHub();
+        ui.setHubQuickJoinFeedback(`Live table ${sessionCode} has ended because all players left. Start a new game or table.`, true);
+        return;
+      }
       if (activeArcadeClient === client) {
         await adoptServerHostRole(client, playerName);
       }
@@ -3590,6 +3585,8 @@ function main(): void {
           .filter(isHost => isHost !== isLocalPlayerHost)
           .map(isHost => {
             isLocalPlayerHost = isHost;
+            // Solitaire has no seats: its one player is the host, everyone else watches
+            activeArcadeGame.filter(game => game === ArcadeGameEnum.Solitaire).map(() => setSolitaireSpectator(!isHost));
             if (isHost) {
               activeArcadeSync.map(sync => seatLiveParticipant(sync, arcadeParticipantId, playerName));
               ui.showTemporaryBanner('You are hosting this table.', 2200);
@@ -5862,7 +5859,17 @@ function main(): void {
   let solitaireLiveCode = generateArcadeCode(GameCodePrefixEnum.Solitaire);
   let solitaireIsLive = false;
   let solitaireIsSpectator = false;
-  let selectedSolitaireCard: Option<{ source: 'waste' | 'tableau'; colIdx?: number; cardIdx?: number }> = none();
+  let selectedSolitaireCard: Option<{ source: 'waste' | 'tableau' | 'foundation'; colIdx?: number; cardIdx?: number; suit?: CardSuitEnum }> = none();
+
+  const setSolitaireSpectator = (asSpectator: boolean): void => {
+    solitaireIsSpectator = asSpectator;
+    fromNullable(document.getElementById('solitaire-spectator-banner')).map(el => {
+      el.classList.toggle('hidden', !asSpectator);
+      el.classList.toggle('flex', asSpectator);
+    });
+    broadcastSolitaireIfLive();
+    renderSolitaireBoard();
+  };
 
   const setSolitaireMode = (isLive: boolean,
                             asSpectator: boolean = false): void => {
@@ -6017,7 +6024,8 @@ function main(): void {
         const pile = s.foundations[suit];
         if (pile.length > 0) {
           const topCard = pile[pile.length - 1]!;
-          el.innerHTML = renderSolitaireCardHtml(topCard);
+          const isSelected = selectedSolitaireCard.map(sel => sel.source === 'foundation' && sel.suit === suit).getOrElse(false);
+          el.innerHTML = renderSolitaireCardHtml(topCard, isSelected);
         } else {
           const icon = suit === 'hearts' ? 'favorite' : suit === 'diamonds' ? 'diamond' : suit === 'clubs' ? 'eco' : 'shield';
           const color = suit === 'hearts' ? 'text-rose-500/40' : suit === 'diamonds' ? 'text-amber-500/40' : suit === 'clubs' ? 'text-emerald-400/40' : 'text-sky-400/40';
@@ -6085,26 +6093,51 @@ function main(): void {
     })
   );
 
+  /** Finishes a successful Solitaire move: clears the selection, plays the sound and publishes the board. */
+  const afterSolitaireMove = (moved: boolean,
+                              playSound: () => void): boolean => {
+    if (moved) {
+      selectedSolitaireCard = none();
+      playSound();
+      broadcastSolitaireIfLive();
+      renderSolitaireBoard();
+    }
+    return moved;
+  };
+
+  /** Moves the selected card (or run) onto a tableau column. */
+  const moveSelectedSolitaireOnto = (colIdx: number): boolean =>
+    selectedSolitaireCard.map(sel =>
+      afterSolitaireMove(match(sel.source, {
+        waste: () => solitaireEngine.moveWasteToTableau(colIdx).isSuccess(),
+        tableau: () => solitaireEngine.moveTableauToTableau(sel.colIdx ?? -1, sel.cardIdx ?? -1, colIdx).isSuccess(),
+        foundation: () => fromNullable(sel.suit).map(suit => solitaireEngine.moveFoundationToTableau(suit, colIdx).isSuccess()).getOrElse(false)
+      }), () => soundFX.playStoneSlide(0.25))
+    ).getOrElse(false);
+
   const suitsArr = [CardSuitEnum.Hearts, CardSuitEnum.Diamonds, CardSuitEnum.Clubs, CardSuitEnum.Spades];
   suitsArr.forEach(suit => {
     fromNullable(document.getElementById(`solitaire-foundation-${suit}`)).map(el =>
       el.addEventListener('click', () => {
         if (solitaireIsSpectator) return;
-        selectedSolitaireCard.map(sel => {
-          if (sel.source === 'waste') {
-            const res = solitaireEngine.moveWasteToFoundation(suit);
-            if (res.isSuccess()) {
+        selectedSolitaireCard.match({
+          Some: sel => {
+            const moved = match(sel.source, {
+              waste: () => solitaireEngine.moveWasteToFoundation(suit).isSuccess(),
+              tableau: () => solitaireEngine.moveTableauToFoundation(sel.colIdx ?? -1, suit).isSuccess(),
+              foundation: () => false
+            });
+            if (!afterSolitaireMove(moved, () => soundFX.playSelect()) && sel.source === 'foundation') {
+              // Clicking the selected foundation again cancels the selection
               selectedSolitaireCard = none();
-              soundFX.playSelect();
-              broadcastSolitaireIfLive();
               renderSolitaireBoard();
             }
-          } else if (sel.source === 'tableau' && typeof sel.colIdx === 'number') {
-            const res = solitaireEngine.moveTableauToFoundation(sel.colIdx, suit);
-            if (res.isSuccess()) {
-              selectedSolitaireCard = none();
+          },
+          None: () => {
+            // A foundation's top card may come back down onto the tableau
+            if (solitaireEngine.state.foundations[suit].length > 0) {
+              selectedSolitaireCard = some({ source: 'foundation' as const, suit });
               soundFX.playSelect();
-              broadcastSolitaireIfLive();
               renderSolitaireBoard();
             }
           }
@@ -6117,77 +6150,19 @@ function main(): void {
     const colIdx = cIdx;
     fromNullable(document.getElementById(`solitaire-tableau-${colIdx}`)).map(colEl =>
       colEl.addEventListener('click', (e: MouseEvent) => {
-        if (solitaireIsSpectator) return;
-        const target = e.target as HTMLElement;
-        const cardWrapper = target.closest('[data-idx]') as HTMLElement | null;
-
-        if (cardWrapper && cardWrapper.dataset.idx !== undefined) {
-          const cardIdx = Number(cardWrapper.dataset.idx);
-          const clickedCard = solitaireEngine.state.tableau[colIdx]![cardIdx]!;
-
-          selectedSolitaireCard.match({
-            Some: sel => {
-              // Try move onto this column
-              if (sel.source === 'waste') {
-                const res = solitaireEngine.moveWasteToTableau(colIdx);
-                if (res.isSuccess()) {
-                  selectedSolitaireCard = none();
-                  soundFX.playStoneSlide(0.25);
-                  broadcastSolitaireIfLive();
-                  renderSolitaireBoard();
-                  return;
-                }
-              } else if (sel.source === 'tableau' && typeof sel.colIdx === 'number' && typeof sel.cardIdx === 'number') {
-                const res = solitaireEngine.moveTableauToTableau(sel.colIdx, sel.cardIdx, colIdx);
-                if (res.isSuccess()) {
-                  selectedSolitaireCard = none();
-                  soundFX.playStoneSlide(0.25);
-                  broadcastSolitaireIfLive();
-                  renderSolitaireBoard();
-                  return;
-                }
-              }
-              // If move was not possible or invalid, select clicked card if face-up
-              if (clickedCard.faceUp) {
-                if (sel.source === 'tableau' && sel.colIdx === colIdx && sel.cardIdx === cardIdx) {
-                  selectedSolitaireCard = none();
-                } else {
-                  selectedSolitaireCard = some({ source: 'tableau' as const, colIdx, cardIdx });
-                }
-                soundFX.playSelect();
-                renderSolitaireBoard();
-              }
-            },
-            None: () => {
-              if (clickedCard.faceUp) {
-                selectedSolitaireCard = some({ source: 'tableau' as const, colIdx, cardIdx });
-                soundFX.playSelect();
-                renderSolitaireBoard();
-              }
-            }
+        if (solitaireIsSpectator || moveSelectedSolitaireOnto(colIdx)) return;
+        // No move was possible: select the clicked face-up card (clicking the selection again clears it)
+        fromNullable((e.target as HTMLElement).closest<HTMLElement>('[data-idx]'))
+          .flatMap(wrapper => fromNullable(wrapper.dataset.idx).map(Number))
+          .filter(cardIdx => solitaireEngine.state.tableau[colIdx]?.[cardIdx]?.faceUp === true)
+          .map(cardIdx => {
+            const isSame = selectedSolitaireCard
+              .map(sel => sel.source === 'tableau' && sel.colIdx === colIdx && sel.cardIdx === cardIdx)
+              .getOrElse(false);
+            selectedSolitaireCard = isSame ? none() : some({ source: 'tableau' as const, colIdx, cardIdx });
+            soundFX.playSelect();
+            renderSolitaireBoard();
           });
-        } else {
-          // Empty column clicked: check if we have a King to move here
-          selectedSolitaireCard.map(sel => {
-            if (sel.source === 'waste') {
-              const res = solitaireEngine.moveWasteToTableau(colIdx);
-              if (res.isSuccess()) {
-                selectedSolitaireCard = none();
-                soundFX.playStoneSlide(0.25);
-                broadcastSolitaireIfLive();
-                renderSolitaireBoard();
-              }
-            } else if (sel.source === 'tableau' && typeof sel.colIdx === 'number' && typeof sel.cardIdx === 'number') {
-              const res = solitaireEngine.moveTableauToTableau(sel.colIdx, sel.cardIdx, colIdx);
-              if (res.isSuccess()) {
-                selectedSolitaireCard = none();
-                soundFX.playStoneSlide(0.25);
-                broadcastSolitaireIfLive();
-                renderSolitaireBoard();
-              }
-            }
-          });
-        }
       })
     );
   }

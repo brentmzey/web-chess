@@ -5,6 +5,8 @@ import {
   canStackOnFoundation,
   getCardColor,
   isOppositeColor,
+  isTableauRun,
+  CARD_NUMERIC_RANK,
   generateStandardDeck,
   shuffleDeck
 } from '../src/games/solitaire/solitaireEngine';
@@ -423,5 +425,77 @@ describe('Cathedral Solitaire Engine - Pure Functional Klondike & Spectator Logi
 
     // moveFoundationToTableau invalid target column
     expect(engine.moveFoundationToTableau(CardSuitEnum.Hearts, 7).isFailure()).toBe(true);
+  });
+
+  it('does not record an undo step for a draw that fails', () => {
+    const engine = new CathedralSolitaireEngine();
+    (engine.state as any).stock = [];
+    (engine.state as any).waste = [];
+    expect(engine.drawFromStock(1).isFailure()).toBe(true);
+    expect(engine.canUndo()).toBe(false);
+  });
+
+  it('moves only proper runs: face up, descending, alternating colors', () => {
+    const card = (suit: CardSuitEnum, value: CardValueEnum, faceUp: boolean = true): PlayingCard => ({ suit, value, faceUp });
+    expect(isTableauRun([card(CardSuitEnum.Spades, CardValueEnum.Ten), card(CardSuitEnum.Hearts, CardValueEnum.Nine)])).toBe(true);
+    expect(isTableauRun([card(CardSuitEnum.Spades, CardValueEnum.Ten), card(CardSuitEnum.Clubs, CardValueEnum.Nine)])).toBe(false);
+    expect(isTableauRun([card(CardSuitEnum.Spades, CardValueEnum.Ten), card(CardSuitEnum.Hearts, CardValueEnum.Nine, false)])).toBe(false);
+
+    // A broken run (e.g. from a tampered snapshot) cannot be dragged as one stack
+    const engine = new CathedralSolitaireEngine();
+    (engine.state as any).tableau[0] = [card(CardSuitEnum.Hearts, CardValueEnum.Jack), card(CardSuitEnum.Diamonds, CardValueEnum.Five)];
+    (engine.state as any).tableau[1] = [card(CardSuitEnum.Clubs, CardValueEnum.Queen)];
+    expect(engine.moveTableauToTableau(0, 0, 1).isFailure()).toBe(true);
+    expect(engine.canUndo()).toBe(false);
+  });
+
+  it('keeps every Klondike invariant through hundreds of random legal moves, and undo restores each step', () => {
+    const cardKey = (c: PlayingCard): string => `${c.value}${c.suit}`;
+    const allCards = (e: CathedralSolitaireEngine): PlayingCard[] =>
+      [...e.state.stock, ...e.state.waste, ...Object.values(e.state.foundations).flat(), ...e.state.tableau.flat()];
+    const checkInvariants = (e: CathedralSolitaireEngine): void => {
+      const cards = allCards(e);
+      expect(cards.length).toBe(52);
+      expect(new Set(cards.map(cardKey)).size).toBe(52);
+      expect(e.state.stock.every(c => !c.faceUp)).toBe(true);
+      expect(e.state.waste.every(c => c.faceUp)).toBe(true);
+      Object.entries(e.state.foundations).forEach(([suit, pile]) =>
+        pile.forEach((c, i) => {
+          expect(String(c.suit)).toBe(suit);
+          expect(CARD_NUMERIC_RANK[c.value as CardValueEnum]).toBe(i + 1);
+        }));
+      e.state.tableau.forEach(col => {
+        // Face-down cards sit under one face-up run, and a non-empty column always shows its top card
+        const firstUp = col.findIndex(c => c.faceUp);
+        if (col.length > 0) expect(firstUp).toBeGreaterThanOrEqual(0);
+        expect(col.slice(0, Math.max(firstUp, 0)).every(c => !c.faceUp)).toBe(true);
+        expect(isTableauRun(col.slice(Math.max(firstUp, 0)))).toBe(true);
+      });
+    };
+    const candidates = (e: CathedralSolitaireEngine): (() => unknown)[] => [
+      () => e.drawFromStock(1),
+      () => e.moveWasteToFoundation(),
+      ...[0, 1, 2, 3, 4, 5, 6].flatMap(to => [
+        () => e.moveWasteToTableau(to),
+        () => e.moveTableauToFoundation(to),
+        ...Object.values(CardSuitEnum).map(suit => () => e.moveFoundationToTableau(suit, to)),
+        ...[0, 1, 2, 3, 4, 5, 6].flatMap(from => e.state.tableau[from]!.map((_c, idx) => () => e.moveTableauToTableau(from, idx, to)))
+      ])
+    ];
+
+    for (let game = 0; game < 25; game++) {
+      const engine = new CathedralSolitaireEngine();
+      checkInvariants(engine);
+      for (let step = 0; step < 300 && engine.state.stage !== SolitaireStageEnum.Won; step++) {
+        const before = JSON.stringify(engine.state);
+        const moves = candidates(engine);
+        (moves[Math.floor(Math.random() * moves.length)]!)();
+        checkInvariants(engine);
+        if (JSON.stringify(engine.state) !== before && step % 7 === 0) {
+          expect(engine.undo().isSuccess()).toBe(true);
+          expect(JSON.stringify(engine.state)).toBe(before);
+        }
+      }
+    }
   });
 });
