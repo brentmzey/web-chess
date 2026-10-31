@@ -6051,9 +6051,10 @@ function main(): void {
                 .map(sel => sel.source === 'tableau' && sel.colIdx === colIdx && typeof sel.cardIdx === 'number' && cardIdx >= sel.cardIdx)
                 .getOrElse(false);
               const cardHtml = renderSolitaireCardHtml(card, isSelected);
-              const marginTop = cardIdx === 0 ? '0' : '-5.5rem';
+              // How much of the card underneath stays visible depends on whether it is face up
+              const fanClass = fromNullable(column[cardIdx - 1]).map((below): string => (below.faceUp ? 'after-up' : 'after-down')).getOrElse('');
               return `
-                <div data-col="${colIdx}" data-idx="${cardIdx}" style="margin-top: ${marginTop}; z-index: ${cardIdx + 1}; position: relative;" class="solitaire-tableau-card">
+                <div data-col="${colIdx}" data-idx="${cardIdx}" style="z-index: ${cardIdx + 1}; position: relative;" class="solitaire-tableau-card ${fanClass}">
                   ${cardHtml}
                 </div>
               `;
@@ -6084,10 +6085,12 @@ function main(): void {
       if (solitaireIsSpectator) return;
       if (solitaireEngine.state.waste.length === 0) return;
 
-      selectedSolitaireCard = selectedSolitaireCard.match({
-        Some: sel => (sel.source === 'waste' ? none() : some({ source: 'waste' as const })),
-        None: () => some({ source: 'waste' as const })
-      });
+      // Clicking the selected waste card again sends it to its foundation
+      const wasSelected = selectedSolitaireCard.map(sel => sel.source === 'waste').getOrElse(false);
+      if (wasSelected && afterSolitaireMove(solitaireEngine.moveWasteToFoundation().isSuccess(), () => soundFX.playSelect())) {
+        return;
+      }
+      selectedSolitaireCard = wasSelected ? none() : some({ source: 'waste' as const });
       soundFX.playSelect();
       renderSolitaireBoard();
     })
@@ -6159,6 +6162,11 @@ function main(): void {
             const isSame = selectedSolitaireCard
               .map(sel => sel.source === 'tableau' && sel.colIdx === colIdx && sel.cardIdx === cardIdx)
               .getOrElse(false);
+            // Clicking the selected top card again sends it to its foundation
+            const isTop = cardIdx === (solitaireEngine.state.tableau[colIdx]?.length ?? 0) - 1;
+            if (isSame && isTop && afterSolitaireMove(solitaireEngine.moveTableauToFoundation(colIdx).isSuccess(), () => soundFX.playSelect())) {
+              return;
+            }
             selectedSolitaireCard = isSame ? none() : some({ source: 'tableau' as const, colIdx, cardIdx });
             soundFX.playSelect();
             renderSolitaireBoard();

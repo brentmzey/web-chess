@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.2] - 2026-10-30
+### Fixed
+- **Solitaire was hard to play on laptop and desktop screens**: every buried card showed a fixed 4.75rem strip, so columns grew taller than the screen and slid under the action buttons, while stacked face-up cards were too thin to read or click on phones. Face-down cards now show a thin edge and face-up cards show their rank and suit corner, sized to the card on every screen.
+
+### Added
+- **Solitaire: click a selected card again to send it to its foundation** (waste or a column's top card). Works with mouse and touch.
+
+### Verified locally (1440×900)
+- Draw, recycle, undo, waste to foundation, tableau to foundation with auto-reveal, waste to tableau, and tableau to tableau moves, all by real mouse clicks; the full board fits above the action bar.
+
 ## [1.5.0-rc.1] - 2026-10-30
 ### Added
 - **New Game button in every card-game theater** (Blackjack, Poker, Skip-Bo, Phase 10, Uno, Avalon, SET, Solitaire), next to the rules button. It re-deals at the current seat count. A second tap within 3 seconds confirms, so a stray tap never wipes a game. It is hidden at live tables, which belong to everyone seated at them.

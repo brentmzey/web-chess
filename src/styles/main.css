@@ -175,6 +175,21 @@ canvas:active {
   box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.85), 0 0 40px rgba(16, 185, 129, 0.15);
 }
 
+/* Tableau fan: a face-down card shows a thin edge, a face-up card shows its rank and suit corner */
+.solitaire-col {
+  --sol-card-h: clamp(7.5rem, 11.8vw, 10.25rem);
+  --sol-fan-down: 0.9rem;
+  --sol-fan-up: clamp(1.75rem, 2.4vw, 2.2rem);
+}
+
+.solitaire-tableau-card.after-down {
+  margin-top: calc(var(--sol-fan-down) - var(--sol-card-h));
+}
+
+.solitaire-tableau-card.after-up {
+  margin-top: calc(var(--sol-fan-up) - var(--sol-card-h));
+}
+
 .solitaire-slot {
   width: clamp(5.25rem, 8.2vw, 7.25rem);
   height: clamp(7.5rem, 11.8vw, 10.25rem);
@@ -305,6 +320,12 @@ canvas:active {
 }
 
 @media (max-width: 639px) {
+  .solitaire-col {
+    --sol-card-h: clamp(6.15rem, 27.5vw, 7.35rem);
+    --sol-fan-down: 0.7rem;
+    --sol-fan-up: 1.6rem;
+  }
+
   .playing-card-ui {
     width: clamp(4.25rem, 19.5vw, 5.15rem);
     height: clamp(6.15rem, 27.5vw, 7.35rem);
