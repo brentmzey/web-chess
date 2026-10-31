@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.7] - 2026-10-30
+### Fixed
+- **Phase 10: Hitting on laid phase melds across all groups and players**:
+  - Resolved bug where clicking "+ Hit on Meld" was hardcoded to `groupIndex: 0` of the local player, preventing players from hitting onto their second group or onto any opponents' laid phases.
+  - Implemented `findValidHitTargets` and `canHitCard` in `Phase10Engine`, allowing cards to legally hit on matching sets, runs, and colors across all players' laid groups in accordance with official Phase 10 tournament rules.
+  - Interactive laid melds on the table now visually highlight matching targets when a card is selected with a "Click to Hit" badge, and clicking the meld directly hits the selected card onto it.
+  - Laying down phases now accurately identifies and preserves group types ('set', 'run', 'color') instead of defaulting all groups to sets.
+  - Provided explanatory toast banners for failed hits or phase lays instead of silently swallowing errors.
+
 ## [1.5.0-rc.6] - 2026-10-30
 ### Removed
 - **Display Wake Lock Overlay & Synthetic Activity**: Removed `#screen-wake-pointer` DOM element from `index.html` and stripped synthetic coordinate dispatching from `ScreenWakeLockManager`. Display wake lock management now relies strictly on the native W3C Screen Wake Lock API (`navigator.wakeLock.request('screen')`) with automatic lifecycle re-acquisition upon visibility restoration.

@@ -406,9 +406,19 @@ export class Phase10Engine {
       player.hand.splice(i, 1);
     });
 
-    player.laidGroups.push({ type: 'set', cards: g1Cards });
+    const g1Type: 'set' | 'run' | 'color' = isValidColorGroup(g1Cards, 7)
+      ? 'color'
+      : isValidRun(g1Cards, 4)
+      ? 'run'
+      : 'set';
+    player.laidGroups.push({ type: g1Type, cards: g1Cards });
     if (g2Cards.length > 0) {
-      player.laidGroups.push({ type: 'set', cards: g2Cards });
+      const g2Type: 'set' | 'run' | 'color' = isValidColorGroup(g2Cards, 7)
+        ? 'color'
+        : isValidRun(g2Cards, 4)
+        ? 'run'
+        : 'set';
+      player.laidGroups.push({ type: g2Type, cards: g2Cards });
     }
 
     player.phaseCompletedThisRound = true;
@@ -419,9 +429,78 @@ export class Phase10Engine {
   }
 
   /**
+   * Checks whether a card can legally be hit onto a specific laid group.
+   */
+  public canHitCard(card: Phase10Card,
+                    targetPlayerId: string,
+                    groupIndex: number): boolean {
+    if (card.special === Phase10SpecialEnum.Skip) return false;
+    const targetPlayer = this.state.players.find(p => p.id === targetPlayerId);
+    if (!targetPlayer || !targetPlayer.laidGroups[groupIndex]) return false;
+
+    const group = targetPlayer.laidGroups[groupIndex]!;
+    if (card.special === Phase10SpecialEnum.Wild) return true;
+
+    const testGroup = [...group.cards, card];
+    if (group.type === 'set') {
+      return isValidSet(testGroup, testGroup.length);
+    }
+    if (group.type === 'run') {
+      return isValidRun(testGroup, testGroup.length);
+    }
+    if (group.type === 'color') {
+      return isValidColorGroup(testGroup, testGroup.length);
+    }
+    return (
+      isValidSet(testGroup, testGroup.length) ||
+      isValidRun(testGroup, testGroup.length) ||
+      isValidColorGroup(testGroup, testGroup.length)
+    );
+  }
+
+  /**
+   * Discovers all laid melds on the table that can legally accept the card at handIndex.
+   */
+  public findValidHitTargets(handIndex: number): Array<{
+    readonly targetPlayerId: string;
+    readonly groupIndex: number;
+    readonly playerName: string;
+    readonly group: LaidPhaseGroup;
+  }> {
+    const player = this.getCurrentPlayer();
+    if (handIndex < 0 || handIndex >= player.hand.length) return [];
+    const card = player.hand[handIndex]!;
+    if (card.special === Phase10SpecialEnum.Skip) return [];
+
+    const matches: Array<{
+      readonly targetPlayerId: string;
+      readonly groupIndex: number;
+      readonly playerName: string;
+      readonly group: LaidPhaseGroup;
+    }> = [];
+
+    this.state.players.forEach(p => {
+      p.laidGroups.forEach((g, gIdx) => {
+        if (this.canHitCard(card, p.id, gIdx)) {
+          matches.push({
+            targetPlayerId: p.id,
+            groupIndex: gIdx,
+            playerName: p.name,
+            group: g
+          });
+        }
+      });
+    });
+
+    return matches;
+  }
+
+  /**
    * Hits a card from hand onto an already laid group.
    */
-  public hitCard(handIndex: number, targetPlayerId: string, groupIndex: number): Result<string, string> {
+  public hitCard(handIndex: number,
+                 targetPlayerId: string,
+                 groupIndex: number): Result<string, string> {
     if (!this.state.hasDrawnThisTurn) return failure('Must draw a card first.');
     const player = this.getCurrentPlayer();
     if (!player.phaseCompletedThisRound) return failure('Must complete your phase before hitting.');
@@ -436,20 +515,26 @@ export class Phase10Engine {
     }
 
     const card = player.hand[handIndex]!;
-    const group = targetPlayer.laidGroups[groupIndex]!;
+    if (card.special === Phase10SpecialEnum.Skip) {
+      return failure('Skip cards cannot be hit onto phase melds.');
+    }
 
-    // Test if adding card keeps group valid
-    const testGroup = [...group.cards, card];
-    const isStillSet = isValidSet(testGroup, testGroup.length);
-    const isStillRun = isValidRun(testGroup, testGroup.length);
-    const isStillColor = isValidColorGroup(testGroup, testGroup.length);
-
-    if (!isStillSet && !isStillRun && !isStillColor) {
+    if (!this.canHitCard(card, targetPlayerId, groupIndex)) {
       return failure('Card does not fit onto the selected phase group.');
     }
 
     player.hand.splice(handIndex, 1);
+    const group = targetPlayer.laidGroups[groupIndex]!;
     group.cards.push(card);
+
+    if (group.type === 'run') {
+      group.cards.sort((a, b) => {
+        if (a.special === Phase10SpecialEnum.Wild && b.special === Phase10SpecialEnum.Wild) return 0;
+        if (a.special === Phase10SpecialEnum.Wild) return 1;
+        if (b.special === Phase10SpecialEnum.Wild) return -1;
+        return a.value - b.value;
+      });
+    }
 
     // Check if player emptied hand (Went Out)
     if (player.hand.length === 0) {
@@ -553,6 +638,26 @@ export class Phase10Engine {
             const g2 = setsOf3[1]!.slice(0, 3);
             const layRes = this.layDownPhase(g1, g2);
             if (layRes.isSuccess()) logs.push(layRes.getOrThrow());
+          }
+        }
+      }
+    }
+
+    // 2.5 Try hitting cards on laid melds if phase completed
+    if (bot.phaseCompletedThisRound && bot.hand.length > 0) {
+      let hitAttempted = true;
+      while (hitAttempted && bot.hand.length > 1) {
+        hitAttempted = false;
+        for (let cIdx = 0; cIdx < bot.hand.length; cIdx++) {
+          const targets = this.findValidHitTargets(cIdx);
+          if (targets.length > 0) {
+            const tgt = targets[0]!;
+            const hitRes = this.hitCard(cIdx, tgt.targetPlayerId, tgt.groupIndex);
+            if (hitRes.isSuccess()) {
+              logs.push(hitRes.getOrThrow());
+              hitAttempted = true;
+              break;
+            }
           }
         }
       }

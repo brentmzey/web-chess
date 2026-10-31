@@ -4561,36 +4561,74 @@ function main(): void {
 
     // Laid Groups
     fromNullable(document.getElementById('phase10-laid-groups')).map(container => {
-      const allLaid = s.players.flatMap(p => p.laidGroups);
-      if (allLaid.length === 0) {
+      const anyLaid = s.players.some(p => p.laidGroups.length > 0);
+      if (!anyLaid) {
         container.innerHTML = '<span class="text-sm sm:text-base text-stone-400 italic">No melds laid down yet this round</span>';
-      } else {
-        container.innerHTML = allLaid
-          .map(
-            g => `
-          <div class="p-2.5 sm:p-3 rounded-xl bg-black/65 border border-emerald-400/50 flex flex-wrap items-center gap-2 shadow-md">
-            ${g.cards
-              .map(
-                c => `
-              <span class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-mono font-extrabold border border-white/15 ${
-                c.color === 'red'
-                  ? 'bg-red-950 text-red-200'
-                  : c.color === 'blue'
-                  ? 'bg-blue-950 text-blue-200'
-                  : c.color === 'green'
-                  ? 'bg-emerald-950 text-emerald-200'
-                  : 'bg-amber-950 text-amber-200'
-              }">
-                ${c.value || c.special}
-              </span>
-            `
-              )
-              .join('')}
-          </div>
-        `
-          )
-          .join('');
+        return;
       }
+
+      const hasSingleCardSelected = selectedPhase10Indices.length === 1;
+      const canHit = s.hasDrawnThisTurn && p1.phaseCompletedThisRound && phase10Seat.isLocalTurn();
+      const validTargets = hasSingleCardSelected && canHit
+        ? phase10Engine.findValidHitTargets(selectedPhase10Indices[0]!)
+        : [];
+
+      container.innerHTML = s.players
+        .flatMap(p =>
+          p.laidGroups.map((g, gIdx) => {
+            const isTarget = validTargets.some(t => t.targetPlayerId === p.id && t.groupIndex === gIdx);
+            const isLocal = p.id === phase10LocalPlayerId();
+            return `
+              <div data-p10-target-player="${escapeHtml(p.id)}" data-p10-group-idx="${gIdx}" class="p-2.5 sm:p-3 rounded-2xl flex flex-col gap-1.5 shadow-md transition ${
+                isTarget
+                  ? 'bg-emerald-950/70 border-2 border-emerald-400 ring-2 ring-emerald-400/50 cursor-pointer hover:scale-[1.02] active:scale-95'
+                  : 'bg-black/65 border border-emerald-400/30'
+              }">
+                <div class="flex items-center justify-between gap-2 px-1">
+                  <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider ${
+                    isLocal ? 'text-emerald-300' : 'text-stone-300'
+                  }">
+                    ${escapeHtml(p.name)} • ${g.type.toUpperCase()}
+                  </span>
+                  ${
+                    isTarget
+                      ? '<span class="text-[10px] font-extrabold text-stone-950 bg-emerald-400 px-2 py-0.5 rounded-full shadow-sm animate-pulse">Click to Hit</span>'
+                      : ''
+                  }
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  ${g.cards
+                    .map(
+                      c => `
+                    <span class="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-mono font-extrabold border border-white/15 ${
+                      c.color === 'red'
+                        ? 'bg-red-950 text-red-200'
+                        : c.color === 'blue'
+                        ? 'bg-blue-950 text-blue-200'
+                        : c.color === 'green'
+                        ? 'bg-emerald-950 text-emerald-200'
+                        : 'bg-amber-950 text-amber-200'
+                    }">
+                      ${c.value || c.special}
+                    </span>
+                  `
+                    )
+                    .join('')}
+                </div>
+              </div>
+            `;
+          })
+        )
+        .join('');
+
+      container.querySelectorAll('[data-p10-target-player]').forEach(el => {
+        el.addEventListener('click', () => {
+          if (selectedPhase10Indices.length !== 1 || !phase10Seat.isLocalTurn()) return;
+          const targetPlayerId = el.getAttribute('data-p10-target-player') || '';
+          const groupIdx = parseInt(el.getAttribute('data-p10-group-idx') || '0', 10);
+          executePhase10Hit(selectedPhase10Indices[0]!, targetPlayerId, groupIdx);
+        });
+      });
     });
 
     // Player Hand Cards
@@ -4742,6 +4780,36 @@ function main(): void {
     })
   );
 
+  const executePhase10Hit = (hitIdx: number,
+                             targetPlayerId: string,
+                             groupIndex: number): void => {
+    if (!phase10Seat.isLocalTurn()) return;
+    if (isLiveGuest()) {
+      sendArcadeIntent('p10_hit', { cardIndex: hitIdx, targetPlayerId, groupIndex });
+      selectedPhase10Indices = [];
+      return;
+    }
+    const res = phase10Engine.hitCard(hitIdx, targetPlayerId, groupIndex);
+    res.match({
+      Ok: msg => {
+        selectedPhase10Indices = [];
+        soundFX.playSelect();
+        ui.showTemporaryBanner(msg, 2400);
+        if (phase10IsLive && activeArcadeClient) {
+          void activeArcadeClient.dispatchAction('p10_hit', {
+            cardIndex: hitIdx,
+            targetPlayerId,
+            groupIndex
+          });
+        }
+      },
+      Err: err => {
+        ui.showTemporaryBanner(err, 3200);
+      }
+    });
+    renderPhase10Table();
+  };
+
   fromNullable(document.getElementById('phase10-btn-lay-phase')).map(b =>
     b.addEventListener('click', () => {
       if (!phase10Seat.isLocalTurn()) return;
@@ -4754,38 +4822,48 @@ function main(): void {
         return;
       }
       const res = phase10Engine.layDownPhase(g1, g2);
-      if (res.isSuccess()) {
-        selectedPhase10Indices = [];
-        soundFX.playCathedralOrganAndBell();
-        if (phase10IsLive && activeArcadeClient) {
-          void activeArcadeClient.dispatchAction('p10_lay', { g1, g2 });
+      res.match({
+        Ok: msg => {
+          selectedPhase10Indices = [];
+          soundFX.playCathedralOrganAndBell();
+          ui.showTemporaryBanner(msg, 2400);
+          if (phase10IsLive && activeArcadeClient) {
+            void activeArcadeClient.dispatchAction('p10_lay', { g1, g2 });
+          }
+        },
+        Err: err => {
+          ui.showTemporaryBanner(err, 3200);
         }
-      }
+      });
       renderPhase10Table();
     })
   );
 
   fromNullable(document.getElementById('phase10-btn-hit-card')).map(b =>
     b.addEventListener('click', () => {
-      if (selectedPhase10Indices.length === 1 && phase10Seat.isLocalTurn()) {
-        const hitIdx = selectedPhase10Indices[0]!;
-        if (isLiveGuest()) {
-          sendArcadeIntent('p10_hit', { cardIndex: hitIdx, groupIndex: 0, targetPlayerId: phase10LocalPlayerId() });
-          selectedPhase10Indices = [];
-          return;
-        }
-        phase10Engine.hitCard(hitIdx, phase10LocalPlayerId(), 0);
-        selectedPhase10Indices = [];
-        soundFX.playSelect();
-        if (phase10IsLive && activeArcadeClient) {
-          void activeArcadeClient.dispatchAction('p10_hit', {
-            cardIndex: hitIdx,
-            targetPlayerId: phase10LocalPlayerId(),
-            groupIndex: 0
-          });
-        }
-        renderPhase10Table();
+      if (!phase10Seat.isLocalTurn()) return;
+      if (selectedPhase10Indices.length !== 1) {
+        ui.showTemporaryBanner('Select exactly 1 card in your hand to hit onto a laid phase meld.', 2600);
+        return;
       }
+      if (!phase10Engine.state.hasDrawnThisTurn) {
+        ui.showTemporaryBanner('You must draw a card before hitting on melds.', 2500);
+        return;
+      }
+      const p1 = phase10Engine.state.players[0]!;
+      if (!p1.phaseCompletedThisRound) {
+        ui.showTemporaryBanner('You must complete and lay down your own Phase before you can hit on melds.', 3000);
+        return;
+      }
+      const hitIdx = selectedPhase10Indices[0]!;
+      const validTargets = phase10Engine.findValidHitTargets(hitIdx);
+      if (validTargets.length === 0) {
+        ui.showTemporaryBanner('Selected card does not fit onto any laid phase melds on the table.', 3000);
+        return;
+      }
+      const ownTarget = validTargets.find(t => t.targetPlayerId === phase10LocalPlayerId());
+      const chosen = ownTarget || validTargets[0]!;
+      executePhase10Hit(hitIdx, chosen.targetPlayerId, chosen.groupIndex);
     })
   );
 

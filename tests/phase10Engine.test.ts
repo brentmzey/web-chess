@@ -367,4 +367,163 @@ describe('Phase10Engine - Liturgical Rites, Set/Run Validation & AI Auto-Play', 
     const botLogs = engine.autoPlayBotTurn();
     expect(botLogs.length).toBeGreaterThan(0);
   });
+
+  it('discovers valid hit targets and hits across sets, runs, colors, and opponent melds', () => {
+    const engine = new Phase10Engine('Alice', 'Bob', undefined, 2);
+    const p1 = engine.state.players[0]!;
+    const p2 = engine.state.players[1]!;
+
+    // Set up laid groups for both players
+    p1.phaseCompletedThisRound = true;
+    p1.laidGroups = [
+      {
+        type: 'set',
+        cards: [
+          { id: 's1', color: Phase10ColorEnum.Red, value: 5, special: Phase10SpecialEnum.Standard },
+          { id: 's2', color: Phase10ColorEnum.Blue, value: 5, special: Phase10SpecialEnum.Standard },
+          { id: 's3', color: Phase10ColorEnum.Green, value: 5, special: Phase10SpecialEnum.Standard }
+        ]
+      },
+      {
+        type: 'run',
+        cards: [
+          { id: 'r2', color: Phase10ColorEnum.Red, value: 2, special: Phase10SpecialEnum.Standard },
+          { id: 'r3', color: Phase10ColorEnum.Blue, value: 3, special: Phase10SpecialEnum.Standard },
+          { id: 'r4', color: Phase10ColorEnum.Green, value: 4, special: Phase10SpecialEnum.Standard },
+          { id: 'r5', color: Phase10ColorEnum.Yellow, value: 5, special: Phase10SpecialEnum.Standard }
+        ]
+      }
+    ];
+
+    p2.phaseCompletedThisRound = true;
+    p2.laidGroups = [
+      {
+        type: 'color',
+        cards: [
+          { id: 'c1', color: Phase10ColorEnum.Yellow, value: 1, special: Phase10SpecialEnum.Standard },
+          { id: 'c2', color: Phase10ColorEnum.Yellow, value: 4, special: Phase10SpecialEnum.Standard },
+          { id: 'c3', color: Phase10ColorEnum.Yellow, value: 8, special: Phase10SpecialEnum.Standard },
+          { id: 'c4', color: Phase10ColorEnum.Yellow, value: 9, special: Phase10SpecialEnum.Standard },
+          { id: 'c5', color: Phase10ColorEnum.Yellow, value: 11, special: Phase10SpecialEnum.Standard },
+          { id: 'c6', color: Phase10ColorEnum.Yellow, value: 12, special: Phase10SpecialEnum.Standard },
+          { id: 'c7', color: Phase10ColorEnum.Yellow, value: 2, special: Phase10SpecialEnum.Standard }
+        ]
+      }
+    ];
+
+    p1.hand = [
+      { id: 'h5', color: Phase10ColorEnum.Yellow, value: 5, special: Phase10SpecialEnum.Standard }, // fits set (p1 g0) and color (p2 g0)
+      { id: 'h6', color: Phase10ColorEnum.Red, value: 6, special: Phase10SpecialEnum.Standard },    // fits run (p1 g1)
+      { id: 'hw', color: Phase10ColorEnum.Blue, value: 0, special: Phase10SpecialEnum.Wild },       // fits all 3 groups
+      { id: 'hs', color: Phase10ColorEnum.Green, value: 0, special: Phase10SpecialEnum.Skip },     // fits none (Skip)
+      { id: 'h9', color: Phase10ColorEnum.Red, value: 9, special: Phase10SpecialEnum.Standard }     // fits none
+    ];
+
+    // findValidHitTargets checks
+    expect(engine.findValidHitTargets(-1)).toEqual([]);
+    expect(engine.findValidHitTargets(99)).toEqual([]);
+    expect(engine.findValidHitTargets(3)).toEqual([]); // Skip card
+
+    const targets5 = engine.findValidHitTargets(0);
+    expect(targets5.length).toBe(2);
+    expect(targets5.some(t => t.targetPlayerId === p1.id && t.groupIndex === 0)).toBe(true);
+    expect(targets5.some(t => t.targetPlayerId === p2.id && t.groupIndex === 0)).toBe(true);
+
+    const targets6 = engine.findValidHitTargets(1);
+    expect(targets6.length).toBe(1);
+    expect(targets6[0]!.targetPlayerId).toBe(p1.id);
+    expect(targets6[0]!.groupIndex).toBe(1);
+
+    const targetsWild = engine.findValidHitTargets(2);
+    expect(targetsWild.length).toBe(3);
+
+    const targets9 = engine.findValidHitTargets(4);
+    expect(targets9.length).toBe(0);
+
+    // canHitCard guards
+    expect(engine.canHitCard(p1.hand[3]!, p1.id, 0)).toBe(false); // Skip
+    expect(engine.canHitCard(p1.hand[0]!, 'non_existent_player', 0)).toBe(false);
+    expect(engine.canHitCard(p1.hand[0]!, p1.id, 99)).toBe(false);
+
+    // Hit onto opponent's laid color group
+    engine.state.hasDrawnThisTurn = true;
+    const hitOppRes = engine.hitCard(0, p2.id, 0);
+    expect(hitOppRes.isSuccess()).toBe(true);
+    expect(p2.laidGroups[0]!.cards.length).toBe(8);
+
+    // Hit onto own run and verify run is sorted
+    const hitRunRes = engine.hitCard(0, p1.id, 1); // card h6 (value 6)
+    expect(hitRunRes.isSuccess()).toBe(true);
+    expect(p1.laidGroups[1]!.cards.length).toBe(5);
+    const runVals = p1.laidGroups[1]!.cards.map(c => c.value);
+    expect(runVals).toEqual([2, 3, 4, 5, 6]);
+
+    // Attempt to hit Skip card -> fails
+    const hitSkipRes = engine.hitCard(1, p1.id, 0); // Skip card is now index 1
+    expect(hitSkipRes.isFailure()).toBe(true);
+    expect(hitSkipRes.match({ Ok: () => '', Err: e => e })).toContain('Skip');
+
+    // Test fallback group type in canHitCard
+    (p1.laidGroups[0] as any).type = 'unknown';
+    expect(engine.canHitCard(p1.hand[0]!, p1.id, 0)).toBe(true);
+
+    // Lay down phase with run (Phase 2) and color (Phase 8) to verify group types
+    const runColorEngine = new Phase10Engine('Alice', 'Bob', undefined, 2);
+    const rcPlayer = runColorEngine.state.players[0]!;
+    rcPlayer.currentPhase = 2; // 1 set of 3 + 1 run of 4
+    rcPlayer.hand = [
+      { id: 'rs1', color: Phase10ColorEnum.Red, value: 9, special: Phase10SpecialEnum.Standard },
+      { id: 'rs2', color: Phase10ColorEnum.Blue, value: 9, special: Phase10SpecialEnum.Standard },
+      { id: 'rs3', color: Phase10ColorEnum.Green, value: 9, special: Phase10SpecialEnum.Standard },
+      { id: 'rr1', color: Phase10ColorEnum.Red, value: 1, special: Phase10SpecialEnum.Standard },
+      { id: 'rr2', color: Phase10ColorEnum.Blue, value: 2, special: Phase10SpecialEnum.Standard },
+      { id: 'rr3', color: Phase10ColorEnum.Green, value: 3, special: Phase10SpecialEnum.Standard },
+      { id: 'rr4', color: Phase10ColorEnum.Yellow, value: 4, special: Phase10SpecialEnum.Standard }
+    ];
+    runColorEngine.drawCard(false);
+    expect(runColorEngine.layDownPhase([0, 1, 2], [3, 4, 5, 6]).isSuccess()).toBe(true);
+    expect(rcPlayer.laidGroups[0]!.type).toBe('set');
+    expect(rcPlayer.laidGroups[1]!.type).toBe('run');
+
+    // Phase 8: 7 cards of 1 color
+    const colorEngine = new Phase10Engine('Alice', 'Bob', undefined, 2);
+    const cPlayer = colorEngine.state.players[0]!;
+    cPlayer.currentPhase = 8;
+    cPlayer.hand = [
+      { id: 'cg1', color: Phase10ColorEnum.Green, value: 1, special: Phase10SpecialEnum.Standard },
+      { id: 'cg2', color: Phase10ColorEnum.Green, value: 3, special: Phase10SpecialEnum.Standard },
+      { id: 'cg3', color: Phase10ColorEnum.Green, value: 5, special: Phase10SpecialEnum.Standard },
+      { id: 'cg4', color: Phase10ColorEnum.Green, value: 7, special: Phase10SpecialEnum.Standard },
+      { id: 'cg5', color: Phase10ColorEnum.Green, value: 9, special: Phase10SpecialEnum.Standard },
+      { id: 'cg6', color: Phase10ColorEnum.Green, value: 11, special: Phase10SpecialEnum.Standard },
+      { id: 'cg7', color: Phase10ColorEnum.Green, value: 12, special: Phase10SpecialEnum.Standard }
+    ];
+    colorEngine.drawCard(false);
+    expect(colorEngine.layDownPhase([0, 1, 2, 3, 4, 5, 6]).isSuccess()).toBe(true);
+    expect(cPlayer.laidGroups[0]!.type).toBe('color');
+
+    // Bot hitting in autoPlayBotTurn
+    const botEngine = new Phase10Engine('Alice', 'Prior Bot', undefined, 2);
+    const bot = botEngine.state.players[1]!;
+    botEngine.state.currentTurnIndex = 1;
+    bot.phaseCompletedThisRound = true;
+    bot.laidGroups = [
+      {
+        type: 'set',
+        cards: [
+          { id: 'bs1', color: Phase10ColorEnum.Red, value: 8, special: Phase10SpecialEnum.Standard },
+          { id: 'bs2', color: Phase10ColorEnum.Blue, value: 8, special: Phase10SpecialEnum.Standard },
+          { id: 'bs3', color: Phase10ColorEnum.Green, value: 8, special: Phase10SpecialEnum.Standard }
+        ]
+      }
+    ];
+    bot.hand = [
+      { id: 'bh1', color: Phase10ColorEnum.Yellow, value: 8, special: Phase10SpecialEnum.Standard },
+      { id: 'bh2', color: Phase10ColorEnum.Red, value: 12, special: Phase10SpecialEnum.Standard },
+      { id: 'bh3', color: Phase10ColorEnum.Blue, value: 11, special: Phase10SpecialEnum.Standard }
+    ];
+    const bLogs = botEngine.autoPlayBotTurn();
+    expect(bLogs.some(l => l.includes('hit on'))).toBe(true);
+    expect(bot.laidGroups[0]!.cards.length).toBeGreaterThanOrEqual(4);
+  });
 });
