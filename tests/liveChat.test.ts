@@ -328,6 +328,55 @@ describe('Sanctuary Live Chat System - Schemas, Repository, Service & Client', (
     }
   });
 
+  it('tracks whether the last sent message was profanity-censored and cycles a funny banner for it', async () => {
+    const client = new LiveChatClient({
+      baseUrl: 'http://localhost:3000',
+      sessionCode: 'SANCT-PROFANE',
+      senderName: 'Tester',
+      senderRole: 'white'
+    });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body || '{}'));
+      return new Response(JSON.stringify({
+        message: {
+          id: `msg_${body.message}`,
+          txt_session_code: body.sessionCode,
+          txt_sender_id: body.senderId,
+          txt_sender_name: body.senderName,
+          txt_sender_role: body.senderRole,
+          txt_message: body.message,
+          int_created_at: body.createdAt
+        }
+      }), { status: 201 });
+    }) as any;
+
+    try {
+      expect(client.wasLastMessageCensored()).toBe(false);
+
+      const cleanRes = await client.sendMessage('Good game, well played');
+      expect(cleanRes.match({ Ok: () => true, Err: () => false })).toBe(true);
+      expect(client.wasLastMessageCensored()).toBe(false);
+
+      const profaneRes = await client.sendMessage('this is such bullshit');
+      expect(profaneRes.match({ Ok: () => true, Err: () => false })).toBe(true);
+      expect(client.wasLastMessageCensored()).toBe(true);
+
+      const firstBanner = client.nextProfanityBannerMessage();
+      const secondBanner = client.nextProfanityBannerMessage();
+      expect(typeof firstBanner).toBe('string');
+      expect(firstBanner.length).toBeGreaterThan(0);
+      expect(secondBanner).not.toBe(firstBanner);
+
+      const anotherCleanRes = await client.sendMessage('No issues here');
+      expect(anotherCleanRes.match({ Ok: () => true, Err: () => false })).toBe(true);
+      expect(client.wasLastMessageCensored()).toBe(false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('fetches history and sends message in PocketBase mode via fetch', async () => {
     const client = new LiveChatClient({
       baseUrl: 'https://web-chess.pockethost.io',

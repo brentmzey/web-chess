@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.10] - 2026-11-04
+### Changed
+- **Funnier profanity feedback**: sending a message that got the silly-emoji treatment now also shows the sender a rotating, good-natured toast (`pickProfanityBannerMessage` in `src/utils/profanityFilter.ts`) instead of silently swapping the word with no acknowledgment — never shown to other players, never blocks the send.
+
 ## [1.5.0-rc.9] - 2026-11-04
 ### Fixed
 - **Live chat ran against production PocketBase even in local dev**: `LiveChatClient` always defaulted to the hosted PocketBase URL instead of detecting `localhost`/`127.0.0.1` like `ArcadeRealtimeClient` does, so local testing was silently hitting the live database. It now resolves the same way (local Bun server on `localhost`/`127.0.0.1`, PocketBase otherwise).

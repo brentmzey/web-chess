@@ -77,3 +77,25 @@ export const censorProfanity = (text: string): ProfanityCensorResult => {
     profanityDetected: matches.length > 0
   };
 };
+
+/**
+ * A good-natured callout shown to the sender (never the recipient) when their own message got the
+ * silly-emoji treatment, so moderation reads as a bit, not a scold.
+ */
+const PROFANITY_BANNER_MESSAGES: ReadonlyArray<string> = [
+  '🦆 Easy there, champion — we tucked your spicy word into emoji witness protection.',
+  '🐸 Message delivered! We swapped the naughty bit for something a frog would say.',
+  '🧇 Your trash talk got waffle-ified. Still spicy, zero profanity.',
+  '🍩 That word has been relocated to Emoji Island. Population: your curse words.',
+  '🦄 We let the message through and politely confiscated the profanity at the door.',
+  '🐙 A word just got gently kidnapped by an octopus. Everyone else only sees the octopus.',
+  '🥔 That word is now a potato. Life comes at you fast.',
+  '🦕 A dinosaur ate your curse word. It looked delicious.',
+  '🐌 Your language has been slowed to a family-friendly crawl.',
+  '🧦 We stuffed that word in a sock. A silly, silly sock.',
+  '🐢 Slow and steady — your message arrived, minus the naughty bits.',
+  '🥨 Pretzel-twisted your profanity into something shaped like a snack.'
+];
+
+export const pickProfanityBannerMessage = (index: number): string =>
+  PROFANITY_BANNER_MESSAGES[index % PROFANITY_BANNER_MESSAGES.length];

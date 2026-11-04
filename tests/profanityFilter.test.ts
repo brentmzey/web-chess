@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { censorProfanity } from '../src/utils/profanityFilter';
+import { censorProfanity, pickProfanityBannerMessage } from '../src/utils/profanityFilter';
 
 describe('censorProfanity', () => {
   it('leaves clean text completely unchanged', () => {
@@ -52,5 +52,33 @@ describe('censorProfanity', () => {
     const res = censorProfanity('');
     expect(res.profanityDetected).toBe(false);
     expect(res.censoredText).toBe('');
+  });
+});
+
+describe('pickProfanityBannerMessage', () => {
+  it('returns a non-empty string for the first index', () => {
+    const message = pickProfanityBannerMessage(0);
+    expect(typeof message).toBe('string');
+    expect(message.length).toBeGreaterThan(0);
+  });
+
+  it('cycles back to the same message once the index wraps around the pool size', () => {
+    const first = pickProfanityBannerMessage(0);
+    let wrapIndex = 1;
+    while (pickProfanityBannerMessage(wrapIndex) !== first) {
+      wrapIndex += 1;
+    }
+    expect(pickProfanityBannerMessage(wrapIndex + wrapIndex)).toBe(first);
+  });
+
+  it('never repeats the exact same wording twice within one full cycle', () => {
+    const first = pickProfanityBannerMessage(0);
+    const seen = new Set<string>([first]);
+    for (let i = 1; pickProfanityBannerMessage(i) !== first; i++) {
+      const message = pickProfanityBannerMessage(i);
+      expect(seen.has(message)).toBe(false);
+      seen.add(message);
+    }
+    expect(seen.size).toBeGreaterThan(1);
   });
 });
