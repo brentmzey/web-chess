@@ -8,7 +8,6 @@ import {
   type Result
 } from '../../utils/fp';
 import { currentEpochMs } from '../../utils/dateTime';
-import { censorProfanity } from '../../utils/profanityFilter';
 import { generateUuidV4 } from '../../utils/uuid';
 import type { SessionRepository } from '../db/sessionRepository';
 import type { SSEManager } from '../sse/sseManager';
@@ -416,7 +415,7 @@ export class RealtimeChessService {
     senderRole: string;
     message: string;
   }): Result<ChatMessageRecord, string> {
-    const cleanMsg = censorProfanity(params.message.trim()).censoredText.slice(0, 500);
+    const cleanMsg = params.message.trim().slice(0, 500);
     if (!cleanMsg) {
       return failure('Chat message cannot be empty');
     }

@@ -1771,9 +1771,6 @@ function main(): void {
       res.match({
         Ok: () => {
           ui.focusChatInput();
-          if (liveChatClient.wasLastMessageCensored()) {
-            ui.showTemporaryBanner(liveChatClient.nextProfanityBannerMessage(), 4000);
-          }
         },
         Err: err => {
           ui.showTemporaryBanner(`Could not send chat message: ${err.message}`, 3000);

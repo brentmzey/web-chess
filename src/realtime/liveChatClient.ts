@@ -13,7 +13,6 @@ import {
 import { currentEpochMs } from '../utils/dateTime';
 import { generateUuidV4 } from '../utils/uuid';
 import { NetworkError, ValidationError, type SanctuaryError } from '../errors/sanctuaryError';
-import { censorProfanity, pickProfanityBannerMessage } from '../utils/profanityFilter';
 import {
   ChatMessageRecordSchema,
   parseChatMessageInput,
@@ -32,7 +31,7 @@ const stripChatMessageHtml = (text: string): string =>
 
 export const sanitizeChatMessage = (text: string,
                                     maxLen: number = 500): string =>
-  censorProfanity(stripChatMessageHtml(text)).censoredText.slice(0, maxLen);
+  stripChatMessageHtml(text).slice(0, maxLen);
 
 export const chatMessagesTopic = (sessionCode: string): string =>
   `${CHAT_COLLECTION}?options=${encodeURIComponent(JSON.stringify({ query: { filter: `txt_session_code="${sessionCode}"` } }))}`;
@@ -63,8 +62,6 @@ export class LiveChatClient {
   private messageListeners: Set<ChatMessageHandler> = new Set();
   private unreadCount: number = 0;
   private isConnected: boolean = false;
-  private lastSendWasCensored: boolean = false;
-  private profanityBannerIndex: number = 0;
 
   constructor(config: LiveChatConfig = {}) {
     this.baseUrl = (config.baseUrl ?? LiveChatClient.resolveDefaultBaseUrl()).replace(/\/+$/, '');
@@ -123,18 +120,6 @@ export class LiveChatClient {
 
   public getIsConnected(): boolean {
     return this.isConnected;
-  }
-
-  /** True when the most recent `sendMessage` call had to silly-emoji-censor profanity. */
-  public wasLastMessageCensored(): boolean {
-    return this.lastSendWasCensored;
-  }
-
-  /** Picks the next good-natured callout for a censored send, cycling through the pool each call. */
-  public nextProfanityBannerMessage(): string {
-    const message = pickProfanityBannerMessage(this.profanityBannerIndex);
-    this.profanityBannerIndex += 1;
-    return message;
   }
 
   public onMessage(handler: ChatMessageHandler): () => void {
@@ -240,12 +225,10 @@ export class LiveChatClient {
   }
 
   public async sendMessage(rawText: string): Promise<Result<ChatMessageRecordData, SanctuaryError>> {
-    const censorResult = censorProfanity(stripChatMessageHtml(rawText));
-    const clean = censorResult.censoredText.slice(0, 500);
+    const clean = stripChatMessageHtml(rawText).slice(0, 500);
     if (!clean) {
       return failure(new ValidationError('MESSAGE_EMPTY', 'Chat message cannot be empty'));
     }
-    this.lastSendWasCensored = censorResult.profanityDetected;
 
     return this.sessionCode.match({
       None: async () => failure(new ValidationError('SESSION_REQUIRED', 'Cannot send chat message without an active session code')),

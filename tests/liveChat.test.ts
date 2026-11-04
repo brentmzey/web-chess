@@ -328,10 +328,10 @@ describe('Sanctuary Live Chat System - Schemas, Repository, Service & Client', (
     }
   });
 
-  it('tracks whether the last sent message was profanity-censored and cycles a funny banner for it', async () => {
+  it('sends messages through verbatim with no profanity filtering, only HTML stripped', async () => {
     const client = new LiveChatClient({
       baseUrl: 'http://localhost:3000',
-      sessionCode: 'SANCT-PROFANE',
+      sessionCode: 'SANCT-UNFILTERED',
       senderName: 'Tester',
       senderRole: 'white'
     });
@@ -353,25 +353,9 @@ describe('Sanctuary Live Chat System - Schemas, Repository, Service & Client', (
     }) as any;
 
     try {
-      expect(client.wasLastMessageCensored()).toBe(false);
-
-      const cleanRes = await client.sendMessage('Good game, well played');
-      expect(cleanRes.match({ Ok: () => true, Err: () => false })).toBe(true);
-      expect(client.wasLastMessageCensored()).toBe(false);
-
-      const profaneRes = await client.sendMessage('this is such bullshit');
-      expect(profaneRes.match({ Ok: () => true, Err: () => false })).toBe(true);
-      expect(client.wasLastMessageCensored()).toBe(true);
-
-      const firstBanner = client.nextProfanityBannerMessage();
-      const secondBanner = client.nextProfanityBannerMessage();
-      expect(typeof firstBanner).toBe('string');
-      expect(firstBanner.length).toBeGreaterThan(0);
-      expect(secondBanner).not.toBe(firstBanner);
-
-      const anotherCleanRes = await client.sendMessage('No issues here');
-      expect(anotherCleanRes.match({ Ok: () => true, Err: () => false })).toBe(true);
-      expect(client.wasLastMessageCensored()).toBe(false);
+      const res = await client.sendMessage('this is such bullshit, you fucking cheated');
+      expect(res.match({ Ok: () => true, Err: () => false })).toBe(true);
+      expect(res.getOrElse(null as any).txt_message).toBe('this is such bullshit, you fucking cheated');
     } finally {
       globalThis.fetch = originalFetch;
     }

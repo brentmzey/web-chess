@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
-import { UIController } from '../src/ui/uiController';
+import { renderChatMessageMarkup, UIController } from '../src/ui/uiController';
 
 class MockElement {
   public className: string = '';
@@ -203,9 +203,87 @@ describe('Sanctuary Live Chat UI Controller Testing', () => {
     expect(domElements['chat-messages-container']!.innerHTML).toContain('No messages yet');
   });
 
+  it('renders a message containing a bare URL as a clickable link, stripping trailing sentence punctuation', () => {
+    const urlMsg = {
+      id: 'msg-url',
+      senderName: 'Architect',
+      senderRole: 'white',
+      message: 'Check this out: https://example.com/game-rules.',
+      createdAt: 1700000050000
+    };
+    ui.appendChatMessage(urlMsg, false);
+    const bubble = domElements['chat-messages-container']!.children.at(-1)!;
+    expect(bubble.innerHTML).toContain('<a href="https://example.com/game-rules" target="_blank" rel="noopener noreferrer"');
+    expect(bubble.innerHTML).toContain('>https://example.com/game-rules</a>.');
+    expect(bubble.innerHTML).toContain('Check this out: ');
+  });
+
+  it('renders markdown-style [label](url) links with the label as the visible text', () => {
+    const mdMsg = {
+      id: 'msg-md',
+      senderName: 'Architect',
+      senderRole: 'white',
+      message: 'Read the [rules](https://example.com/rules) before you move.',
+      createdAt: 1700000060000
+    };
+    ui.appendChatMessage(mdMsg, false);
+    const bubble = domElements['chat-messages-container']!.children.at(-1)!;
+    expect(bubble.innerHTML).toContain('<a href="https://example.com/rules" target="_blank" rel="noopener noreferrer"');
+    expect(bubble.innerHTML).toContain('>rules</a>');
+    expect(bubble.innerHTML).not.toContain('>https://example.com/rules</a>');
+  });
+
+  it('never turns a non-http(s) scheme into a clickable link and still escapes it as plain text', () => {
+    const unsafeMsg = {
+      id: 'msg-unsafe',
+      senderName: 'Architect',
+      senderRole: 'white',
+      message: 'Try javascript:alert(1) or <script>alert(2)</script>',
+      createdAt: 1700000070000
+    };
+    ui.appendChatMessage(unsafeMsg, false);
+    const bubble = domElements['chat-messages-container']!.children.at(-1)!;
+    expect(bubble.innerHTML).not.toContain('<a href');
+    expect(bubble.innerHTML).toContain('&lt;script&gt;');
+    expect(bubble.innerHTML).not.toContain('<script>');
+  });
+
   it('handles scrollChatToBottom safely', () => {
     domElements['chat-messages-container']!.scrollHeight = 500;
     ui.scrollChatToBottom();
     expect(domElements['chat-messages-container']!.scrollTop).toBe(500);
+  });
+});
+
+describe('renderChatMessageMarkup', () => {
+  it('escapes plain text with no links completely unchanged aside from HTML metacharacters', () => {
+    expect(renderChatMessageMarkup('Good game, well played!')).toBe('Good game, well played!');
+    expect(renderChatMessageMarkup('a < b && b > c')).toBe('a &lt; b &amp;&amp; b &gt; c');
+  });
+
+  it('handles an empty string without throwing', () => {
+    expect(renderChatMessageMarkup('')).toBe('');
+  });
+
+  it('renders multiple links in the same message, each independently', () => {
+    const result = renderChatMessageMarkup('See https://a.example.com and [b](https://b.example.com) too');
+    expect(result).toContain('<a href="https://a.example.com"');
+    expect(result).toContain('>https://a.example.com</a>');
+    expect(result).toContain('<a href="https://b.example.com"');
+    expect(result).toContain('>b</a>');
+    expect(result).toContain(' and ');
+    expect(result).toContain(' too');
+  });
+
+  it('escapes HTML metacharacters inside a markdown link label', () => {
+    const result = renderChatMessageMarkup('[<b>bold</b>](https://example.com)');
+    expect(result).toContain('&lt;b&gt;bold&lt;/b&gt;');
+    expect(result).not.toContain('<b>bold</b>');
+  });
+
+  it('leaves a bare URL with no trailing punctuation fully intact', () => {
+    expect(renderChatMessageMarkup('https://example.com/path?q=1')).toBe(
+      '<a href="https://example.com/path?q=1" target="_blank" rel="noopener noreferrer" class="text-sky-300 underline break-all hover:text-sky-200">https://example.com/path?q=1</a>'
+    );
   });
 });

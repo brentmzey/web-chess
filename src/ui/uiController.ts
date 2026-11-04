@@ -48,6 +48,65 @@ export function escapeHtml(raw: string): string {
   return raw.replace(/[&<>"']/g, ch => fromNullable(HTML_ESCAPE_MAP[ch]).getOrElse(ch));
 }
 
+/**
+ * Matches either a markdown link `[label](http://...)` or a bare `http(s)://` URL. The scheme is
+ * required so a match can never become a `javascript:`/`data:` href.
+ */
+const CHAT_LINK_PATTERN = /\[(?<mdLabel>[^\]\n]+)\]\((?<mdUrl>https?:\/\/[^\s)]+)\)|(?<bareUrl>https?:\/\/[^\s<>()]+)/g;
+const TRAILING_PUNCTUATION_PATTERN = /[.,!?;:)\]}'"]+$/;
+
+interface ChatMarkupAccumulator {
+  readonly html: string;
+  readonly cursor: number;
+}
+
+const renderChatLink = (label: string,
+                        url: string): string =>
+  `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-sky-300 underline break-all hover:text-sky-200">${escapeHtml(label)}</a>`;
+
+/** Bare URLs often sit at the end of a sentence (`check this out: https://x.com.`); the trailing punctuation reads as prose, not part of the link. */
+const splitTrailingPunctuation = (url: string): readonly [string, string] =>
+  fromNullable(url.match(TRAILING_PUNCTUATION_PATTERN)?.[0]).match({
+    Some: trail => [url.slice(0, -trail.length), trail] as const,
+    None: () => [url, ''] as const
+  });
+
+const applyChatLinkMatch = (text: string,
+                            acc: ChatMarkupAccumulator,
+                            chatMatch: RegExpMatchArray): ChatMarkupAccumulator => {
+  const start = chatMatch.index ?? 0;
+  const end = start + chatMatch[0].length;
+  const groups = (chatMatch.groups || {}) as { mdLabel?: string; mdUrl?: string; bareUrl?: string };
+  const before = escapeHtml(text.slice(acc.cursor, start));
+
+  return fromNullable(groups.bareUrl).match({
+    Some: bareUrl => {
+      const [url, trail] = splitTrailingPunctuation(bareUrl);
+      return {
+        html: acc.html + before + renderChatLink(url, url) + escapeHtml(trail),
+        cursor: end
+      };
+    },
+    None: () => ({
+      html: acc.html + before + renderChatLink(groups.mdLabel || '', groups.mdUrl || ''),
+      cursor: end
+    })
+  });
+};
+
+/**
+ * Renders chat message text with `[label](url)` markdown links and bare `http(s)://` URLs turned
+ * into clickable anchors; everything else is HTML-escaped exactly like plain text always was.
+ */
+export function renderChatMessageMarkup(raw: string): string {
+  const matches = [...raw.matchAll(CHAT_LINK_PATTERN)];
+  const result = matches.reduce<ChatMarkupAccumulator>(
+    (acc, chatMatch) => applyChatLinkMatch(raw, acc, chatMatch),
+    { html: '', cursor: 0 }
+  );
+  return result.html + escapeHtml(raw.slice(result.cursor));
+}
+
 export type LiveSeatRole = 'white' | 'black' | 'spectator';
 
 /**
@@ -1276,7 +1335,7 @@ export class UIController {
             <span class="text-[9px] text-stone-500">${escapeHtml(timeStr)}</span>
           </div>
         </div>
-        <p class="text-stone-200 break-words leading-relaxed">${escapeHtml(msg.message)}</p>
+        <p class="text-stone-200 break-words leading-relaxed">${renderChatMessageMarkup(msg.message)}</p>
       `;
 
       container.appendChild(bubble);

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.11] - 2026-11-04
+### Added
+- **Clickable links in live chat**: bare `http(s)://` URLs and markdown-style `[label](url)` links now render as clickable anchors (`renderChatMessageMarkup` in `src/ui/uiController.ts`); everything else is still HTML-escaped exactly as before, and only `http`/`https` schemes are ever linkified.
+### Removed
+- **Profanity filtering removed from live chat**: messages are sent and stored verbatim, client and server side (local Bun server, and the production PocketBase hook). Messages are still HTML-stripped and length-capped for safety, but language is no longer censored or blocked.
+
 ## [1.5.0-rc.10] - 2026-11-04
 ### Changed
 - **Funnier profanity feedback**: sending a message that got the silly-emoji treatment now also shows the sender a rotating, good-natured toast (`pickProfanityBannerMessage` in `src/utils/profanityFilter.ts`) instead of silently swapping the word with no acknowledgment — never shown to other players, never blocks the send.

@@ -464,47 +464,6 @@ function recordArcadeTableActivity(app, event) {
     app.save(table);
 }
 
-const CHAT_PROFANITY_WORDS = [
-    "fuck", "shit", "bitch", "asshole", "bastard", "dick", "piss", "cunt",
-    "douche", "whore", "slut", "cock", "pussy", "fag", "faggot", "retard",
-    "nigger", "nigga", "twat", "wanker", "motherfucker", "bullshit", "dumbass",
-    "jackass", "dipshit", "horseshit", "shithead", "asswipe", "cocksucker"
-];
-
-const CHAT_SILLY_DISGUISES = [
-    "🦆💥", "🐸✨", "🧇😵", "🍩🙈", "🦄💫",
-    "🐙🙊", "🥔😳", "🦕🫣", "🐌🎉", "🧦🙃",
-    "🍄😶", "🦔💨", "🐢🤪", "🥨😬", "🐝🫠"
-];
-
-const CHAT_LEET_MAP = { "0": "o", "1": "i", "!": "i", "3": "e", "4": "a", "@": "a", "$": "s", "5": "s", "7": "t" };
-
-function normalizeChatTextForMatch(text) {
-    return text.toLowerCase().split("").map(ch => CHAT_LEET_MAP[ch] || ch).join("");
-}
-
-/** Server-authoritative profanity censor for production (direct browser -> PocketBase writes bypass the Bun server). */
-function censorChatMessageProfanity(message) {
-    const original = message.getString("txt_message");
-    if (!original) return;
-    const normalized = normalizeChatTextForMatch(original);
-    const pattern = new RegExp(`\\b(?:${CHAT_PROFANITY_WORDS.join("|")})[a-z]*\\b`, "gi");
-    let censored = "";
-    let lastIndex = 0;
-    let matchCount = 0;
-    let match;
-    while ((match = pattern.exec(normalized)) !== null) {
-        censored += original.slice(lastIndex, match.index);
-        censored += CHAT_SILLY_DISGUISES[matchCount % CHAT_SILLY_DISGUISES.length];
-        lastIndex = match.index + match[0].length;
-        matchCount += 1;
-    }
-    censored += original.slice(lastIndex);
-    if (matchCount > 0) {
-        message.set("txt_message", censored);
-    }
-}
-
 /**
  * Links a chat message to its parent game_sessions (if chess) or tbl_arcade_tables (if arcade),
  * so that when the session/table is deleted, the chat message cascades with it.
@@ -566,7 +525,6 @@ module.exports = {
     SESSION_FAMILIES,
     attachArcadeEventToTable,
     attachChatMessageToSessionOrTable,
-    censorChatMessageProfanity,
     loadPolicy,
     pruneIdleArcadePlayers,
     pruneOrphanChatMessages,
