@@ -1,0 +1,211 @@
+import { beforeEach, describe, expect, it } from 'bun:test';
+import { UIController } from '../src/ui/uiController';
+
+class MockElement {
+  public className: string = '';
+  public textContent: string = '';
+  public innerHTML: string = '';
+  public title: string = '';
+  public value: string = '';
+  public scrollTop: number = 0;
+  public scrollHeight: number = 200;
+  public attrs: Record<string, string> = {};
+  public dataset: Record<string, string> = {};
+  public focused: boolean = false;
+  public children: MockElement[] = [];
+
+  public classList = {
+    classes: new Set<string>(),
+    add: (...cls: string[]) => cls.forEach(c => this.classList.classes.add(c)),
+    remove: (...cls: string[]) => cls.forEach(c => this.classList.classes.delete(c)),
+    contains: (c: string) => this.classList.classes.has(c),
+    toggle: (c: string, force?: boolean) => {
+      const shouldAdd = force !== undefined ? force : !this.classList.classes.has(c);
+      if (shouldAdd) this.classList.classes.add(c);
+      else this.classList.classes.delete(c);
+    }
+  };
+
+  public setAttribute(k: string, v: string) {
+    this.attrs[k] = v;
+  }
+
+  public getAttribute(k: string) {
+    return this.attrs[k] ?? null;
+  }
+
+  public focus() {
+    this.focused = true;
+  }
+
+  public appendChild(child: MockElement) {
+    this.children.push(child);
+  }
+}
+
+describe('Sanctuary Live Chat UI Controller Testing', () => {
+  let domElements: Record<string, MockElement>;
+  let ui: UIController;
+
+  beforeEach(() => {
+    domElements = {
+      'live-chat-drawer': new MockElement(),
+      'btn-persistent-toggle-chat': new MockElement(),
+      'chat-unread-badge': new MockElement(),
+      'chat-session-code-badge': new MockElement(),
+      'chat-current-player-name': new MockElement(),
+      'chat-current-player-role': new MockElement(),
+      'chat-messages-container': new MockElement(),
+      'chat-empty-notice': new MockElement(),
+      'chat-input': new MockElement(),
+      'chat-char-counter': new MockElement(),
+      'btn-send-chat': new MockElement(),
+      'btn-close-chat': new MockElement()
+    };
+
+    // Initially hide chat drawer with sanctuary off-canvas class
+    domElements['live-chat-drawer']!.classList.add('translate-x-[115%]');
+
+    globalThis.document = {
+      getElementById: (id: string) => (domElements[id] as any) || null,
+      createElement: () => new MockElement(),
+      querySelectorAll: () => []
+    } as any;
+
+    ui = new UIController();
+  });
+
+  it('toggles chat drawer visibility and reports state correctly', () => {
+    expect(ui.isChatDrawerOpen()).toBe(false);
+
+    // Open chat drawer explicitly
+    ui.toggleChatDrawer(true);
+    expect(ui.isChatDrawerOpen()).toBe(true);
+    expect(domElements['live-chat-drawer']!.classList.contains('translate-x-[115%]')).toBe(false);
+
+    // Close chat drawer explicitly
+    ui.toggleChatDrawer(false);
+    expect(ui.isChatDrawerOpen()).toBe(false);
+    expect(domElements['live-chat-drawer']!.classList.contains('translate-x-[115%]')).toBe(true);
+
+    // Toggle without argument (inverts current state)
+    ui.toggleChatDrawer();
+    expect(ui.isChatDrawerOpen()).toBe(true);
+    ui.toggleChatDrawer();
+    expect(ui.isChatDrawerOpen()).toBe(false);
+  });
+
+  it('updates chat session details in the drawer header', () => {
+    ui.setChatSessionDetails('SANCT-9999', 'Bishop White', 'white');
+
+    expect(domElements['chat-session-code-badge']!.textContent).toBe('SANCT-9999');
+    expect(domElements['chat-current-player-name']!.textContent).toBe('Bishop White');
+    expect(domElements['chat-current-player-role']!.textContent).toBe('WHITE');
+  });
+
+  it('manages chat input value, focus, and character counter', () => {
+    expect(ui.getChatInputValue()).toBe('');
+
+    ui.setChatInputValue('Sanctuary blessing');
+    expect(ui.getChatInputValue()).toBe('Sanctuary blessing');
+    expect(domElements['chat-char-counter']!.textContent).toBe('18/500');
+
+    ui.focusChatInput();
+    expect(domElements['chat-input']!.focused).toBe(true);
+
+    ui.updateChatCharCounter(17, 300);
+    expect(domElements['chat-char-counter']!.textContent).toBe('17/300');
+  });
+
+  it('updates unread badge visibility and count', () => {
+    ui.updateChatUnreadBadge(0);
+    expect(domElements['chat-unread-badge']!.classList.contains('hidden')).toBe(true);
+
+    ui.updateChatUnreadBadge(5);
+    expect(domElements['chat-unread-badge']!.classList.contains('hidden')).toBe(false);
+    expect(domElements['chat-unread-badge']!.textContent).toBe('5');
+
+    // Caps display at 99+
+    ui.updateChatUnreadBadge(150);
+    expect(domElements['chat-unread-badge']!.textContent).toBe('99+');
+  });
+
+  it('mirrors unread state onto per-arcade-theater chat badges', () => {
+    const arcadeBadge = new MockElement();
+    (globalThis.document as any).querySelectorAll = (selector: string) =>
+      selector === '.arcade-chat-unread-badge' ? [arcadeBadge] : [];
+
+    ui.updateChatUnreadBadge(3);
+    expect(arcadeBadge.classList.contains('hidden')).toBe(false);
+    expect(arcadeBadge.textContent).toBe('3');
+
+    ui.updateChatUnreadBadge(0);
+    expect(arcadeBadge.classList.contains('hidden')).toBe(true);
+    expect(arcadeBadge.textContent).toBe('0');
+  });
+
+  it('appends messages for all roles (white, black, spectator, host, other), hiding empty state', () => {
+    const ownMsg = {
+      id: 'msg-own',
+      senderName: 'Architect',
+      senderRole: 'white',
+      message: 'Move e4 initiated',
+      createdAt: 1700000000000
+    };
+
+    ui.appendChatMessage(ownMsg, true);
+    expect(domElements['chat-empty-notice']!.classList.contains('hidden')).toBe(true);
+    expect(domElements['chat-messages-container']!.children.length).toBe(1);
+
+    const blackMsg = {
+      id: 'msg-black',
+      senderName: 'Black Player',
+      senderRole: 'black',
+      message: 'Move e5 responded',
+      createdAt: 1700000010000
+    };
+    ui.appendChatMessage(blackMsg, false);
+    expect(domElements['chat-messages-container']!.children.length).toBe(2);
+
+    const spectatorMsg = {
+      id: 'msg-spec',
+      senderName: 'Spectator Observer',
+      senderRole: 'spectator',
+      message: 'Exciting match!',
+      createdAt: 1700000020000
+    };
+    ui.appendChatMessage(spectatorMsg, false);
+    expect(domElements['chat-messages-container']!.children.length).toBe(3);
+
+    const hostMsg = {
+      id: 'msg-host',
+      senderName: 'Room Host',
+      senderRole: 'host',
+      message: 'Welcome everyone',
+      createdAt: 1700000030000
+    };
+    ui.appendChatMessage(hostMsg, false);
+    expect(domElements['chat-messages-container']!.children.length).toBe(4);
+
+    const otherMsg = {
+      id: 'msg-other',
+      senderName: 'Player 3',
+      senderRole: 'seat_3',
+      message: 'Ready to play',
+      createdAt: 1700000040000
+    };
+    ui.appendChatMessage(otherMsg, false);
+    expect(domElements['chat-messages-container']!.children.length).toBe(5);
+
+    // Clear messages resets container and restores empty state
+    ui.clearChatMessages();
+    expect(domElements['chat-messages-container']!.innerHTML).toContain('chat-empty-notice');
+    expect(domElements['chat-messages-container']!.innerHTML).toContain('No messages yet');
+  });
+
+  it('handles scrollChatToBottom safely', () => {
+    domElements['chat-messages-container']!.scrollHeight = 500;
+    ui.scrollChatToBottom();
+    expect(domElements['chat-messages-container']!.scrollTop).toBe(500);
+  });
+});

@@ -17,6 +17,7 @@ import {
   type OpponentDifficulty,
   type PieceType
 } from '../types';
+import { formatDateTime, epochMsToIso } from '../utils/dateTime';
 import {
   domById,
   fromNullable,
@@ -169,6 +170,18 @@ export interface UIControllerElements {
   readonly btnPersistentToggleWakeLock: Option<HTMLButtonElement>;
   readonly iconPersistentWakeLock: Option<HTMLElement>;
   readonly labelPersistentWakeLock: Option<HTMLElement>;
+  readonly liveChatDrawer: Option<HTMLElement>;
+  readonly chatSessionCodeBadge: Option<HTMLElement>;
+  readonly chatCurrentPlayerName: Option<HTMLElement>;
+  readonly chatCurrentPlayerRole: Option<HTMLElement>;
+  readonly chatMessagesContainer: Option<HTMLElement>;
+  readonly chatEmptyNotice: Option<HTMLElement>;
+  readonly chatInput: Option<HTMLInputElement>;
+  readonly btnSendChat: Option<HTMLButtonElement>;
+  readonly chatCharCounter: Option<HTMLElement>;
+  readonly chatUnreadBadge: Option<HTMLElement>;
+  readonly btnPersistentToggleChat: Option<HTMLButtonElement>;
+  readonly btnCloseChat: Option<HTMLButtonElement>;
 }
 
 /**
@@ -285,7 +298,19 @@ export function buildUIControllerElements(overrides?: Readonly<Partial<UIControl
     wakeLockPregameBadge: domById('wake-lock-pregame-badge'),
     btnPersistentToggleWakeLock: domById<HTMLButtonElement>('btn-persistent-toggle-wake-lock'),
     iconPersistentWakeLock: domById('icon-persistent-wake-lock'),
-    labelPersistentWakeLock: domById('label-persistent-wake-lock')
+    labelPersistentWakeLock: domById('label-persistent-wake-lock'),
+    liveChatDrawer: domById('live-chat-drawer'),
+    chatSessionCodeBadge: domById('chat-session-code-badge'),
+    chatCurrentPlayerName: domById('chat-current-player-name'),
+    chatCurrentPlayerRole: domById('chat-current-player-role'),
+    chatMessagesContainer: domById('chat-messages-container'),
+    chatEmptyNotice: domById('chat-empty-notice'),
+    chatInput: domById<HTMLInputElement>('chat-input'),
+    btnSendChat: domById<HTMLButtonElement>('btn-send-chat'),
+    chatCharCounter: domById('chat-char-counter'),
+    chatUnreadBadge: domById('chat-unread-badge'),
+    btnPersistentToggleChat: domById<HTMLButtonElement>('btn-persistent-toggle-chat'),
+    btnCloseChat: domById<HTMLButtonElement>('btn-close-chat')
   };
 
   const builder = ImmutableBuilder.from(baseElements);
@@ -1174,6 +1199,143 @@ export class UIController {
       btn.classList.toggle('border-amber-400/50', active);
       btn.classList.toggle('bg-amber-500/20', active);
       btn.classList.toggle('text-amber-200', active);
+    });
+  }
+
+  public toggleChatDrawer(open?: boolean): boolean {
+    return this.el.liveChatDrawer.map(drawer => {
+      const isCurrentlyOpen = !drawer.classList.contains('translate-x-[115%]');
+      const nextOpen = open !== undefined ? open : !isCurrentlyOpen;
+      drawer.classList.toggle('translate-x-[115%]', !nextOpen);
+      drawer.classList.toggle('opacity-0', !nextOpen);
+      if (nextOpen) {
+        this.updateChatUnreadBadge(0);
+        this.scrollChatToBottom();
+        this.focusChatInput();
+      }
+      return nextOpen;
+    }).getOrElse(false);
+  }
+
+  public isChatDrawerOpen(): boolean {
+    return this.el.liveChatDrawer.map(d => !d.classList.contains('translate-x-[115%]')).getOrElse(false);
+  }
+
+  public setChatSessionDetails(sessionCode: string,
+                               playerName: string,
+                               role: string): void {
+    this.el.chatSessionCodeBadge.map(el => {
+      el.textContent = sessionCode;
+    });
+    this.el.chatCurrentPlayerName.map(el => {
+      el.textContent = playerName;
+    });
+    this.el.chatCurrentPlayerRole.map(el => {
+      el.textContent = role.toUpperCase();
+    });
+  }
+
+  public appendChatMessage(msg: {
+    readonly id: string;
+    readonly senderName: string;
+    readonly senderRole: string;
+    readonly message: string;
+    readonly createdAt: number;
+  },
+                           isOwn: boolean = false): void {
+    this.el.chatEmptyNotice.map(notice => notice.classList.add('hidden'));
+    this.el.chatMessagesContainer.map(container => {
+      const bubble = document.createElement('div');
+      const timeStr = formatDateTime(epochMsToIso(msg.createdAt));
+      const roleUpper = msg.senderRole.toUpperCase();
+
+      const roleNormalized = msg.senderRole.toLowerCase();
+      const roleBg = matchBool(roleNormalized === 'white', {
+        true: () => 'bg-amber-400/20 text-amber-200 border-amber-400/30',
+        false: () => matchBool(roleNormalized === 'black', {
+          true: () => 'bg-purple-900/40 text-purple-200 border-purple-400/30',
+          false: () => matchBool(roleNormalized === 'spectator', {
+            true: () => 'bg-sky-500/20 text-sky-200 border-sky-400/30',
+            false: () => matchBool(roleNormalized === 'host', {
+              true: () => 'bg-amber-500/20 text-amber-200 border-amber-400/30',
+              false: () => 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30'
+            })
+          })
+        })
+      });
+
+      const alignClass = isOwn ? 'ml-auto border-sky-500/40 bg-sky-950/70' : 'mr-auto border-white/10 bg-black/50';
+
+      bubble.className = `p-2.5 rounded-2xl border text-xs max-w-[85%] space-y-1 shadow-sm transition ${alignClass}`;
+      bubble.dataset.chatMessageId = msg.id;
+      bubble.innerHTML = `
+        <div class="flex items-center justify-between gap-2 text-[10px] text-stone-400">
+          <span class="font-bold text-amber-100 truncate">${escapeHtml(msg.senderName)}</span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="text-[9px] px-1 py-0.2 rounded border font-semibold ${roleBg}">${escapeHtml(roleUpper)}</span>
+            <span class="text-[9px] text-stone-500">${escapeHtml(timeStr)}</span>
+          </div>
+        </div>
+        <p class="text-stone-200 break-words leading-relaxed">${escapeHtml(msg.message)}</p>
+      `;
+
+      container.appendChild(bubble);
+      this.scrollChatToBottom();
+    });
+  }
+
+  public clearChatMessages(): void {
+    this.el.chatMessagesContainer.map(container => {
+      container.innerHTML = `
+        <div id="chat-empty-notice" class="text-stone-500 italic text-center py-10 flex flex-col items-center gap-2">
+            <span class="material-symbols-rounded text-2xl text-stone-600">forum</span>
+            <span>No messages yet. Send a greeting to the match!</span>
+        </div>
+      `;
+    });
+  }
+
+  public scrollChatToBottom(): void {
+    this.el.chatMessagesContainer.map(container => {
+      container.scrollTop = container.scrollHeight;
+    });
+  }
+
+  public updateChatUnreadBadge(count: number): void {
+    const hasUnread = count > 0;
+    const badgeText = count > 99 ? '99+' : String(count);
+    this.el.chatUnreadBadge.map(badge => {
+      badge.classList.toggle('hidden', !hasUnread);
+      badge.textContent = badgeText;
+    });
+    if (typeof document !== 'undefined') {
+      const arcadeBadges = document.querySelectorAll('.arcade-chat-unread-badge');
+      arcadeBadges.forEach(b => {
+        b.classList.toggle('hidden', !hasUnread);
+        b.textContent = badgeText;
+      });
+    }
+  }
+
+  public getChatInputValue(): string {
+    return this.el.chatInput.map(i => i.value.trim()).getOrElse('');
+  }
+
+  public setChatInputValue(val: string): void {
+    this.el.chatInput.map(i => {
+      i.value = val;
+      this.updateChatCharCounter(val.length);
+    });
+  }
+
+  public focusChatInput(): void {
+    this.el.chatInput.map(i => i.focus());
+  }
+
+  public updateChatCharCounter(count: number,
+                               max: number = 500): void {
+    this.el.chatCharCounter.map(el => {
+      el.textContent = `${count}/${max}`;
     });
   }
 }

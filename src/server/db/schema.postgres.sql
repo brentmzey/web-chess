@@ -100,12 +100,26 @@ CREATE TABLE IF NOT EXISTS session_events (
             'draw_accepted',
             'draw_declined',
             'resigned',
-            'game_over'
+            'game_over',
+            'chat_message'
         )
     ),
     payload_json JSONB NOT NULL,
     created_at BIGINT NOT NULL,
     CONSTRAINT uq_pg_session_events_session_seq UNIQUE (session_id, event_seq)
+);
+
+-- 6. Live Chat Messages Table
+CREATE TABLE IF NOT EXISTS tbl_chat_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES game_sessions(id) ON DELETE CASCADE,
+    txt_session_code VARCHAR(32) NOT NULL,
+    txt_sender_id VARCHAR(64) NOT NULL,
+    txt_sender_name VARCHAR(64) NOT NULL,
+    txt_sender_role VARCHAR(32) NOT NULL,
+    txt_message TEXT NOT NULL,
+    int_created_at BIGINT NOT NULL,
+    created_at BIGINT NOT NULL
 );
 
 -- ============================================================================
@@ -131,3 +145,7 @@ CREATE INDEX IF NOT EXISTS ix_pg_game_moves_participant ON game_moves(participan
 CREATE UNIQUE INDEX IF NOT EXISTS uq_pg_session_events_session_seq ON session_events(session_id, event_seq);
 CREATE INDEX IF NOT EXISTS ix_pg_session_events_session_type ON session_events(session_id, event_type);
 CREATE INDEX IF NOT EXISTS ix_pg_session_events_created ON session_events(created_at);
+
+CREATE INDEX IF NOT EXISTS ix_pg_chat_session_code ON tbl_chat_messages(txt_session_code, created_at);
+CREATE INDEX IF NOT EXISTS ix_pg_chat_session_id ON tbl_chat_messages(session_id);
+CREATE INDEX IF NOT EXISTS ix_pg_chat_created_at ON tbl_chat_messages(created_at);

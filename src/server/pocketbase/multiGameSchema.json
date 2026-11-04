@@ -913,6 +913,31 @@
         "CREATE INDEX `idx_snap_cfg_label` ON `tbl_archived_cfg_snapshots` (`txt_snapshot_label`)",
         "CREATE INDEX `idx_snap_cfg_cleanup` ON `tbl_archived_cfg_snapshots` (`bln_do_not_delete`, `updated`)"
       ]
+    },
+    {
+      "name": "tbl_chat_messages",
+      "type": "base",
+      "listRule": "",
+      "viewRule": "",
+      "createRule": "txt_session_code != \"\" && txt_sender_name != \"\" && txt_message != \"\"",
+      "updateRule": null,
+      "deleteRule": null,
+      "fields": [
+        { "name": "session", "type": "relation", "required": false, "collectionId": "game_sessions", "cascadeDelete": true, "maxSelect": 1 },
+        { "name": "table", "type": "relation", "required": false, "collectionId": "tbl_arcade_tables", "cascadeDelete": true, "maxSelect": 1 },
+        { "name": "txt_session_code", "type": "text", "required": true, "max": 32 },
+        { "name": "txt_sender_id", "type": "text", "required": true, "max": 64 },
+        { "name": "txt_sender_name", "type": "text", "required": true, "max": 64 },
+        { "name": "txt_sender_role", "type": "text", "required": true, "max": 32 },
+        { "name": "txt_message", "type": "text", "required": true, "max": 500 },
+        { "name": "int_created_at", "type": "number", "required": false },
+        { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+        { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_chat_session_code` ON `tbl_chat_messages` (`txt_session_code`, `created`)",
+        "CREATE INDEX `idx_chat_created` ON `tbl_chat_messages` (`created`)"
+      ]
     }
   ]
 }

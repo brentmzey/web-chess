@@ -94,6 +94,11 @@
                     <span class="material-symbols-rounded text-xs" id="icon-persistent-wake-lock">screen_lock_portrait</span>
                     <span id="label-persistent-wake-lock" class="hidden sm:inline">Awake</span>
                 </button>
+                <button type="button" id="btn-persistent-toggle-chat" class="px-2 py-1 rounded-xl border border-sky-400/40 bg-sky-900/40 hover:bg-sky-800/60 text-sky-200 text-[11px] flex items-center gap-1 transition relative" title="Toggle Live Match Chat" aria-label="Toggle Live Match Chat">
+                    <span class="material-symbols-rounded text-xs">chat</span>
+                    <span class="hidden sm:inline">Chat</span>
+                    <span id="chat-unread-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-stone-900 shadow"></span>
+                </button>
                 <button type="button" id="btn-persistent-leave-live" class="px-2.5 py-1 rounded-xl bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-bold flex items-center gap-1 shadow-sm transition active:scale-95 shrink-0" title="Exit Live Match and return to solo / AI mode">
                     <span class="material-symbols-rounded text-xs">logout</span>
                     <span>Exit</span>
@@ -170,6 +175,54 @@
             <span>Drag to Orbit • Pinch/Scroll Zoom</span>
             <span class="text-amber-300/90 font-medium">64-Square Crossing</span>
         </div>
+    </aside>
+
+    <!-- SLIDE-OVER LIVE CHAT DRAWER (Universal Live Session Chat) -->
+    <aside id="live-chat-drawer" class="fixed top-14 sm:top-18 right-2 sm:right-4 bottom-14 sm:bottom-20 w-[calc(100vw-1rem)] sm:w-96 max-w-[94vw] z-[55] md3-glass rounded-3xl p-3.5 sm:p-5 flex flex-col gap-3 transition-all duration-300 translate-x-[115%] opacity-0 pointer-events-auto border border-sky-400/40 shadow-2xl shadow-black/80 bg-stone-950/95" aria-label="Live Match Chat Drawer">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-sky-500/20 pb-2.5 shrink-0">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-rounded text-sky-300">chat</span>
+                <h2 class="font-cathedral text-sm font-bold text-amber-100 tracking-wider">LIVE MATCH CHAT</h2>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="chat-session-code-badge" class="font-mono text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-200 border border-sky-400/30 font-bold">SANCT-XXXX</span>
+                <button type="button" id="btn-close-chat" class="p-1 rounded-full hover:bg-white/10 text-stone-300 transition" aria-label="Close Live Match Chat">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chatting As User Pill -->
+        <div id="chat-identity-pill" class="flex items-center justify-between px-3 py-1.5 rounded-2xl bg-sky-950/60 border border-sky-400/25 text-[11px] text-sky-100 shrink-0">
+            <div class="flex items-center gap-1.5 truncate">
+                <span class="text-stone-400">Chatting as:</span>
+                <span id="chat-current-player-name" class="font-bold text-amber-200 truncate">Cathedral Player</span>
+            </div>
+            <span id="chat-current-player-role" class="text-[9px] uppercase px-1.5 py-0.5 rounded-md bg-sky-500/30 text-sky-200 border border-sky-400/40 font-bold shrink-0">PLAYER</span>
+        </div>
+
+        <!-- Messages Container -->
+        <div id="chat-messages-container" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs select-text scroll-smooth" style="scroll-behavior: smooth;" tabindex="0" aria-label="Chat messages list">
+            <div id="chat-empty-notice" class="text-stone-500 italic text-center py-10 flex flex-col items-center gap-2">
+                <span class="material-symbols-rounded text-2xl text-stone-600">forum</span>
+                <span>No messages yet. Send a greeting to the match!</span>
+            </div>
+        </div>
+
+        <!-- Input Bar Form -->
+        <form id="chat-form" class="space-y-1.5 shrink-0 pt-1 border-t border-white/10">
+            <div class="relative flex items-center">
+                <input type="text" id="chat-input" maxlength="500" placeholder="Send a message to all players..." autocomplete="off" class="w-full bg-black/60 border border-sky-400/30 focus:border-sky-400 rounded-2xl pl-3.5 pr-12 py-2 text-xs text-stone-100 placeholder:text-stone-500 focus:outline-none transition">
+                <button type="submit" id="btn-send-chat" class="absolute right-1.5 p-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed" aria-label="Send Message" title="Send message">
+                    <span class="material-symbols-rounded text-base">send</span>
+                </button>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-stone-500 px-1">
+                <span>Press Enter to send</span>
+                <span id="chat-char-counter">0/500</span>
+            </div>
+        </form>
     </aside>
 
     <!-- BOTTOM SINGLE-LEVEL MATERIAL DESIGN 3 NAVIGATION BAR -->
@@ -1542,6 +1595,10 @@
                 <button type="button" id="btn-bjk-rules" class="p-1.5 sm:p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
                     <span class="material-symbols-rounded text-lg">menu_book</span>
                 </button>
+                <button type="button" data-arcade-toggle-chat class="p-1.5 sm:p-2 rounded-full hover:bg-white/10 text-sky-300 relative transition" title="Toggle Live Match Chat" aria-label="Toggle Live Match Chat">
+                    <span class="material-symbols-rounded text-lg">chat</span>
+                    <span class="arcade-chat-unread-badge hidden absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-stone-900 shadow"></span>
+                </button>
                 <button type="button" id="btn-bjk-fullscreen" class="p-1.5 sm:p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -1725,6 +1782,10 @@
                 </button>
                 <button type="button" id="btn-poker-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
                     <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
+                <button type="button" data-arcade-toggle-chat class="p-2 rounded-full hover:bg-white/10 text-sky-300 relative transition" title="Toggle Live Match Chat" aria-label="Toggle Live Match Chat">
+                    <span class="material-symbols-rounded text-lg">chat</span>
+                    <span class="arcade-chat-unread-badge hidden absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-stone-900 shadow"></span>
                 </button>
                 <button type="button" id="btn-poker-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
@@ -1915,6 +1976,10 @@
                 <button type="button" id="btn-skipbo-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
                     <span class="material-symbols-rounded text-lg">menu_book</span>
                 </button>
+                <button type="button" data-arcade-toggle-chat class="p-2 rounded-full hover:bg-white/10 text-sky-300 relative transition" title="Toggle Live Match Chat" aria-label="Toggle Live Match Chat">
+                    <span class="material-symbols-rounded text-lg">chat</span>
+                    <span class="arcade-chat-unread-badge hidden absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-stone-900 shadow"></span>
+                </button>
                 <button type="button" id="btn-skipbo-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -2087,6 +2152,10 @@
                 </button>
                 <button type="button" id="btn-phase10-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
                     <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
+                <button type="button" data-arcade-toggle-chat class="p-2 rounded-full hover:bg-white/10 text-sky-300 relative transition" title="Toggle Live Match Chat" aria-label="Toggle Live Match Chat">
+                    <span class="material-symbols-rounded text-lg">chat</span>
+                    <span class="arcade-chat-unread-badge hidden absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-stone-900 shadow"></span>
                 </button>
                 <button type="button" id="btn-phase10-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
@@ -2268,6 +2337,10 @@
                 <button type="button" id="btn-uno-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
                     <span class="material-symbols-rounded text-lg">menu_book</span>
                 </button>
+                <button type="button" data-arcade-toggle-chat class="p-2 rounded-full hover:bg-white/10 text-sky-300 relative transition" title="Toggle Live Match Chat" aria-label="Toggle Live Match Chat">
+                    <span class="material-symbols-rounded text-lg">chat</span>
+                    <span class="arcade-chat-unread-badge hidden absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-stone-900 shadow"></span>
+                </button>
                 <button type="button" id="btn-uno-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -2433,6 +2506,10 @@
                 </button>
                 <button type="button" id="btn-avalon-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
                     <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
+                <button type="button" data-arcade-toggle-chat class="p-2 rounded-full hover:bg-white/10 text-sky-300 relative transition" title="Toggle Live Match Chat" aria-label="Toggle Live Match Chat">
+                    <span class="material-symbols-rounded text-lg">chat</span>
+                    <span class="arcade-chat-unread-badge hidden absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-stone-900 shadow"></span>
                 </button>
                 <button type="button" id="btn-avalon-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
@@ -2608,6 +2685,10 @@
                 <button type="button" id="btn-set-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
                     <span class="material-symbols-rounded text-lg">menu_book</span>
                 </button>
+                <button type="button" data-arcade-toggle-chat class="p-2 rounded-full hover:bg-white/10 text-sky-300 relative transition" title="Toggle Live Match Chat" aria-label="Toggle Live Match Chat">
+                    <span class="material-symbols-rounded text-lg">chat</span>
+                    <span class="arcade-chat-unread-badge hidden absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-stone-900 shadow"></span>
+                </button>
                 <button type="button" id="btn-set-fullscreen" class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
                     <span class="material-symbols-rounded text-lg">fullscreen</span>
                 </button>
@@ -2740,6 +2821,10 @@
                 </button>
                 <button type="button" id="btn-solitaire-rules" class="p-2 rounded-full hover:bg-white/10 text-amber-300 transition" title="Game Rules &amp; Real-Life Guide" aria-label="Game Rules &amp; Real-Life Guide">
                     <span class="material-symbols-rounded text-lg">menu_book</span>
+                </button>
+                <button type="button" data-arcade-toggle-chat class="p-2 rounded-full hover:bg-white/10 text-sky-300 relative transition" title="Toggle Live Match Chat" aria-label="Toggle Live Match Chat">
+                    <span class="material-symbols-rounded text-lg">chat</span>
+                    <span class="arcade-chat-unread-badge hidden absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-stone-900 shadow"></span>
                 </button>
                 <button type="button" id="btn-close-solitaire-x" data-modal-close class="p-2 rounded-full hover:bg-white/10 text-stone-300 transition" title="Close Cathedral Solitaire" aria-label="Close Cathedral Solitaire">
                     <span class="material-symbols-rounded text-lg">close</span>

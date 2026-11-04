@@ -24,7 +24,20 @@ export type SSEEventType =
   | 'draw_accepted'
   | 'draw_declined'
   | 'resigned'
-  | 'game_over';
+  | 'game_over'
+  | 'chat_message';
+
+export interface ChatMessageRecord {
+  id: string;
+  session_id?: string | null;
+  txt_session_code: string;
+  txt_sender_id: string;
+  txt_sender_name: string;
+  txt_sender_role: string;
+  txt_message: string;
+  int_created_at: number;
+  created_at: number;
+}
 
 export interface GameSessionRecord {
   id: string;

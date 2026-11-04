@@ -17,3 +17,12 @@ onRecordCreate((e) => {
         console.warn(`[ArcadeTables] Could not record table activity: ${err}`);
     }
 }, "tbl_arcade_events");
+
+onRecordCreate((e) => {
+    try {
+        require(`${__hooks}/sanctuary_maintenance.js`).attachChatMessageToSessionOrTable(e.app, e.record);
+    } catch (err) {
+        console.warn(`[ChatMessages] Could not attach chat message: ${err}`);
+    }
+    e.next();
+}, "tbl_chat_messages");

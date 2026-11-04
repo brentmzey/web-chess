@@ -10,6 +10,7 @@ import {
 import { currentEpochMs } from '../../utils/dateTime';
 import type { SanctuaryDatabase } from './database';
 import type {
+  ChatMessageRecord,
   GameMoveRecord,
   GameSessionRecord,
   SSEEventType,
@@ -53,6 +54,8 @@ export class SessionRepository {
   private stmtGetMovesBySession: Statement;
   private stmtGetEventsSince: Statement;
   private stmtGetMaxEventSeq: Statement;
+  private stmtInsertChatMessage: Statement;
+  private stmtGetChatMessagesByCode: Statement;
 
   constructor(private sanctuaryDb: SanctuaryDatabase) {
     this.db = sanctuaryDb.getRawDb();
@@ -84,6 +87,14 @@ export class SessionRepository {
     this.stmtGetMaxEventSeq = this.db.prepare(
       'SELECT COALESCE(MAX(event_seq), 0) AS max_seq FROM session_events WHERE session_id = ?'
     );
+    this.stmtInsertChatMessage = this.db.prepare(`
+      INSERT INTO tbl_chat_messages (
+        id, session_id, txt_session_code, txt_sender_id, txt_sender_name, txt_sender_role, txt_message, int_created_at, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    this.stmtGetChatMessagesByCode = this.db.prepare(`
+      SELECT * FROM tbl_chat_messages WHERE txt_session_code = ? ORDER BY created_at ASC LIMIT ?
+    `);
   }
 
   public hashToken(rawToken: string): string {
@@ -778,5 +789,47 @@ export class SessionRepository {
     return (this.db
       .prepare('SELECT * FROM tbl_archived_game_snapshots_history ORDER BY created_at DESC LIMIT ?')
       .all(limit) || []) as ArchivedGameSnapshotRecord[];
+  }
+
+  public insertChatMessage(msg: {
+    id: string;
+    sessionId?: string | null;
+    sessionCode: string;
+    senderId: string;
+    senderName: string;
+    senderRole: string;
+    message: string;
+    createdAt?: number;
+  }): Result<ChatMessageRecord, string> {
+    const now = msg.createdAt ?? currentEpochMs();
+    return tryCatch(() => {
+      this.stmtInsertChatMessage.run(
+        msg.id,
+        msg.sessionId || null,
+        msg.sessionCode,
+        msg.senderId,
+        msg.senderName,
+        msg.senderRole,
+        msg.message,
+        now,
+        now
+      );
+      return {
+        id: msg.id,
+        session_id: msg.sessionId || null,
+        txt_session_code: msg.sessionCode,
+        txt_sender_id: msg.senderId,
+        txt_sender_name: msg.senderName,
+        txt_sender_role: msg.senderRole,
+        txt_message: msg.message,
+        int_created_at: now,
+        created_at: now
+      };
+    }, toErrorString);
+  }
+
+  public getChatMessagesBySessionCode(sessionCode: string,
+                                      limit: number = 50): ChatMessageRecord[] {
+    return (this.stmtGetChatMessagesByCode.all(sessionCode, limit) || []) as ChatMessageRecord[];
   }
 }

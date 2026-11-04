@@ -346,6 +346,11 @@ function runMaintenance(app, source) {
         report.errors.push(`tbl_arcade_events: ${err}`);
     }
     try {
+        pruneOrphanChatMessages(app, cutoff, report);
+    } catch (err) {
+        report.errors.push(`tbl_chat_messages: ${err}`);
+    }
+    try {
         pruneIdleArcadePlayers(app, toPbDate(startedAt - policy.guestPlayerDays * DAY_MS), report);
     } catch (err) {
         report.errors.push(`tbl_arcade_players: ${err}`);
@@ -458,14 +463,63 @@ function recordArcadeTableActivity(app, event) {
     app.save(table);
 }
 
+/**
+ * Links a chat message to its parent game_sessions (if chess) or tbl_arcade_tables (if arcade),
+ * so that when the session/table is deleted, the chat message cascades with it.
+ */
+function attachChatMessageToSessionOrTable(app, message) {
+    const code = message.getString("txt_session_code");
+    if (!code) return;
+
+    if (!message.getString("session") && findCollection(app, "game_sessions")) {
+        try {
+            const session = app.findFirstRecordByFilter("game_sessions", "session_code = {:code}", { code: code });
+            if (session) {
+                message.set("session", session.id);
+            }
+        } catch (_) {}
+    }
+
+    if (!message.getString("table") && findCollection(app, "tbl_arcade_tables")) {
+        try {
+            const table = app.findFirstRecordByFilter("tbl_arcade_tables", "session_code = {:code}", { code: code });
+            if (table) {
+                message.set("table", table.id);
+            }
+        } catch (_) {}
+    }
+}
+
+/** Deletes orphan chat messages older than the cutoff. */
+function pruneOrphanChatMessages(app, cutoff, report) {
+    if (!findCollection(app, "tbl_chat_messages")) return;
+    const orphans = app.findRecordsByFilter(
+        "tbl_chat_messages",
+        "created < {:cutoff}",
+        "created",
+        BATCH_SIZE * 5,
+        0,
+        { cutoff: cutoff }
+    );
+    orphans.forEach(msg => {
+        try {
+            app.delete(msg);
+        } catch (err) {
+            report.errors.push(`tbl_chat_messages/${msg.id}: ${err}`);
+        }
+    });
+}
+
 module.exports = {
     ARCADE_CODE_PATTERN,
     POLICY_DEFAULTS,
     ROTATING_TABLES,
     SESSION_FAMILIES,
     attachArcadeEventToTable,
+    attachChatMessageToSessionOrTable,
     loadPolicy,
     pruneIdleArcadePlayers,
+    pruneOrphanChatMessages,
     recordArcadeTableActivity,
     seatedParticipants,
     rotateTable,

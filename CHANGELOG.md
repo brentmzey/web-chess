@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.8] - 2026-11-03
+### Added
+- **Universal Live Session Chat**: a persistent match chat is now available across Sanctuary Chess and all eight Sanctuary Arcade games (Blackjack, Poker, Skip-Bo, Phase 10, Uno, Avalon, SET, and Solitaire).
+  - A slide-over glass drawer (`#live-chat-drawer`) with session-code badge, "Chatting as" identity pill, message feed, unread counter, and character-counted input, toggled from a persistent HUD button and from a chat button in every arcade game header (`[data-arcade-toggle-chat]`).
+  - Messages are rendered as role-colored bubbles (white/black/spectator/host/seat) with sender name, role badge, and timestamp, with HTML stripped from incoming text before display.
+  - `LiveChatClient` (`src/realtime/liveChatClient.ts`) sends and receives chat over the local Bun server's SSE stream (`/api/chat/messages/:sessionCode`, `/api/realtime/...`) or over PocketBase realtime (`tbl_chat_messages/*`), depending on environment, with chat history fetched on join.
+  - New `tbl_chat_messages` table (SQLite, Postgres, and PocketBase schemas) stores chat history, cascades with its parent chess session or arcade table, and is pruned by the existing stale-session maintenance sweep (`pruneOrphanChatMessages` in `pb_hooks/sanctuary_maintenance.js`).
+
 ## [1.5.0-rc.7] - 2026-10-30
 ### Fixed
 - **Phase 10: Hitting on laid phase melds across all groups and players**:

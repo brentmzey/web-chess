@@ -8,6 +8,7 @@ import { ArcadeRealtimeService } from './services/arcadeRealtimeService';
 import { MultiGameService } from './services/multiGameService';
 import { ArcadeGameEnum } from '../constants/gameEnums';
 import { SanctuaryError } from '../errors/sanctuaryError';
+import { parseChatMessageInput } from '../validation/chatSchemas';
 
 export interface SanctuaryServerOptions {
   readonly port?: number;
@@ -467,7 +468,46 @@ export class SanctuaryRealtimeServer {
         });
       }
 
-      // 14. POST /api/maintenance/cleanup -> Trigger stale session cleanup sweep
+      // 14. POST /api/chat/messages -> Send live chat message
+      if (method === 'POST' && pathname === '/api/chat/messages') {
+        const body = (await req.json().catch(fallbackEmpty)) as Record<string, unknown>;
+        const parseRes = parseChatMessageInput(body);
+        return parseRes.match({
+          Ok: input => {
+            const sessionId = typeof body.sessionId === 'string' ? body.sessionId : undefined;
+            const sendRes = this.service.sendChatMessage({
+              sessionId,
+              sessionCode: input.sessionCode,
+              senderId: input.senderId,
+              senderName: input.senderName,
+              senderRole: input.senderRole,
+              message: input.message
+            });
+            return sendRes.match({
+              Ok: msg => {
+                if (this.arcadeService.getSession(input.sessionCode).isSome()) {
+                  this.arcadeService.broadcast(input.sessionCode, 'chat_message', input.senderId, msg as unknown as Record<string, unknown>);
+                }
+                return json({ message: msg }, 201);
+              },
+              Err: badRequest
+            });
+          },
+          Err: err => badRequest(err.message)
+        });
+      }
+
+      // 15. GET /api/chat/messages/:sessionCode -> Get chat history for session
+      const chatMatch = pathname.match(/^\/api\/chat\/messages\/([^/]+)$/);
+      if (method === 'GET' && chatMatch) {
+        const sessionCode = decodeURIComponent(chatMatch[1]!);
+        const limitParam = url.searchParams.get('limit');
+        const limit = limitParam ? Math.min(100, Math.max(1, parseInt(limitParam, 10))) : 50;
+        const messages = this.service.getChatMessages(sessionCode, limit);
+        return json({ messages }, 200);
+      }
+
+      // 16. POST /api/maintenance/cleanup -> Trigger stale session cleanup sweep
       if (method === 'POST' && pathname === '/api/maintenance/cleanup') {
         const body = (await req.json().catch(fallbackEmpty)) as Record<string, unknown>;
         const days = typeof body.olderThanDays === 'number' ? body.olderThanDays : 3;

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { SanctuaryRealtimeServer } from '../src/server/server';
+import { ArcadeGameEnum } from '../src/constants/gameEnums';
 
 describe('SanctuaryRealtimeServer HTTP & SSE Endpoints', () => {
   let server: SanctuaryRealtimeServer;
@@ -336,5 +337,78 @@ describe('SanctuaryRealtimeServer HTTP & SSE Endpoints', () => {
     const maintData = (await maintResp.json()) as any;
     expect(typeof maintData.totalDeleted).toBe('number');
     expect(maintData.traceId).toContain('trc_srv_cron_');
+  });
+
+  it('sends and fetches live chat messages via /api/chat/messages', async () => {
+    const hostRes = server.service.createSession({ creatorRole: 'white' }).getOrThrow();
+
+    const sendReq = new Request('http://localhost:3888/api/chat/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: hostRes.session.id,
+        sessionCode: hostRes.session.session_code,
+        senderId: hostRes.participant.id,
+        senderName: 'Host',
+        senderRole: 'white',
+        message: 'Checkmate incoming'
+      })
+    });
+    const sendResp = await server.handleRequest(sendReq);
+    expect(sendResp.status).toBe(201);
+    const sendBody = (await sendResp.json()) as any;
+    expect(sendBody.message.txt_message).toBe('Checkmate incoming');
+
+    const histReq = new Request(`http://localhost:3888/api/chat/messages/${hostRes.session.session_code}?limit=10`);
+    const histResp = await server.handleRequest(histReq);
+    expect(histResp.status).toBe(200);
+    const histBody = (await histResp.json()) as any;
+    expect(histBody.messages.length).toBe(1);
+    expect(histBody.messages[0].txt_message).toBe('Checkmate incoming');
+
+    // Validation failure (empty message) reports a structured 400
+    const badSendReq = new Request('http://localhost:3888/api/chat/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: hostRes.session.id,
+        sessionCode: hostRes.session.session_code,
+        senderId: hostRes.participant.id,
+        senderName: 'Host',
+        senderRole: 'white',
+        message: '   '
+      })
+    });
+    const badSendResp = await server.handleRequest(badSendReq);
+    expect(badSendResp.status).toBe(400);
+    const badSendBody = (await badSendResp.json()) as any;
+    expect(badSendBody.error).toContain('Chat message validation failed');
+
+    // Default history limit (no ?limit param) still resolves
+    const defaultHistReq = new Request(`http://localhost:3888/api/chat/messages/${hostRes.session.session_code}`);
+    const defaultHistResp = await server.handleRequest(defaultHistReq);
+    expect(defaultHistResp.status).toBe(200);
+    const defaultHistBody = (await defaultHistResp.json()) as any;
+    expect(defaultHistBody.messages.length).toBe(1);
+  });
+
+  it('broadcasts a chat message to a live arcade table when one exists for the session code', async () => {
+    server.arcadeService.createSession(ArcadeGameEnum.Blackjack, 'BJK-CHATTEST', 2, 'Host');
+
+    const req = new Request('http://localhost:3888/api/chat/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionCode: 'BJK-CHATTEST',
+        senderId: 'host_arcade',
+        senderName: 'Host',
+        senderRole: 'host',
+        message: 'Good luck at the table'
+      })
+    });
+    const resp = await server.handleRequest(req);
+    expect(resp.status).toBe(201);
+    const body = (await resp.json()) as any;
+    expect(body.message.txt_session_code).toBe('BJK-CHATTEST');
   });
 });

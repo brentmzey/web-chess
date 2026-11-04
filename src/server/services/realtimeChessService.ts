@@ -8,9 +8,11 @@ import {
   type Result
 } from '../../utils/fp';
 import { currentEpochMs } from '../../utils/dateTime';
+import { generateUuidV4 } from '../../utils/uuid';
 import type { SessionRepository } from '../db/sessionRepository';
 import type { SSEManager } from '../sse/sseManager';
 import type {
+  ChatMessageRecord,
   CreateSessionOptions,
   GameMoveRecord,
   GameSessionRecord,
@@ -403,5 +405,50 @@ export class RealtimeChessService {
         () => 'Failed to retrieve session after theme update'
       );
     });
+  }
+
+  public sendChatMessage(params: {
+    sessionId?: string;
+    sessionCode: string;
+    senderId: string;
+    senderName: string;
+    senderRole: string;
+    message: string;
+  }): Result<ChatMessageRecord, string> {
+    const cleanMsg = params.message.trim().slice(0, 500);
+    if (!cleanMsg) {
+      return failure('Chat message cannot be empty');
+    }
+    const id = generateUuidV4();
+    const insertRes = this.repository.insertChatMessage({
+      id,
+      sessionId: params.sessionId,
+      sessionCode: params.sessionCode,
+      senderId: params.senderId,
+      senderName: params.senderName,
+      senderRole: params.senderRole,
+      message: cleanMsg
+    });
+
+    return insertRes.map(record => {
+      if (params.sessionId) {
+        const evtRes = this.repository.recordEvent(params.sessionId, 'chat_message', {
+          id: record.id,
+          sessionCode: record.txt_session_code,
+          senderId: record.txt_sender_id,
+          senderName: record.txt_sender_name,
+          senderRole: record.txt_sender_role,
+          message: record.txt_message,
+          createdAt: record.int_created_at
+        });
+        evtRes.map(evt => this.sseManager.broadcast(params.sessionId!, evt));
+      }
+      return record;
+    });
+  }
+
+  public getChatMessages(sessionCode: string,
+                         limit: number = 50): ChatMessageRecord[] {
+    return this.repository.getChatMessagesBySessionCode(sessionCode, limit);
   }
 }

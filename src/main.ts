@@ -113,6 +113,7 @@ import {
   CathedralSolitaireEngine,
   FOUNDATION_SLOT_COUNT
 } from './games/solitaire/solitaireEngine';
+import { LiveChatClient } from './realtime/liveChatClient';
 import { ArcadeRealtimeClient, POCKETHOST_URL, type ArcadeConnectionStatus, type PrivateSeatState } from './realtime/arcadeRealtimeClient';
 import { exportTableSnapshot, importTableSnapshot, type ArcadeTableSnapshot, type SnapshotableEngine } from './games/multiplayer/tableSnapshot';
 import { HIDDEN_INFO_POLICIES, type HiddenInfoPolicy, type SeatSecrets } from './games/multiplayer/hiddenInfo';
@@ -269,6 +270,7 @@ function main(): void {
   let pendingPromotionMove: { from: string; to: string } | null = null;
   let activeRealtimeClient: PocketBaseChessClient | null = null;
   let liveUserRole: 'white' | 'black' | 'spectator' = 'white';
+  const liveChatClient = new LiveChatClient();
 
   // Display settings (in-memory + persisted in IndexedDB when session persistence is enabled)
   const displaySettings = getDisplaySettings();
@@ -1706,7 +1708,77 @@ function main(): void {
     });
 
     void activeRealtimeClient.connect();
+
+    const currentLive = chessStore.getState().liveSession;
+    const sessionCode = currentLive?.sessionCode || '';
+    const playerName = currentLive?.playerName || (liveUserRole === 'white' ? 'White Marble Host' : 'Obsidian Guest');
+    if (sessionCode) {
+      void liveChatClient.setSession(sessionCode, playerName, liveUserRole, participantId, sessionId, token);
+      ui.setChatSessionDetails(sessionCode, playerName, liveUserRole);
+    }
   }
+
+  // Live Chat Drawer & Realtime Chat Event Handlers
+  liveChatClient.onMessage(msg => {
+    const isOwn = msg.txt_sender_id === liveChatClient.getSenderId();
+    ui.appendChatMessage({
+      id: msg.id,
+      senderName: msg.txt_sender_name,
+      senderRole: msg.txt_sender_role,
+      message: msg.txt_message,
+      createdAt: msg.int_created_at || currentEpochMs()
+    }, isOwn);
+
+    if (!ui.isChatDrawerOpen() && !isOwn) {
+      liveChatClient.incrementUnreadCount();
+      ui.updateChatUnreadBadge(liveChatClient.getUnreadCount());
+      soundFX.playSelect();
+    }
+  });
+
+  fromNullable(document.getElementById('btn-persistent-toggle-chat')).map(btn =>
+    btn.addEventListener('click', () => {
+      ui.toggleChatDrawer();
+    })
+  );
+
+  fromNullable(document.getElementById('btn-close-chat')).map(btn =>
+    btn.addEventListener('click', () => {
+      ui.toggleChatDrawer(false);
+    })
+  );
+
+  document.querySelectorAll('[data-arcade-toggle-chat]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      ui.toggleChatDrawer();
+    });
+  });
+
+  const chatInputEl = document.getElementById('chat-input') as HTMLInputElement | null;
+  fromNullable(chatInputEl).map(input => {
+    input.addEventListener('input', () => {
+      ui.updateChatCharCounter(input.value.length);
+    });
+  });
+
+  fromNullable(document.getElementById('chat-form')).map(form => {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const rawText = ui.getChatInputValue();
+      if (!rawText) return;
+      ui.setChatInputValue('');
+      const res = await liveChatClient.sendMessage(rawText);
+      res.match({
+        Ok: () => {
+          ui.focusChatInput();
+        },
+        Err: err => {
+          ui.showTemporaryBanner(`Could not send chat message: ${err.message}`, 3000);
+          ui.setChatInputValue(rawText);
+        }
+      });
+    });
+  });
 
   // Live Multiplayer Modal & Controls
   fromNullable(document.getElementById('btn-live')).map(btn =>
@@ -1974,6 +2046,9 @@ function main(): void {
       activeRealtimeClient.disconnect();
       activeRealtimeClient = null;
     }
+    liveChatClient.disconnect();
+    ui.clearChatMessages();
+    ui.toggleChatDrawer(false);
     currentMode = GameModeEnum.Minimax;
     liveUserRole = 'white';
     chessStore.setState({ mode: GameModeEnum.Minimax, liveSession: undefined });
@@ -2193,6 +2268,9 @@ function main(): void {
       client.disconnect();
       activeArcadeClient = null;
     });
+    liveChatClient.disconnect();
+    ui.clearChatMessages();
+    ui.toggleChatDrawer(false);
     activeArcadeSync = none();
     activeArcadeGame = none();
     syncArcadeNewGameButtons();
@@ -3567,6 +3645,9 @@ function main(): void {
       }
       if (activeArcadeClient === client) {
         await adoptServerHostRole(client, playerName);
+        const role = solitaireIsSpectator ? 'spectator' : (isLocalPlayerHost ? 'host' : 'player');
+        void liveChatClient.setSession(sessionCode, playerName, role, arcadeParticipantId, undefined, authToken);
+        ui.setChatSessionDetails(sessionCode, playerName, role);
       }
       if (activeArcadeClient === client) {
         client.connect();
@@ -3588,6 +3669,8 @@ function main(): void {
             isLocalPlayerHost = isHost;
             // Solitaire has no seats: its one player is the host, everyone else watches
             activeArcadeGame.filter(game => game === ArcadeGameEnum.Solitaire).map(() => setSolitaireSpectator(!isHost));
+            const role = solitaireIsSpectator ? 'spectator' : (isHost ? 'host' : 'player');
+            ui.setChatSessionDetails(client.getSessionCode(), playerName, role);
             if (isHost) {
               activeArcadeSync.map(sync => seatLiveParticipant(sync, arcadeParticipantId, playerName));
               ui.showTemporaryBanner('You are hosting this table.', 2200);

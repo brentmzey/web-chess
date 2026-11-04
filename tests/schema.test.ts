@@ -21,6 +21,7 @@ describe('Sanctuary Real-Time SQL Schema, Foreign Keys & Indices', () => {
     expect(tableNames).toContain('session_tokens');
     expect(tableNames).toContain('game_moves');
     expect(tableNames).toContain('session_events');
+    expect(tableNames).toContain('tbl_chat_messages');
 
     db.close();
   });
@@ -71,11 +72,20 @@ describe('Sanctuary Real-Time SQL Schema, Foreign Keys & Indices', () => {
       [eventId, sessionId, now]
     );
 
+    // 6. Insert chat message
+    const chatId = 'chat-1';
+    raw.run(
+      `INSERT INTO tbl_chat_messages (id, session_id, txt_session_code, txt_sender_id, txt_sender_name, txt_sender_role, txt_message, int_created_at, created_at)
+       VALUES (?, ?, 'SANCT-CASCADE', 'part-1', 'Player1', 'white', 'Hello Cathedral!', ?, ?);`,
+      [chatId, sessionId, now, now]
+    );
+
     // Verify all records exist
     expect(raw.query('SELECT count(*) as c FROM session_participants;').get()).toEqual({ c: 1 });
     expect(raw.query('SELECT count(*) as c FROM session_tokens;').get()).toEqual({ c: 1 });
     expect(raw.query('SELECT count(*) as c FROM game_moves;').get()).toEqual({ c: 1 });
     expect(raw.query('SELECT count(*) as c FROM session_events;').get()).toEqual({ c: 1 });
+    expect(raw.query('SELECT count(*) as c FROM tbl_chat_messages;').get()).toEqual({ c: 1 });
 
     // DELETE session -> all referencing child rows must cascade-delete
     raw.run('DELETE FROM game_sessions WHERE id = ?;', [sessionId]);
@@ -85,6 +95,7 @@ describe('Sanctuary Real-Time SQL Schema, Foreign Keys & Indices', () => {
     expect(raw.query('SELECT count(*) as c FROM session_tokens;').get()).toEqual({ c: 0 });
     expect(raw.query('SELECT count(*) as c FROM game_moves;').get()).toEqual({ c: 0 });
     expect(raw.query('SELECT count(*) as c FROM session_events;').get()).toEqual({ c: 0 });
+    expect(raw.query('SELECT count(*) as c FROM tbl_chat_messages;').get()).toEqual({ c: 0 });
 
     db.close();
   });

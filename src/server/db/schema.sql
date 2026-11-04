@@ -99,7 +99,8 @@ CREATE TABLE IF NOT EXISTS session_events (
             'draw_accepted',
             'draw_declined',
             'resigned',
-            'game_over'
+            'game_over',
+            'chat_message'
         )
     ),
     payload_json TEXT NOT NULL,
@@ -169,6 +170,19 @@ CREATE TABLE IF NOT EXISTS tbl_archived_game_snapshots_history (
     created_at INTEGER NOT NULL
 );
 
+-- 10. Live Chat Messages Table (Hungarian Prefix & Universal Live Session Chat)
+CREATE TABLE IF NOT EXISTS tbl_chat_messages (
+    id TEXT PRIMARY KEY,
+    session_id TEXT REFERENCES game_sessions(id) ON DELETE CASCADE,
+    txt_session_code TEXT NOT NULL,
+    txt_sender_id TEXT NOT NULL,
+    txt_sender_name TEXT NOT NULL,
+    txt_sender_role TEXT NOT NULL,
+    txt_message TEXT NOT NULL,
+    int_created_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
 -- ============================================================================
 -- Indices for High-Throughput Relational Queries, Lookups and Joins
 -- ============================================================================
@@ -218,6 +232,11 @@ CREATE INDEX IF NOT EXISTS ix_tbl_arch_created ON tbl_archived_game_snapshots(cr
 -- Partitioned Archived Snapshots History Indices
 CREATE INDEX IF NOT EXISTS ix_tbl_arch_hist_code ON tbl_archived_game_snapshots_history(txt_session_code);
 CREATE INDEX IF NOT EXISTS ix_tbl_arch_hist_created ON tbl_archived_game_snapshots_history(created_at DESC);
+
+-- Live Chat Messages Indices (Optimized for fast session chat retrieval & sorting)
+CREATE INDEX IF NOT EXISTS ix_chat_session_code ON tbl_chat_messages(txt_session_code, created_at);
+CREATE INDEX IF NOT EXISTS ix_chat_session_id ON tbl_chat_messages(session_id);
+CREATE INDEX IF NOT EXISTS ix_chat_created_at ON tbl_chat_messages(created_at);
 
 -- ============================================================================
 -- Configuration & System Control Master Tables (Hungarian Prefix Notation)
