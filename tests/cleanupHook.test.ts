@@ -61,6 +61,8 @@ const createApp = (schema: Record<string, readonly string[]>,
         return r.data.updated < p.cutoff && !r.data.do_not_delete;
       case "table = '' && updated < {:cutoff} && do_not_delete != true":
         return !r.data.table && r.data.updated < p.cutoff && !r.data.do_not_delete;
+      case "session = '' && table = '' && created < {:cutoff}":
+        return !r.data.session && !r.data.table && r.data.created < p.cutoff;
       case 'created < {:cutoff}':
         return r.data.created < p.cutoff;
       case 'created < {:cutoff} && bln_do_not_delete != true':
@@ -168,7 +170,8 @@ const fullSchema = () => ({
   tbl_arcade_events: ['table', 'session_code', 'game_key', 'participant_id', 'event_type', 'event_seq', 'payload', 'do_not_delete'],
   tbl_arcade_players: ['email', 'txt_display_name'],
   tbl_archived_arcade_snapshots: SNAPSHOT_FIELDS,
-  tbl_archived_arcade_snapshots_history: SNAPSHOT_FIELDS
+  tbl_archived_arcade_snapshots_history: SNAPSHOT_FIELDS,
+  tbl_chat_messages: ['session', 'table', 'txt_session_code', 'txt_sender_id', 'txt_sender_name', 'txt_sender_role', 'txt_message']
 });
 
 describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
@@ -251,6 +254,27 @@ describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
     expect(app.rows.get('tbl_audit_cleanup_logs')[0].data.bln_success).toBe(false);
   });
 
+  it('prunes only idle orphan chat messages, leaving session-linked messages for the session cascade', () => {
+    const lib = loadLib();
+    const app = createApp(fullSchema());
+    const old = pbDate(Date.now() - 10 * DAY);
+    app.insert('tbl_chat_messages', { txt_session_code: 'SANCT-GONE', txt_message: 'never linked', created: old });
+    app.insert('tbl_chat_messages', { txt_session_code: 'SANCT-NEW', txt_message: 'fresh orphan' });
+    app.insert('tbl_chat_messages', { txt_session_code: 'SANCT-PIN', session: 'sess_1', txt_message: 'old but linked', created: old });
+
+    const report = lib.runMaintenance(app, 'test');
+    expect(report.orphanChatMessages).toBe(1);
+    const remaining = app.rows.get('tbl_chat_messages').map((r: FakeRecord) => r.data.txt_session_code).sort();
+    expect(remaining).toEqual(['SANCT-NEW', 'SANCT-PIN']);
+  });
+
+  it('records a failed chat message lookup without aborting maintenance', () => {
+    const lib = loadLib();
+    const app = createApp(fullSchema(), { throwOnFind: 'tbl_chat_messages' });
+    const report = lib.runMaintenance(app, 'test');
+    expect(report.errors.some((e: string) => e.startsWith('tbl_chat_messages:'))).toBe(true);
+  });
+
   it('removes idle guest players but keeps new ones and players with live table events', () => {
     const lib = loadLib();
     const app = createApp(fullSchema());
@@ -325,6 +349,25 @@ describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
 
     table.data.status = 'closed';
     expect(() => lib.attachArcadeEventToTable(app, event({ session_code: 'UNO-ABC123' }))).toThrow('This arcade table is closed.');
+  });
+
+  it('censors chat message profanity in place and leaves clean messages untouched', () => {
+    const lib = loadLib();
+    const app = createApp(fullSchema());
+    const profane = new FakeRecord(app.findCollectionByNameOrId('tbl_chat_messages'),
+                                   { txt_session_code: 'SANCT-A', txt_message: 'this is such bullshit honestly' });
+    lib.censorChatMessageProfanity(profane);
+    expect(profane.data.txt_message).not.toContain('bullshit');
+    expect(profane.data.txt_message.startsWith('this is such ')).toBe(true);
+    expect(profane.data.txt_message.endsWith(' honestly')).toBe(true);
+
+    const clean = new FakeRecord(app.findCollectionByNameOrId('tbl_chat_messages'),
+                                 { txt_session_code: 'SANCT-A', txt_message: 'good move, well played!' });
+    lib.censorChatMessageProfanity(clean);
+    expect(clean.data.txt_message).toBe('good move, well played!');
+
+    const empty = new FakeRecord(app.findCollectionByNameOrId('tbl_chat_messages'), { txt_session_code: 'SANCT-A', txt_message: '' });
+    expect(() => lib.censorChatMessageProfanity(empty)).not.toThrow();
   });
 
   it('ends a live table once its last human player leaves', () => {
@@ -412,5 +455,30 @@ describe('PocketHost hook registration', () => {
     expect(collection).toBe('tbl_arcade_events');
     handler({ app: {}, record: {}, next: () => order.push('save') });
     expect(order).toEqual(['attach', 'save', 'activity']);
+  });
+
+  it('censors then links each chat message before saving, tolerating either step failing', () => {
+    const order: string[] = [];
+    const okLib = {
+      censorChatMessageProfanity: () => order.push('censor'),
+      attachChatMessageToSessionOrTable: () => order.push('attach')
+    };
+    const { sandbox, registered } = sandboxFor(okLib);
+    vm.runInNewContext(tablesSource, sandbox);
+
+    const [handler, collection] = registered.create[1];
+    expect(collection).toBe('tbl_chat_messages');
+    handler({ app: {}, record: {}, next: () => order.push('save') });
+    expect(order).toEqual(['censor', 'attach', 'save']);
+
+    const failingLib = {
+      censorChatMessageProfanity: () => { throw new Error('censor failed'); },
+      attachChatMessageToSessionOrTable: () => { throw new Error('attach failed'); }
+    };
+    const { sandbox: failingSandbox, registered: failingRegistered } = sandboxFor(failingLib);
+    vm.runInNewContext(tablesSource, failingSandbox);
+    let saved = false;
+    expect(() => failingRegistered.create[1][0]({ app: {}, record: {}, next: () => { saved = true; } })).not.toThrow();
+    expect(saved).toBe(true);
   });
 });

@@ -19,8 +19,14 @@ onRecordCreate((e) => {
 }, "tbl_arcade_events");
 
 onRecordCreate((e) => {
+    const lib = require(`${__hooks}/sanctuary_maintenance.js`);
     try {
-        require(`${__hooks}/sanctuary_maintenance.js`).attachChatMessageToSessionOrTable(e.app, e.record);
+        lib.censorChatMessageProfanity(e.record);
+    } catch (err) {
+        console.warn(`[ChatMessages] Could not censor chat message: ${err}`);
+    }
+    try {
+        lib.attachChatMessageToSessionOrTable(e.app, e.record);
     } catch (err) {
         console.warn(`[ChatMessages] Could not attach chat message: ${err}`);
     }

@@ -13,6 +13,7 @@ import {
 import { currentEpochMs } from '../utils/dateTime';
 import { generateUuidV4 } from '../utils/uuid';
 import { NetworkError, ValidationError, type SanctuaryError } from '../errors/sanctuaryError';
+import { censorProfanity } from '../utils/profanityFilter';
 import {
   ChatMessageRecordSchema,
   parseChatMessageInput,
@@ -24,12 +25,12 @@ export const CHAT_COLLECTION = 'tbl_chat_messages';
 
 export const sanitizeChatMessage = (text: string,
                                     maxLen: number = 500): string => {
-  return text
+  const stripped = text
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
     .replace(/<[^>]*>?/gm, '')
-    .trim()
-    .slice(0, maxLen);
+    .trim();
+  return censorProfanity(stripped).censoredText.slice(0, maxLen);
 };
 
 export const chatMessagesTopic = (sessionCode: string): string =>
@@ -63,7 +64,7 @@ export class LiveChatClient {
   private isConnected: boolean = false;
 
   constructor(config: LiveChatConfig = {}) {
-    this.baseUrl = (config.baseUrl || POCKETHOST_URL).replace(/\/+$/, '');
+    this.baseUrl = (config.baseUrl ?? LiveChatClient.resolveDefaultBaseUrl()).replace(/\/+$/, '');
     this.senderId = config.senderId || `user_${generateUuidV4().slice(0, 8)}`;
     if (config.senderName) this.senderName = config.senderName;
     if (config.senderRole) this.senderRole = config.senderRole;
@@ -74,6 +75,15 @@ export class LiveChatClient {
 
   public getBaseUrl(): string {
     return this.baseUrl;
+  }
+
+  private static resolveDefaultBaseUrl(): string {
+    return typeof window !== 'undefined' && window.location
+      ? matchBool(['localhost', '127.0.0.1'].includes(window.location.hostname), {
+          true: () => '',
+          false: () => POCKETHOST_URL
+        })
+      : POCKETHOST_URL;
   }
 
   public getSessionCode(): Option<string> {

@@ -112,6 +112,15 @@ canvas:active {
   line-height: 1;
 }
 
+/* Chat send button: fixed circular hit target, icon sized to sit centered without overflow */
+#btn-send-chat {
+  aspect-ratio: 1 / 1;
+}
+
+#btn-send-chat .material-symbols-rounded {
+  font-size: 15px;
+}
+
 /* Custom Scrollbar for Move Chronicle */
 ::-webkit-scrollbar {
   width: 5px;

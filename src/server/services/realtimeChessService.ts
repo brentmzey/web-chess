@@ -8,6 +8,7 @@ import {
   type Result
 } from '../../utils/fp';
 import { currentEpochMs } from '../../utils/dateTime';
+import { censorProfanity } from '../../utils/profanityFilter';
 import { generateUuidV4 } from '../../utils/uuid';
 import type { SessionRepository } from '../db/sessionRepository';
 import type { SSEManager } from '../sse/sseManager';
@@ -415,14 +416,20 @@ export class RealtimeChessService {
     senderRole: string;
     message: string;
   }): Result<ChatMessageRecord, string> {
-    const cleanMsg = params.message.trim().slice(0, 500);
+    const cleanMsg = censorProfanity(params.message.trim()).censoredText.slice(0, 500);
     if (!cleanMsg) {
       return failure('Chat message cannot be empty');
     }
+
+    // A client-supplied sessionId that doesn't resolve to a real local session (e.g. stale, or
+    // from a different realtime backend) must never become a hard foreign key: the message still
+    // sends, just without a session relation, instead of failing the whole request.
+    const resolvedSessionId = fromNullable(params.sessionId).flatMap(sid => this.repository.getSessionById(sid));
+
     const id = generateUuidV4();
     const insertRes = this.repository.insertChatMessage({
       id,
-      sessionId: params.sessionId,
+      sessionId: resolvedSessionId.match({ Some: session => session.id, None: () => undefined }),
       sessionCode: params.sessionCode,
       senderId: params.senderId,
       senderName: params.senderName,
@@ -431,8 +438,8 @@ export class RealtimeChessService {
     });
 
     return insertRes.map(record => {
-      if (params.sessionId) {
-        const evtRes = this.repository.recordEvent(params.sessionId, 'chat_message', {
+      resolvedSessionId.map(session => {
+        const evtRes = this.repository.recordEvent(session.id, 'chat_message', {
           id: record.id,
           sessionCode: record.txt_session_code,
           senderId: record.txt_sender_id,
@@ -441,8 +448,8 @@ export class RealtimeChessService {
           message: record.txt_message,
           createdAt: record.int_created_at
         });
-        evtRes.map(evt => this.sseManager.broadcast(params.sessionId!, evt));
-      }
+        evtRes.map(evt => this.sseManager.broadcast(session.id, evt));
+      });
       return record;
     });
   }

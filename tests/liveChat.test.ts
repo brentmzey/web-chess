@@ -175,6 +175,34 @@ describe('Sanctuary Live Chat System - Schemas, Repository, Service & Client', (
     db.close();
   });
 
+  it('stores a chat message without a session relation and skips broadcast when sessionId does not resolve', () => {
+    const db = new SanctuaryDatabase(':memory:');
+    const repo = new SessionRepository(db);
+    const sse = new SSEManager(repo);
+    const service = new RealtimeChessService(repo, sse);
+
+    const broadcastSpy = mock();
+    (sse as any).broadcast = broadcastSpy;
+
+    const chatRes = service.sendChatMessage({
+      sessionId: 'does_not_exist_in_this_db',
+      sessionCode: 'SANCT-ORPHAN',
+      senderId: 'user_1',
+      senderName: 'Wanderer',
+      senderRole: 'spectator',
+      message: 'Hello from a stale session id'
+    });
+
+    expect(chatRes.match({ Ok: () => true, Err: () => false })).toBe(true);
+    expect(broadcastSpy).not.toHaveBeenCalled();
+
+    const history = service.getChatMessages('SANCT-ORPHAN');
+    expect(history.length).toBe(1);
+    expect(history[0]!.session_id).toBeFalsy();
+
+    db.close();
+  });
+
   it('manages LiveChatClient state, unread counts, and listeners', async () => {
     const client = new LiveChatClient({
       baseUrl: 'http://localhost:3000',
@@ -433,6 +461,20 @@ describe('LiveChatClient - connectSSE, setSession, and remaining branch coverage
     const client = new LiveChatClient({ baseUrl: 'http://localhost:3000/' });
     expect(client.getBaseUrl()).toBe('http://localhost:3000');
     expect(client.getIsConnected()).toBe(false);
+  });
+
+  it('defaults the base URL from window.location when none is configured, mirroring ArcadeRealtimeClient', () => {
+    (globalThis as any).window = { location: { hostname: 'localhost' } };
+    expect(new LiveChatClient().getBaseUrl()).toBe('');
+
+    (globalThis as any).window = { location: { hostname: '127.0.0.1' } };
+    expect(new LiveChatClient().getBaseUrl()).toBe('');
+
+    (globalThis as any).window = { location: { hostname: 'web-chess-app.netlify.app' } };
+    expect(new LiveChatClient().getBaseUrl()).toBe(POCKETHOST_URL);
+
+    (globalThis as any).window = undefined;
+    expect(new LiveChatClient().getBaseUrl()).toBe(POCKETHOST_URL);
   });
 
   it('resolves isLocalMode across pockethost, window-less, and hostname branches', () => {

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.9] - 2026-11-04
+### Fixed
+- **Live chat ran against production PocketBase even in local dev**: `LiveChatClient` always defaulted to the hosted PocketBase URL instead of detecting `localhost`/`127.0.0.1` like `ArcadeRealtimeClient` does, so local testing was silently hitting the live database. It now resolves the same way (local Bun server on `localhost`/`127.0.0.1`, PocketBase otherwise).
+- **Chat send button was oversized and overflowed its input bar on desktop**: replaced the ad-hoc padded icon button with a fixed 28px circle, vertically centered in the input, that no longer bulges past the pill's edges.
+- **A client-supplied `sessionId` that didn't exist locally crashed message sends** with a raw SQLite foreign key error; it now degrades gracefully to an unlinked message instead of failing the request.
+- **Stale-session chat cleanup deleted messages from every session past 3 days old, pinned or not**: `pruneOrphanChatMessages` now only removes messages that were never linked to a session or table; linked messages are pruned by cascading with their own session once it goes stale and unpinned (`do_not_delete` is respected, same as every other table).
+### Added
+- **Profanity censoring**: chat is never blocked for language, only visually obfuscated — a detected word is swapped for a silly emoji pair (`src/utils/profanityFilter.ts`), enforced server-side both in the local Bun server (`sendChatMessage`) and in the production PocketBase hook (`censorChatMessageProfanity`), so it can't be bypassed by posting directly to the API.
+
 ## [1.5.0-rc.8] - 2026-11-03
 ### Added
 - **Universal Live Session Chat**: a persistent match chat is now available across Sanctuary Chess and all eight Sanctuary Arcade games (Blackjack, Poker, Skip-Bo, Phase 10, Uno, Avalon, SET, and Solitaire).
