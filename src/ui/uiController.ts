@@ -107,6 +107,16 @@ export function renderChatMessageMarkup(raw: string): string {
   return result.html + escapeHtml(raw.slice(result.cursor));
 }
 
+const EMOJI_ONLY_PATTERN = /^[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}‍️\s]+$/u;
+const MAX_JUMBO_EMOJI_COUNT = 12;
+
+/** True for a short message made up only of emoji (and whitespace), so chat can render it "jumbo" like a sticker, not tiny body text. */
+export function isEmojiOnlyMessage(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed || !EMOJI_ONLY_PATTERN.test(trimmed)) return false;
+  return [...trimmed].filter(ch => !/\s/.test(ch)).length <= MAX_JUMBO_EMOJI_COUNT;
+}
+
 export type LiveSeatRole = 'white' | 'black' | 'spectator';
 
 /**
@@ -1324,6 +1334,10 @@ export class UIController {
       });
 
       const alignClass = isOwn ? 'ml-auto border-sky-500/40 bg-sky-950/70' : 'mr-auto border-white/10 bg-black/50';
+      const bodyClass = matchBool(isEmojiOnlyMessage(msg.message), {
+        true: () => 'text-3xl leading-tight break-words',
+        false: () => 'text-stone-200 break-words leading-relaxed'
+      });
 
       bubble.className = `p-2.5 rounded-2xl border text-xs max-w-[85%] space-y-1 shadow-sm transition ${alignClass}`;
       bubble.dataset.chatMessageId = msg.id;
@@ -1335,7 +1349,7 @@ export class UIController {
             <span class="text-[9px] text-stone-500">${escapeHtml(timeStr)}</span>
           </div>
         </div>
-        <p class="text-stone-200 break-words leading-relaxed">${renderChatMessageMarkup(msg.message)}</p>
+        <p class="${bodyClass}">${renderChatMessageMarkup(msg.message)}</p>
       `;
 
       container.appendChild(bubble);

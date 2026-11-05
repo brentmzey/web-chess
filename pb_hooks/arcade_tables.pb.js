@@ -21,6 +21,11 @@ onRecordCreate((e) => {
 onRecordCreate((e) => {
     const lib = require(`${__hooks}/sanctuary_maintenance.js`);
     try {
+        lib.censorChatMessageSlurs(e.record);
+    } catch (err) {
+        console.warn(`[ChatMessages] Could not censor chat message: ${err}`);
+    }
+    try {
         lib.attachChatMessageToSessionOrTable(e.app, e.record);
     } catch (err) {
         console.warn(`[ChatMessages] Could not attach chat message: ${err}`);

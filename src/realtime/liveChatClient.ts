@@ -12,6 +12,7 @@ import {
 } from '../utils/fp';
 import { currentEpochMs } from '../utils/dateTime';
 import { generateUuidV4 } from '../utils/uuid';
+import { censorSlurs } from '../utils/slurFilter';
 import { NetworkError, ValidationError, type SanctuaryError } from '../errors/sanctuaryError';
 import {
   ChatMessageRecordSchema,
@@ -31,7 +32,7 @@ const stripChatMessageHtml = (text: string): string =>
 
 export const sanitizeChatMessage = (text: string,
                                     maxLen: number = 500): string =>
-  stripChatMessageHtml(text).slice(0, maxLen);
+  censorSlurs(stripChatMessageHtml(text)).censoredText.slice(0, maxLen);
 
 export const chatMessagesTopic = (sessionCode: string): string =>
   `${CHAT_COLLECTION}?options=${encodeURIComponent(JSON.stringify({ query: { filter: `txt_session_code="${sessionCode}"` } }))}`;
@@ -225,7 +226,7 @@ export class LiveChatClient {
   }
 
   public async sendMessage(rawText: string): Promise<Result<ChatMessageRecordData, SanctuaryError>> {
-    const clean = stripChatMessageHtml(rawText).slice(0, 500);
+    const clean = censorSlurs(stripChatMessageHtml(rawText)).censoredText.slice(0, 500);
     if (!clean) {
       return failure(new ValidationError('MESSAGE_EMPTY', 'Chat message cannot be empty'));
     }

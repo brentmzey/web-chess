@@ -465,6 +465,74 @@ function recordArcadeTableActivity(app, event) {
 }
 
 /**
+ * Chat allows swearing through untouched; only real slurs (the hate-speech category, not general
+ * profanity - see the same split in `src/utils/playerValidation.ts`) get blurred, each time with a
+ * random-length, random emoji cluster so the same slur never blurs identically twice.
+ */
+const CHAT_SLUR_WORDS = [
+    { word: "nigger", allowSuffix: true },
+    { word: "nigga", allowSuffix: true },
+    { word: "chink", allowSuffix: true },
+    { word: "gook", allowSuffix: true },
+    { word: "kike", allowSuffix: true },
+    { word: "wetback", allowSuffix: true },
+    { word: "faggot", allowSuffix: true },
+    { word: "fag", allowSuffix: true },
+    { word: "dyke", allowSuffix: true },
+    { word: "retard", allowSuffix: true },
+    { word: "spastic", allowSuffix: true },
+    { word: "spic", allowSuffix: false } // no suffix wildcard: would also blur "spice"
+];
+
+const CHAT_BLUR_EMOJI_POOL = [
+    "🦆", "🐸", "🧇", "🍩", "🦄", "🙈", "🙊", "🙉", "🥔", "🦕", "🐌", "🧦",
+    "🍄", "🦔", "🐢", "🥨", "🐝", "🫠", "🎪", "🤡", "🪩", "🧁", "🦦", "🐙",
+    "🫣", "🦩", "🐬", "🧃", "🪄", "🍉"
+];
+
+const CHAT_LEET_MAP = { "0": "o", "1": "i", "!": "i", "3": "e", "4": "a", "@": "a", "$": "s", "5": "s", "7": "t" };
+
+function normalizeChatTextForMatch(text) {
+    return text.toLowerCase().split("").map(ch => CHAT_LEET_MAP[ch] || ch).join("");
+}
+
+function randomChatBlurDisguise() {
+    const count = 2 + Math.floor(Math.random() * 3);
+    let disguise = "";
+    for (let i = 0; i < count; i++) {
+        disguise += CHAT_BLUR_EMOJI_POOL[Math.floor(Math.random() * CHAT_BLUR_EMOJI_POOL.length)];
+    }
+    return disguise;
+}
+
+function buildChatSlurRegex() {
+    const alternatives = CHAT_SLUR_WORDS.map(w => `${w.word}${w.allowSuffix ? "[a-z]*" : ""}`);
+    return new RegExp(`\\b(?:${alternatives.join("|")})\\b`, "gi");
+}
+
+/** Server-authoritative slur blur for production (direct browser -> PocketBase writes bypass the Bun server). */
+function censorChatMessageSlurs(message) {
+    const original = message.getString("txt_message");
+    if (!original) return;
+    const normalized = normalizeChatTextForMatch(original);
+    const pattern = buildChatSlurRegex();
+    let censored = "";
+    let lastIndex = 0;
+    let matchCount = 0;
+    let match;
+    while ((match = pattern.exec(normalized)) !== null) {
+        censored += original.slice(lastIndex, match.index);
+        censored += randomChatBlurDisguise();
+        lastIndex = match.index + match[0].length;
+        matchCount += 1;
+    }
+    censored += original.slice(lastIndex);
+    if (matchCount > 0) {
+        message.set("txt_message", censored);
+    }
+}
+
+/**
  * Links a chat message to its parent game_sessions (if chess) or tbl_arcade_tables (if arcade),
  * so that when the session/table is deleted, the chat message cascades with it.
  */
@@ -525,6 +593,7 @@ module.exports = {
     SESSION_FAMILIES,
     attachArcadeEventToTable,
     attachChatMessageToSessionOrTable,
+    censorChatMessageSlurs,
     loadPolicy,
     pruneIdleArcadePlayers,
     pruneOrphanChatMessages,

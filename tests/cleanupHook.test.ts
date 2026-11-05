@@ -351,6 +351,30 @@ describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
     expect(() => lib.attachArcadeEventToTable(app, event({ session_code: 'UNO-ABC123' }))).toThrow('This arcade table is closed.');
   });
 
+  it('blurs chat message slurs with random emoji in place, leaving profanity and clean messages untouched', () => {
+    const lib = loadLib();
+    const app = createApp(fullSchema());
+    const slur = new FakeRecord(app.findCollectionByNameOrId('tbl_chat_messages'),
+                                { txt_session_code: 'SANCT-A', txt_message: 'you absolute retard, nice move' });
+    lib.censorChatMessageSlurs(slur);
+    expect(slur.data.txt_message).not.toContain('retard');
+    expect(slur.data.txt_message.startsWith('you absolute ')).toBe(true);
+    expect(slur.data.txt_message.endsWith(', nice move')).toBe(true);
+
+    const profane = new FakeRecord(app.findCollectionByNameOrId('tbl_chat_messages'),
+                                   { txt_session_code: 'SANCT-A', txt_message: 'this is such bullshit honestly' });
+    lib.censorChatMessageSlurs(profane);
+    expect(profane.data.txt_message).toBe('this is such bullshit honestly');
+
+    const clean = new FakeRecord(app.findCollectionByNameOrId('tbl_chat_messages'),
+                                 { txt_session_code: 'SANCT-A', txt_message: 'good move, well played!' });
+    lib.censorChatMessageSlurs(clean);
+    expect(clean.data.txt_message).toBe('good move, well played!');
+
+    const empty = new FakeRecord(app.findCollectionByNameOrId('tbl_chat_messages'), { txt_session_code: 'SANCT-A', txt_message: '' });
+    expect(() => lib.censorChatMessageSlurs(empty)).not.toThrow();
+  });
+
   it('ends a live table once its last human player leaves', () => {
     const lib = loadLib();
     const app = createApp(fullSchema());
@@ -438,9 +462,10 @@ describe('PocketHost hook registration', () => {
     expect(order).toEqual(['attach', 'save', 'activity']);
   });
 
-  it('links each chat message to its session or table before saving, tolerating that step failing', () => {
+  it('censors slurs then links each chat message to its session or table before saving, tolerating either step failing', () => {
     const order: string[] = [];
     const okLib = {
+      censorChatMessageSlurs: () => order.push('censor'),
       attachChatMessageToSessionOrTable: () => order.push('attach')
     };
     const { sandbox, registered } = sandboxFor(okLib);
@@ -449,9 +474,10 @@ describe('PocketHost hook registration', () => {
     const [handler, collection] = registered.create[1];
     expect(collection).toBe('tbl_chat_messages');
     handler({ app: {}, record: {}, next: () => order.push('save') });
-    expect(order).toEqual(['attach', 'save']);
+    expect(order).toEqual(['censor', 'attach', 'save']);
 
     const failingLib = {
+      censorChatMessageSlurs: () => { throw new Error('censor failed'); },
       attachChatMessageToSessionOrTable: () => { throw new Error('attach failed'); }
     };
     const { sandbox: failingSandbox, registered: failingRegistered } = sandboxFor(failingLib);

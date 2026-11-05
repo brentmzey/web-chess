@@ -80,6 +80,11 @@ describe('Sanctuary Live Chat System - Schemas, Repository, Service & Client', (
     expect(sanitizeChatMessage('a'.repeat(600), 10)).toBe('a'.repeat(10));
   });
 
+  it('blurs slurs but never ordinary swearing', () => {
+    expect(sanitizeChatMessage('well that was total bullshit')).toBe('well that was total bullshit');
+    expect(sanitizeChatMessage('you absolute retard')).not.toContain('retard');
+  });
+
   it('generates the correct PocketBase chat topic', () => {
     const topic = chatMessagesTopic('SANCT-1234');
     expect(topic).toContain('tbl_chat_messages');
@@ -356,6 +361,41 @@ describe('Sanctuary Live Chat System - Schemas, Repository, Service & Client', (
       const res = await client.sendMessage('this is such bullshit, you fucking cheated');
       expect(res.match({ Ok: () => true, Err: () => false })).toBe(true);
       expect(res.getOrElse(null as any).txt_message).toBe('this is such bullshit, you fucking cheated');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('blurs a slur with emoji while leaving swearing in the same message untouched', async () => {
+    const client = new LiveChatClient({
+      baseUrl: 'http://localhost:3000',
+      sessionCode: 'SANCT-SLUR',
+      senderName: 'Tester',
+      senderRole: 'white'
+    });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body || '{}'));
+      return new Response(JSON.stringify({
+        message: {
+          id: 'msg_slur',
+          txt_session_code: body.sessionCode,
+          txt_sender_id: body.senderId,
+          txt_sender_name: body.senderName,
+          txt_sender_role: body.senderRole,
+          txt_message: body.message,
+          int_created_at: body.createdAt
+        }
+      }), { status: 201 });
+    }) as any;
+
+    try {
+      const res = await client.sendMessage('fuck you, you absolute faggot');
+      expect(res.match({ Ok: () => true, Err: () => false })).toBe(true);
+      const sent = res.getOrElse(null as any).txt_message as string;
+      expect(sent).toContain('fuck you, you absolute');
+      expect(sent).not.toContain('faggot');
     } finally {
       globalThis.fetch = originalFetch;
     }

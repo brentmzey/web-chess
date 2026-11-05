@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.12] - 2026-11-05
+### Added
+- **Slur-only blurring in live chat**: ordinary swearing still goes through completely untouched, but real slurs (the same hate-speech word list already curated in `src/utils/playerValidation.ts`) are now replaced with a random-length, randomly-picked emoji cluster (`censorSlurs` in `src/utils/slurFilter.ts`) so the same slur never blurs identically twice. Applied client-side, on the local Bun server, and on the production PocketBase hook (`censorChatMessageSlurs`).
+- **Jumbo emoji messages**: a chat message made up only of emoji (up to 12) now renders large, like a sticker, instead of as tiny body text (`isEmojiOnlyMessage` in `src/ui/uiController.ts`).
+
 ## [1.5.0-rc.11] - 2026-11-04
 ### Added
 - **Clickable links in live chat**: bare `http(s)://` URLs and markdown-style `[label](url)` links now render as clickable anchors (`renderChatMessageMarkup` in `src/ui/uiController.ts`); everything else is still HTML-escaped exactly as before, and only `http`/`https` schemes are ever linkified.

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
-import { renderChatMessageMarkup, UIController } from '../src/ui/uiController';
+import { isEmojiOnlyMessage, renderChatMessageMarkup, UIController } from '../src/ui/uiController';
 
 class MockElement {
   public className: string = '';
@@ -248,6 +248,34 @@ describe('Sanctuary Live Chat UI Controller Testing', () => {
     expect(bubble.innerHTML).not.toContain('<script>');
   });
 
+  it('renders an emoji-only message jumbo-sized, like a sticker', () => {
+    const emojiMsg = {
+      id: 'msg-emoji',
+      senderName: 'Architect',
+      senderRole: 'white',
+      message: '🎉🦆🔥',
+      createdAt: 1700000080000
+    };
+    ui.appendChatMessage(emojiMsg, false);
+    const bubble = domElements['chat-messages-container']!.children.at(-1)!;
+    expect(bubble.innerHTML).toContain('text-3xl');
+    expect(bubble.innerHTML).not.toContain('leading-relaxed');
+  });
+
+  it('renders a mixed text+emoji message with normal sizing, not jumbo', () => {
+    const mixedMsg = {
+      id: 'msg-mixed',
+      senderName: 'Architect',
+      senderRole: 'white',
+      message: 'nice move 🎉',
+      createdAt: 1700000090000
+    };
+    ui.appendChatMessage(mixedMsg, false);
+    const bubble = domElements['chat-messages-container']!.children.at(-1)!;
+    expect(bubble.innerHTML).toContain('leading-relaxed');
+    expect(bubble.innerHTML).not.toContain('text-3xl');
+  });
+
   it('handles scrollChatToBottom safely', () => {
     domElements['chat-messages-container']!.scrollHeight = 500;
     ui.scrollChatToBottom();
@@ -285,5 +313,26 @@ describe('renderChatMessageMarkup', () => {
     expect(renderChatMessageMarkup('https://example.com/path?q=1')).toBe(
       '<a href="https://example.com/path?q=1" target="_blank" rel="noopener noreferrer" class="text-sky-300 underline break-all hover:text-sky-200">https://example.com/path?q=1</a>'
     );
+  });
+});
+
+describe('isEmojiOnlyMessage', () => {
+  it('is true for emoji, with or without surrounding whitespace', () => {
+    expect(isEmojiOnlyMessage('🎉')).toBe(true);
+    expect(isEmojiOnlyMessage('  🎉🦆🔥  ')).toBe(true);
+    expect(isEmojiOnlyMessage('🇺🇸')).toBe(true);
+  });
+
+  it('is false for plain text, mixed text+emoji, digits, and empty strings', () => {
+    expect(isEmojiOnlyMessage('nice move')).toBe(false);
+    expect(isEmojiOnlyMessage('nice move 🎉')).toBe(false);
+    expect(isEmojiOnlyMessage('12345')).toBe(false);
+    expect(isEmojiOnlyMessage('')).toBe(false);
+    expect(isEmojiOnlyMessage('   ')).toBe(false);
+  });
+
+  it('is false once the emoji count exceeds the jumbo cap', () => {
+    expect(isEmojiOnlyMessage('🎉'.repeat(12))).toBe(true);
+    expect(isEmojiOnlyMessage('🎉'.repeat(13))).toBe(false);
   });
 });
