@@ -482,18 +482,27 @@ export class SessionRepository {
   }
 
   /**
-   * Cascade-deletes all sessions created prior to the cutoff timestamp.
-   * Foreign keys with ON DELETE CASCADE automatically purge associated participants,
-   * tokens, moves, and events.
+   * Cascade-deletes stale sessions. A session with at least one move on the board is swept once
+   * past `olderThanTimestamp`; one with zero moves (nobody has actually played yet) gets the
+   * longer, more forgiving `noMovesOlderThanTimestamp` grace period instead (defaults to the same
+   * value, i.e. no distinction, so existing callers keep their current behavior unless they opt in).
+   * Foreign keys with ON DELETE CASCADE automatically purge associated participants, tokens,
+   * moves, and events.
    */
-  public pruneStaleSessions(olderThanTimestamp: number): Result<{ deletedSessions: number }, string> {
+  public pruneStaleSessions(olderThanTimestamp: number,
+                            noMovesOlderThanTimestamp: number = olderThanTimestamp): Result<{ deletedSessions: number }, string> {
     return this.sanctuaryDb.transaction(() => {
-      // 1. Snapshot all sessions about to be wiped into tbl_archived_game_snapshots (ignoring do_not_delete sessions)
-      const staleSessions = (this.db
+      // 1. Candidate pool: anything idle past the (laxer) "has moves" cutoff and not pinned.
+      const candidates = (this.db
         .prepare('SELECT * FROM game_sessions WHERE updated_at < ? AND (do_not_delete IS NULL OR do_not_delete = 0)')
         .all(olderThanTimestamp) || []) as GameSessionRecord[];
 
-      for (const sess of staleSessions) {
+      const toPrune: ReadonlyArray<{ readonly session: GameSessionRecord; readonly hasMoves: boolean }> = candidates
+        .map(session => ({ session, hasMoves: this.getMovesBySession(session.id).length > 0 }))
+        .filter(({ session, hasMoves }) => hasMoves || session.updated_at < noMovesOlderThanTimestamp);
+
+      // 2. Snapshot every session about to be wiped into tbl_archived_game_snapshots.
+      for (const { session: sess, hasMoves } of toPrune) {
         const participants = this.getParticipantsBySession(sess.id);
         const moves = this.getMovesBySession(sess.id);
         const events = this.getEventsSince(sess.id, 0);
@@ -530,16 +539,20 @@ export class SessionRepository {
             moves.length,
             pgn,
             payload,
-            'stale_inactivity_3_days',
+            hasMoves ? 'stale_inactivity' : 'stale_inactivity_no_moves',
             (sess as any).do_not_delete ? 1 : 0,
             currentEpochMs()
           );
       }
 
-      // 2. Cascade-delete from game_sessions (foreign keys wipe child rows), preserving do_not_delete records
+      // 3. Cascade-delete from game_sessions (foreign keys wipe child rows), preserving do_not_delete records
+      if (toPrune.length === 0) {
+        return { deletedSessions: 0 };
+      }
+      const placeholders = toPrune.map(() => '?').join(',');
       const info = this.db
-        .prepare('DELETE FROM game_sessions WHERE updated_at < ? AND (do_not_delete IS NULL OR do_not_delete = 0)')
-        .run(olderThanTimestamp);
+        .prepare(`DELETE FROM game_sessions WHERE id IN (${placeholders})`)
+        .run(...toPrune.map(({ session }) => session.id));
       return { deletedSessions: info.changes };
     });
   }

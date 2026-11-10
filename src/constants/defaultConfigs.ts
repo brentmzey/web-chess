@@ -306,9 +306,18 @@ export const DEFAULT_SYSTEM_CONTROLS: readonly SystemControlInput[] = Object.fre
     txt_config_key: SystemControlKeyEnum.StaleSessionDays,
     txt_category: ConfigCategoryEnum.System,
     txt_label: 'Stale Session Cleanup Threshold (Days)',
-    txt_description: 'Age in days beyond which inactive sessions without do_not_delete are purged',
+    txt_description: 'Age in days beyond which an inactive session with at least one move/event, and without do_not_delete, is purged',
     txt_val_type: ConfigValTypeEnum.Number,
     dec_val_number: 3,
+    bln_is_active: true
+  },
+  {
+    txt_config_key: SystemControlKeyEnum.StaleSessionNoMovesDays,
+    txt_category: ConfigCategoryEnum.System,
+    txt_label: 'Stale Empty Session Cleanup Threshold (Days)',
+    txt_description: 'Age in days beyond which an inactive session with zero moves/events (never actually played), and without do_not_delete, is purged. Longer than the normal threshold since nobody has touched the board yet.',
+    txt_val_type: ConfigValTypeEnum.Number,
+    dec_val_number: 5,
     bln_is_active: true
   },
   {

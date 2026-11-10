@@ -39,7 +39,8 @@ export class SanctuaryRealtimeServer {
   }
 
   public runStaleCleanupSweep(olderThanDays: number = 3,
-                              referenceTimeMs: number = currentEpochMs()): {
+                              referenceTimeMs: number = currentEpochMs(),
+                              noMovesOlderThanDays: number = 5): {
     readonly deletedChessSessions: number;
     readonly deletedArcadeSessions: number;
     readonly totalDeleted: number;
@@ -47,9 +48,10 @@ export class SanctuaryRealtimeServer {
   } {
     const startMs = currentEpochMs();
     const cutoffMs = referenceTimeMs - olderThanDays * 86_400_000;
+    const noMovesCutoffMs = referenceTimeMs - noMovesOlderThanDays * 86_400_000;
     const thirtyDaysAgoMs = referenceTimeMs - 30 * 86_400_000;
 
-    const chessRes = this.repository.pruneStaleSessions(cutoffMs);
+    const chessRes = this.repository.pruneStaleSessions(cutoffMs, noMovesCutoffMs);
     const deletedChessSessions = chessRes.match({
       Ok: r => r.deletedSessions,
       Err: () => 0

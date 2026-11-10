@@ -19,15 +19,24 @@ const ARCADE_CODE_PATTERN = /^[A-Z0-9]{2,10}-[A-Z0-9]{3,16}$/;
 
 const POLICY_DEFAULTS = {
     "system.stale_session_days": 3,
+    "system.stale_session_no_moves_days": 5,
     "system.archive_rotation_days": 30,
     "system.archive_max_rows": 5000,
     "system.history_retention_days": 365,
     "system.guest_player_retention_days": 30
 };
 
-/** Session tables swept for stale games, with the archive each one is snapshotted into. */
+/**
+ * Session tables swept for stale games, with the archive each one is snapshotted into.
+ *
+ * `movesField`, when present, names the numeric field that tells a session with real moves/events
+ * on it (`movesField > 0`, swept after `staleDays`) apart from one nobody ever actually played
+ * (`movesField <= 0`, given the longer `noMovesDays` grace period). Families with no such field
+ * (the legacy per-game session tables, currently unused in favor of the arcade-table system) keep
+ * the single `staleDays` cutoff for every row, same as before this distinction existed.
+ */
 const SESSION_FAMILIES = [
-    { sessions: "game_sessions", archive: "tbl_archived_game_snapshots", kind: "chess" },
+    { sessions: "game_sessions", archive: "tbl_archived_game_snapshots", kind: "chess", movesField: "ply" },
     { sessions: "tbl_bjk_sessions", archive: "tbl_archived_bjk_snapshots", kind: "session" },
     { sessions: "tbl_res_sessions", archive: "tbl_archived_res_snapshots", kind: "session" },
     { sessions: "tbl_uno_sessions", archive: "tbl_archived_uno_snapshots", kind: "session" },
@@ -36,7 +45,7 @@ const SESSION_FAMILIES = [
     { sessions: "tbl_skp_sessions", archive: "tbl_archived_skp_snapshots", kind: "session" },
     { sessions: "tbl_set_sessions", archive: "tbl_archived_set_snapshots", kind: "session" },
     { sessions: "tbl_sol_sessions", archive: "tbl_archived_sol_snapshots", kind: "session" },
-    { sessions: "tbl_arcade_tables", archive: "tbl_archived_arcade_snapshots", kind: "arcade_table" }
+    { sessions: "tbl_arcade_tables", archive: "tbl_archived_arcade_snapshots", kind: "arcade_table", movesField: "int_event_count" }
 ];
 
 /** Archive and audit tables that rotate into a matching `*_history` table. */
@@ -90,6 +99,7 @@ function readNumberControl(app, key) {
 function loadPolicy(app) {
     return {
         staleDays: readNumberControl(app, "system.stale_session_days"),
+        noMovesDays: readNumberControl(app, "system.stale_session_no_moves_days"),
         rotationDays: readNumberControl(app, "system.archive_rotation_days"),
         maxArchiveRows: readNumberControl(app, "system.archive_max_rows"),
         historyRetentionDays: readNumberControl(app, "system.history_retention_days"),
@@ -175,17 +185,12 @@ function snapshotFields(family, rec) {
  * Archives and deletes stale sessions of one family. Each session is snapshotted and deleted in
  * one transaction, so a failure never loses a game without its archive (child rows cascade).
  */
-function sweepStaleSessions(app, family, cutoff, report) {
-    if (!findCollection(app, family.sessions)) return;
-    const archive = findCollection(app, family.archive);
-    const stale = app.findRecordsByFilter(
-        family.sessions,
-        "updated < {:cutoff} && do_not_delete != true",
-        "updated",
-        BATCH_SIZE,
-        0,
-        { cutoff: cutoff }
-    );
+/**
+ * Archives then deletes every record a filter+params pair matches, one transaction per record (so
+ * one failure never loses a game without its archive; child rows cascade with the delete).
+ */
+function sweepBatch(app, family, archive, filter, params, report) {
+    const stale = app.findRecordsByFilter(family.sessions, filter, "updated", BATCH_SIZE, 0, params);
     stale.forEach(rec => {
         try {
             app.runInTransaction(txApp => {
@@ -204,6 +209,31 @@ function sweepStaleSessions(app, family, cutoff, report) {
             report.errors.push(`${family.sessions}/${rec.id}: ${err}`);
         }
     });
+}
+
+/**
+ * Sweeps one session family for stale rows. A family with a `movesField` (chess's `ply`, the
+ * arcade table's `int_event_count`) gets two passes: rows with at least one move/event are swept
+ * at the normal `cutoffs.active` age, rows with zero (nobody ever actually played) get the longer,
+ * more forgiving `cutoffs.idle` age instead. A family with no such field keeps the single
+ * `cutoffs.active` cutoff for every row, exactly like before this distinction existed.
+ */
+function sweepStaleSessions(app, family, cutoffs, report) {
+    if (!findCollection(app, family.sessions)) return;
+    const archive = findCollection(app, family.archive);
+
+    if (family.movesField) {
+        sweepBatch(app, family, archive,
+            `${family.movesField} > 0 && updated < {:cutoff} && do_not_delete != true`,
+            { cutoff: cutoffs.active }, report);
+        sweepBatch(app, family, archive,
+            `${family.movesField} <= 0 && updated < {:cutoff} && do_not_delete != true`,
+            { cutoff: cutoffs.idle }, report);
+    } else {
+        sweepBatch(app, family, archive,
+            "updated < {:cutoff} && do_not_delete != true",
+            { cutoff: cutoffs.active }, report);
+    }
 }
 
 /** Deletes legacy arcade events that were never linked to a table and have gone idle. */
@@ -321,10 +351,14 @@ function writeAuditLog(app, report, source, policy, startedAt) {
 function runMaintenance(app, source) {
     const startedAt = Date.now();
     const policy = loadPolicy(app);
-    const cutoff = toPbDate(startedAt - policy.staleDays * DAY_MS);
+    const cutoffs = {
+        active: toPbDate(startedAt - policy.staleDays * DAY_MS),
+        idle: toPbDate(startedAt - policy.noMovesDays * DAY_MS)
+    };
     const report = {
         traceId: `trc_${source}_${startedAt}_${Math.random().toString(36).substring(2, 8)}`,
-        cutoff: cutoff,
+        cutoff: cutoffs.active,
+        cutoffIdle: cutoffs.idle,
         prunedCodes: [],
         archivedRows: 0,
         historyPurged: 0,
@@ -336,18 +370,18 @@ function runMaintenance(app, source) {
 
     SESSION_FAMILIES.forEach(family => {
         try {
-            sweepStaleSessions(app, family, cutoff, report);
+            sweepStaleSessions(app, family, cutoffs, report);
         } catch (err) {
             report.errors.push(`${family.sessions}: ${err}`);
         }
     });
     try {
-        pruneOrphanArcadeEvents(app, cutoff, report);
+        pruneOrphanArcadeEvents(app, cutoffs.active, report);
     } catch (err) {
         report.errors.push(`tbl_arcade_events: ${err}`);
     }
     try {
-        pruneOrphanChatMessages(app, cutoff, report);
+        pruneOrphanChatMessages(app, cutoffs.active, report);
     } catch (err) {
         report.errors.push(`tbl_chat_messages: ${err}`);
     }

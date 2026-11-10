@@ -287,6 +287,53 @@ describe('SessionRepository Functional Data Access & Cross-References', () => {
     expect(repo.getSessionById(pinnedSession.id).getOrThrow().do_not_delete).toBe(0);
   });
 
+  it('gives a session with zero moves a longer grace period than one with at least one move', () => {
+    // Played session, moderately stale: has a move, so it is swept once past the (shorter) active cutoff.
+    const played = repo.createSession({ sessionCode: 'SANCT-PLAYED-STALE' }).getOrThrow();
+    db.getRawDb()
+      .prepare('UPDATE game_sessions SET created_at = ?, updated_at = ? WHERE id = ?')
+      .run(1000, 1000, played.id);
+    const playedPart = repo.createParticipant({
+      sessionId: played.id,
+      userId: 'u-played',
+      role: 'white',
+      displayName: 'Played'
+    }).getOrThrow();
+    repo.recordMove({
+      sessionId: played.id,
+      participantId: playedPart.id,
+      moveNumber: 1,
+      ply: 1,
+      color: 'w',
+      san: 'e4',
+      uci: 'e2e4',
+      fenBefore: 'start',
+      fenAfter: 'after'
+    });
+
+    // Empty session, same age: zero moves, so it survives the active cutoff and needs the longer one.
+    const emptyYoung = repo.createSession({ sessionCode: 'SANCT-EMPTY-YOUNG' }).getOrThrow();
+    db.getRawDb()
+      .prepare('UPDATE game_sessions SET created_at = ?, updated_at = ? WHERE id = ?')
+      .run(1000, 1000, emptyYoung.id);
+
+    // Empty session, older still: zero moves, but old enough to clear even the longer cutoff.
+    const emptyOld = repo.createSession({ sessionCode: 'SANCT-EMPTY-OLD' }).getOrThrow();
+    db.getRawDb()
+      .prepare('UPDATE game_sessions SET created_at = ?, updated_at = ? WHERE id = ?')
+      .run(100, 100, emptyOld.id);
+
+    // Active cutoff (3 days' worth, here just "2000") sweeps anything with moves past it;
+    // the no-moves cutoff ("500") only sweeps empty sessions past that stricter, older point.
+    const pruneRes = repo.pruneStaleSessions(2000, 500);
+    expect(pruneRes.isSuccess()).toBe(true);
+    expect(pruneRes.getOrThrow().deletedSessions).toBe(2);
+
+    expect(repo.getSessionById(played.id).isNone()).toBe(true);
+    expect(repo.getSessionById(emptyOld.id).isNone()).toBe(true);
+    expect(repo.getSessionById(emptyYoung.id).isSome()).toBe(true);
+  });
+
   it('records and queries Hungarian-prefixed audit logs in tbl_audit_cleanup_logs', () => {
     const auditRes = repo.recordCleanupAudit({
       traceId: 'trc_test_123',

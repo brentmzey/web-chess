@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.13] - 2026-11-10
+### Fixed
+- **Stale-game cleanup silently stopped working**: PocketHost hibernates the app when idle, and the cron catch-up (`runIfOverdue`) was only wired to *new* `game_sessions`/`tbl_arcade_tables` creation — a chess move or arcade action only updates an existing row, so once nobody started a brand-new game for a while, cleanup never re-armed even though plenty of stale games existed. `pb_hooks/cleanup.pb.js` now also fires the catch-up on `tbl_arcade_events`/`tbl_chat_messages` creation and on `game_sessions`/`tbl_arcade_tables` *updates*, covering ordinary gameplay with no new game involved at all.
+- **`pb:migrate` silently dropped failed config-seed writes**: `seedMissing` in `src/server/pocketbase/migrator.ts` never logged or recorded a failed record creation, so a missing default config key could disappear with zero indication why. It now logs a warning (without affecting overall migration success, same as a total seeding exception).
+### Added
+- **Two-tier stale-game cleanup**: a session/table with at least one move or event is still swept after the normal threshold (`system.stale_session_days`, default 3 days), but one with zero moves (nobody ever actually played) now gets a longer, more forgiving grace period instead (`system.stale_session_no_moves_days`, new config key, default 5 days). Applied in the production PocketBase hook (chess via `ply`, arcade tables via `int_event_count`) and mirrored in the local dev backend (`sessionRepository.pruneStaleSessions`, `server.ts`).
+- **PocketHost CLI migration ahead of the 2027-02-06 SFTP sunset**: `scripts/pb-deploy-hooks.ts` now prefers `pockethost deploy` (authenticated via `POCKETHOST_TOKEN`) and only falls back to the legacy SFTP path if that token isn't set, with a deprecation warning when it does.
+### Verified
+- Confirmed in production: pin/do-not-delete already correctly defaults to `false` everywhere a game is created (no code path ever defaults it to pinned). Ran a one-time full cleanup sweep (temporarily tightened both cutoffs to 1 day, triggered the real maintenance hook, restored to 3/5 days) that archived and removed every unpinned stale game, while the pinned chess session and the config survived untouched. Verified the PocketHost CLI deploy end-to-end (real `pockethost deploy`, file listing, and a functional `pb:cleanup` smoke test against the freshly-deployed hooks).
+
 ## [1.5.0-rc.12] - 2026-11-05
 ### Added
 - **Slur-only blurring in live chat**: ordinary swearing still goes through completely untouched, but real slurs (the same hate-speech word list already curated in `src/utils/playerValidation.ts`) are now replaced with a random-length, randomly-picked emoji cluster (`censorSlurs` in `src/utils/slurFilter.ts`) so the same slur never blurs identically twice. Applied client-side, on the local Bun server, and on the production PocketBase hook (`censorChatMessageSlurs`).

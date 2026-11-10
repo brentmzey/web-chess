@@ -180,6 +180,11 @@ export const runPocketBaseMigration = async (baseUrl: string,
       });
       if (createRes.ok) {
         applied.push(`seeded: ${String(record[keyField])}`);
+      } else {
+        // Seeding a missing default is best-effort and never fails the migration overall (same as
+        // a total seeding exception, caught below): just make the miss visible instead of silent.
+        const errText = await createRes.text();
+        logger.warn(`Failed to seed ${collection}/${String(record[keyField])}: ${errText}`);
       }
     }
   };

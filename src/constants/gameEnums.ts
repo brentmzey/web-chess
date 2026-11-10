@@ -419,6 +419,7 @@ export enum SystemControlKeyEnum {
   ArcadeBotTurnDelayMs = 'arcade.bot_turn_delay_ms',
   ArcadeSyncBatchMs = 'arcade.sync_batch_ms',
   StaleSessionDays = 'system.stale_session_days',
+  StaleSessionNoMovesDays = 'system.stale_session_no_moves_days',
   ArchiveRotationDays = 'system.archive_rotation_days',
   ArchiveMaxRows = 'system.archive_max_rows',
   HistoryRetentionDays = 'system.history_retention_days',

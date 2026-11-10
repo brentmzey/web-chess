@@ -55,7 +55,15 @@ const createApp = (schema: Record<string, readonly string[]>,
                    options: FakeAppOptions = {}) => {
   const collections = new Map(Object.entries(schema).map(([n, f]) => [n, new FakeCollection(n, f)]));
   const rows = new Map<string, FakeRecord[]>([...collections.keys()].map(n => [n, []]));
+  const movesFilterPattern = /^(\w+) (>|<=) 0 && updated < \{:cutoff\} && do_not_delete != true$/;
   const matches = (r: FakeRecord, filter: string, p: Record<string, any>) => {
+    const movesMatch = filter.match(movesFilterPattern);
+    if (movesMatch) {
+      const [, field, op] = movesMatch as [string, string, '>' | '<='];
+      const fieldVal = Number(r.data[field] ?? 0);
+      const passesMoves = op === '>' ? fieldVal > 0 : fieldVal <= 0;
+      return passesMoves && r.data.updated < p.cutoff && !r.data.do_not_delete;
+    }
     switch (filter) {
       case 'updated < {:cutoff} && do_not_delete != true':
         return r.data.updated < p.cutoff && !r.data.do_not_delete;
@@ -178,7 +186,7 @@ describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
   it('reads the retention policy from tbl_cfg_system_controls with safe defaults', () => {
     const lib = loadLib();
     const app = createApp(fullSchema());
-    expect(lib.loadPolicy(app)).toEqual({ staleDays: 3, rotationDays: 30, maxArchiveRows: 5000, historyRetentionDays: 365, guestPlayerDays: 30 });
+    expect(lib.loadPolicy(app)).toEqual({ staleDays: 3, noMovesDays: 5, rotationDays: 30, maxArchiveRows: 5000, historyRetentionDays: 365, guestPlayerDays: 30 });
 
     app.insert('tbl_cfg_system_controls', { txt_config_key: 'system.stale_session_days', dec_val_number: 7, bln_is_active: true });
     app.insert('tbl_cfg_system_controls', { txt_config_key: 'system.archive_max_rows', dec_val_number: 0, bln_is_active: true });
@@ -216,6 +224,31 @@ describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
     const audit = app.rows.get('tbl_audit_cleanup_logs')[0];
     expect(audit.data.bln_success).toBe(true);
     expect(audit.data.int_deleted_sessions).toBe(3);
+  });
+
+  it('gives a session with zero moves/events a longer 5-day grace period than one with moves (3 days)', () => {
+    const lib = loadLib();
+    const app = createApp(fullSchema());
+    const fourDaysOld = pbDate(Date.now() - 4 * DAY);
+    const sixDaysOld = pbDate(Date.now() - 6 * DAY);
+
+    // Has moves (ply > 0): swept once past the normal 3-day threshold.
+    app.insert('game_sessions', { session_code: 'SANCT-PLAYED', fen: 'fen1', status: 'in_progress', ply: 5, updated: fourDaysOld });
+    // Zero moves, only 4 days old: still inside the 5-day no-moves grace period, so it survives.
+    app.insert('game_sessions', { session_code: 'SANCT-EMPTY-YOUNG', fen: 'start', status: 'waiting', ply: 0, updated: fourDaysOld });
+    // Zero moves, 6 days old: past the 5-day no-moves threshold, so it gets swept too.
+    app.insert('game_sessions', { session_code: 'SANCT-EMPTY-OLD', fen: 'start', status: 'waiting', ply: 0, updated: sixDaysOld });
+
+    // Same split for arcade tables, using int_event_count as the "moves" proxy.
+    app.insert('tbl_arcade_tables', { session_code: 'UNO-PLAYED', game_key: 'uno', status: 'active', int_event_count: 3, updated: fourDaysOld });
+    app.insert('tbl_arcade_tables', { session_code: 'UNO-EMPTY-YOUNG', game_key: 'uno', status: 'open', int_event_count: 0, updated: fourDaysOld });
+    app.insert('tbl_arcade_tables', { session_code: 'UNO-EMPTY-OLD', game_key: 'uno', status: 'open', int_event_count: 0, updated: sixDaysOld });
+
+    const report = lib.runMaintenance(app, 'test');
+
+    expect([...report.prunedCodes].sort()).toEqual(['SANCT-EMPTY-OLD', 'SANCT-PLAYED', 'UNO-EMPTY-OLD', 'UNO-PLAYED']);
+    expect(app.rows.get('game_sessions').map((r: FakeRecord) => r.data.session_code).sort()).toEqual(['SANCT-EMPTY-YOUNG']);
+    expect(app.rows.get('tbl_arcade_tables').map((r: FakeRecord) => r.data.session_code).sort()).toEqual(['UNO-EMPTY-YOUNG']);
   });
 
   it('rotates archives to *_history by age and by row cap, then purges expired history', () => {
@@ -405,12 +438,13 @@ describe('PocketHost maintenance library (sanctuary_maintenance.js)', () => {
 
 describe('PocketHost hook registration', () => {
   const sandboxFor = (lib: any) => {
-    const registered: Record<string, any[]> = { cron: [], afterCreate: [], create: [] };
+    const registered: Record<string, any[]> = { cron: [], afterCreate: [], afterUpdate: [], create: [] };
     const sandbox = {
       __hooks: '/hooks',
       require: () => lib,
       cronAdd: (...args: any[]) => registered.cron.push(args),
       onRecordAfterCreateSuccess: (...args: any[]) => registered.afterCreate.push(args),
+      onRecordAfterUpdateSuccess: (...args: any[]) => registered.afterUpdate.push(args),
       onRecordCreate: (...args: any[]) => registered.create.push(args),
       $app: { marker: 'app' },
       console: { log: () => {}, warn: () => {}, error: () => {} }
@@ -418,7 +452,7 @@ describe('PocketHost hook registration', () => {
     return { sandbox, registered };
   };
 
-  it('schedules the twice-daily maintenance cron and the hibernation catch-up', () => {
+  it('schedules the twice-daily maintenance cron and the hibernation catch-up on both new and updated records', () => {
     const calls: any[] = [];
     const lib = {
       runMaintenance: (...a: any[]) => calls.push(['run', ...a]),
@@ -436,12 +470,23 @@ describe('PocketHost hook registration', () => {
     cronFn();
     expect(calls[0]).toEqual(['run', { marker: 'app' }, 'cron_hook']);
 
-    const [handler, ...collections] = registered.afterCreate[0];
-    expect(collections).toEqual(['game_sessions', 'tbl_arcade_tables']);
-    let nextCalled = false;
-    expect(() => handler({ next: () => { nextCalled = true; }, app: { marker: 'tx' } })).not.toThrow();
-    expect(nextCalled).toBe(true);
+    // New-record creation covers brand-new games/tables/events/chat, in case nobody has started a
+    // fresh game in a while to trigger the catch-up any other way.
+    const [createHandler, ...createCollections] = registered.afterCreate[0];
+    expect(createCollections).toEqual(['game_sessions', 'tbl_arcade_tables', 'tbl_arcade_events', 'tbl_chat_messages']);
+    let createNextCalled = false;
+    expect(() => createHandler({ next: () => { createNextCalled = true; }, app: { marker: 'tx' } })).not.toThrow();
+    expect(createNextCalled).toBe(true);
     expect(calls[1]).toEqual(['overdue', { marker: 'tx' }, 'wake_hook', 12]);
+
+    // Record *updates* cover ordinary gameplay with no new game involved at all: a chess move only
+    // updates its existing session row, so this is the catch-up path that actually fires for it.
+    const [updateHandler, ...updateCollections] = registered.afterUpdate[0];
+    expect(updateCollections).toEqual(['game_sessions', 'tbl_arcade_tables']);
+    let updateNextCalled = false;
+    expect(() => updateHandler({ next: () => { updateNextCalled = true; }, app: { marker: 'tx2' } })).not.toThrow();
+    expect(updateNextCalled).toBe(true);
+    expect(calls[2]).toEqual(['overdue', { marker: 'tx2' }, 'wake_hook', 12]);
   });
 
   it('links each arcade event to its table before saving and records activity after', () => {
