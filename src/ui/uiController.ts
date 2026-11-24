@@ -570,8 +570,10 @@ export class UIController {
           const bMove = history[i + 1];
           const wCap = wMove.captured ? '⚔️' : '';
           const bCap = bMove && bMove.captured ? '⚔️' : '';
-          const safeWSan = escapeHtml(wMove.san);
-          const safeBSan = bMove ? `${escapeHtml(bMove.san)} ${bCap}` : '';
+          const sanWithEnPassant = (m: Readonly<Move>): string =>
+            m.flags.includes('e') ? `${m.san} e.p.` : m.san;
+          const safeWSan = escapeHtml(sanWithEnPassant(wMove));
+          const safeBSan = bMove ? `${escapeHtml(sanWithEnPassant(bMove))} ${bCap}` : '';
           rows.push(`
             <div class="grid grid-cols-7 items-center py-1 px-2 rounded-lg ${moveNum % 2 === 0 ? 'bg-white/5' : ''}">
                 <span class="col-span-1 text-stone-500">${moveNum}.</span>

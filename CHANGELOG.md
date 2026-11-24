@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with `RC#` Release Candidates (`X.Y.Z-rc.N`).
 Every general feature change or application behavior update is consolidated under the active `RC#` entry until `main` is pushed to remote, which triggers a production **Build & Release**.
 
+## [1.5.0-rc.14] - 2026-11-23
+### Fixed
+- **En passant capture looked like an illegal "sideways" capture**: a pawn taking en passant removes the enemy pawn from a square beside its own starting square rather than from its destination square, and chess.js's SAN for it (`exd6`) is identical to an ordinary capture, so the move gave no visual or textual indication of what had actually happened. The Chronicle of Moves now suffixes en passant captures with `e.p.` (`uiController.ts`), and a toast banner now announces `"<Player> captures en passant! The pawn on <square> is taken as it passes."` when it happens (`animateChessMove` in `main.ts`). No rule or engine behavior changed — en passant was always being applied correctly by chess.js; this only makes the existing, correct capture legible instead of looking like a bug.
+
 ## [1.5.0-rc.13] - 2026-11-10
 ### Fixed
 - **Stale-game cleanup silently stopped working**: PocketHost hibernates the app when idle, and the cron catch-up (`runIfOverdue`) was only wired to *new* `game_sessions`/`tbl_arcade_tables` creation — a chess move or arcade action only updates an existing row, so once nobody started a brand-new game for a while, cleanup never re-armed even though plenty of stale games existed. `pb_hooks/cleanup.pb.js` now also fires the catch-up on `tbl_arcade_events`/`tbl_chat_messages` creation and on `game_sessions`/`tbl_arcade_tables` *updates*, covering ordinary gameplay with no new game involved at all.

@@ -693,6 +693,11 @@ function main(): void {
     if (moveObj.flags.includes('e')) {
       const epRank = moveObj.color === PieceColorEnum.White ? '5' : '4';
       victimSquare = moveObj.to[0] + epRank;
+      const mover = moveObj.color === PieceColorEnum.White ? 'White Marble' : 'Black Obsidian';
+      ui.showTemporaryBanner(
+        `${mover} captures en passant! The pawn on ${victimSquare} is taken as it passes.`,
+        3600
+      );
     }
     const victim = isCapture ? pieceMap[victimSquare] : null;
 

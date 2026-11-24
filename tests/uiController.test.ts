@@ -268,6 +268,30 @@ describe('UIController Functional State, Difficulty Badges, Undo Lock, Storage A
     expect(domElements['status-banner-text']?.textContent).toBe('CHECKMATE!');
   });
 
+  it('annotates en passant captures with "e.p." in the Chronicle of Moves so the capture reads as a legal rule, not a bug', () => {
+    const ui = new UIController();
+    const chess = new Chess();
+
+    chess.move('e4');
+    chess.move('Nf6');
+    chess.move('e5');
+    chess.move('d5'); // Black's pawn lands beside White's e5 pawn, opening the en passant window
+    const epMove = chess.move('exd6'); // White captures the d5 pawn en passant
+    expect(epMove?.flags).toContain('e');
+
+    ui.update(chess, 'minimax');
+    expect(domElements['move-history-container']?.innerHTML).toContain('exd6 e.p.');
+
+    // A normal (non-en-passant) capture must NOT get the "e.p." suffix
+    const normalCaptureChess = new Chess();
+    normalCaptureChess.move('e4');
+    normalCaptureChess.move('d5');
+    normalCaptureChess.move('exd5');
+    ui.update(normalCaptureChess, 'minimax');
+    expect(domElements['move-history-container']?.innerHTML).toContain('exd5');
+    expect(domElements['move-history-container']?.innerHTML).not.toContain('e.p.');
+  });
+
   it('displays Game Over (checkmate & stalemate), Promotion, Pre-Game, and Encrypted Storage Audit modals correctly', () => {
     const ui = new UIController();
     const chess = new Chess();
